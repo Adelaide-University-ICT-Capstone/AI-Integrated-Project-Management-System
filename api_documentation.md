@@ -591,3 +591,204 @@ Send a test email to a specified address.
   "message": "Test email sent"
 }
 ```
+
+
+---
+
+# Upcoming API Features (UG Team)
+
+## Users
+
+### GET `/users/all-users` (fix from existence function)
+
+Retrieve all users including their name, email, and role. **No superuser privilege required** — any authenticated user may call this endpoint (used by the frontend to populate workforce selection dropdowns).
+
+**Auth:** Bearer token (any active user)
+
+**Response** `200`:
+```json
+{
+  "data": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "email": "john.doe@example.com",
+      "full_name": "John Doe",
+      "role": "Engineer"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+## Workforce Allocation
+
+All three endpoints below operate on the `project_assignments` table and are restricted to the **project owner or a superuser**. Every successful mutation is written to an audit log table recording who made the change, when, and what was modified.
+
+---
+
+### POST `/project/{project_id}/workforce-allocate`
+
+Add one or more employees to a project. The request body is a list of assignment objects — each specifying a user and their role on the project. Existing assignments for the same employee are not affected.
+
+**Auth:** Bearer token (project owner or superuser)
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| project_id | UUID | Yes | Target project |
+
+**Request Body:**
+```json
+[
+  {
+    "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "role_id": "8a1bc234-1234-4abc-9def-000000000001"
+  },
+  {
+    "user_id": "7bc96e45-aaaa-4321-bbbb-111111111111",
+    "role_id": "8a1bc234-1234-4abc-9def-000000000002"
+  }
+]
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| user_id | UUID | Yes | UUID of the user to assign |
+| role_id | UUID | Yes | UUID of the role this user will hold on the project |
+
+**Response** `201`:
+```json
+{
+  "assigned": 2,
+  "data": [
+    {
+      "id": "assignment-uuid",
+      "project_id": "project-uuid",
+      "employee_id": "employee-uuid",
+      "role_id": "role-uuid",
+      "created_at": "2026-04-22T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 403 | Caller is not the project owner or a superuser |
+| 404 | Project, user, or role not found |
+| 409 | One or more users are already assigned to this project |
+
+---
+
+### PATCH `/project/{project_id}/workforce-allocate`
+
+Update the role of one or more existing project assignments. Only the `role_id` field may be changed via this endpoint; to reassign a different employee, use DELETE then POST.
+
+**Auth:** Bearer token (project owner or superuser)
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| project_id | UUID | Yes | Target project |
+
+**Request Body:**
+```json
+[
+  {
+    "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "role_id": "8a1bc234-1234-4abc-9def-000000000003"
+  }
+]
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| user_id | UUID | Yes | UUID of the already-assigned user |
+| role_id | UUID | Yes | New role UUID to apply |
+
+**Response** `200`:
+```json
+{
+  "updated": 1,
+  "data": [
+    {
+      "id": "assignment-uuid",
+      "project_id": "project-uuid",
+      "employee_id": "employee-uuid",
+      "role_id": "new-role-uuid",
+      "created_at": "2026-04-22T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 403 | Caller is not the project owner or a superuser |
+| 404 | Project, user, role, or existing assignment not found |
+
+---
+
+### DELETE `/project/{project_id}/workforce-allocate`
+
+Remove one or more employees from a project. Sends a list of user UUIDs; all matching assignments for those users on this project are deleted.
+
+**Auth:** Bearer token (project owner or superuser)
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| project_id | UUID | Yes | Target project |
+
+**Request Body:**
+```json
+{
+  "user_ids": [
+    "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "7bc96e45-aaaa-4321-bbbb-111111111111"
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| user_ids | UUID[] | Yes | List of user UUIDs to remove from the project |
+
+**Response** `200`:
+```json
+{
+  "removed": 2,
+  "message": "Workforce allocation updated successfully"
+}
+```
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 403 | Caller is not the project owner or a superuser |
+| 404 | Project not found or one or more users have no assignment on this project |
+
+---
+
+### Audit Logging
+
+Every POST, PATCH, and DELETE call to the workforce-allocate endpoints writes a record to the audit log table with:
+
+| Field | Description |
+|-------|-------------|
+| `action` | `"assign"`, `"update_role"`, or `"remove"` |
+| `project_id` | Project that was modified |
+| `target_user_ids` | Array of affected user UUIDs |
+| `performed_by` | UUID of the authenticated user who made the call |
+| `timestamp` | UTC datetime of the operation |
+| `changes` | JSON snapshot of what was added / changed / removed |
