@@ -3,13 +3,12 @@ from datetime import datetime, date, timezone
 from decimal import Decimal
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime, Text
+from sqlalchemy import DateTime, Text, Column
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy.types import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
-
-
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
@@ -676,7 +675,39 @@ class ProjectAssignmentsPublic(SQLModel):
     data: list[ProjectAssignmentPublic]
     count: int
 
+#----- Igie -----
+class WorkforceAssignmentRequest(SQLModel):
+    user_id: uuid.UUID
+    role_id: uuid.UUID
 
+
+class WorkforceDeleteRequest(SQLModel):
+    user_ids: list[uuid.UUID]
+
+
+class WorkforceAssignmentResponse(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    employee_id: uuid.UUID | None = None
+    role_id: uuid.UUID | None = None
+    created_at: datetime | None = None
+
+
+class WorkforcePostResponse(SQLModel):
+    assigned: int
+    data: list[WorkforceAssignmentResponse]
+
+
+class WorkforcePatchResponse(SQLModel):
+    updated: int
+    data: list[WorkforceAssignmentResponse]
+
+
+class WorkforceDeleteResponse(SQLModel):
+    removed: int
+    message: str
+#----- Igie -----
+    
 # ---------------------------------------------------------------------------
 # Invoices  (FK -> projects)
 # ---------------------------------------------------------------------------
@@ -971,6 +1002,22 @@ class TimeLogPublic(TimeLogBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+#--------- Igie ---------
+class WorkHoursCreate(SQLModel):
+    employee_id: uuid.UUID
+    work_hours: Decimal = Field(gt=0, max_digits=6, decimal_places=2)
+    work_date: date
+
+
+class WorkHoursResponse(SQLModel):
+    project_id: uuid.UUID
+    task_id: uuid.UUID
+    employee_id: uuid.UUID
+    work_hours: Decimal
+    work_date: date
+    message: str
+#---------- Igie ---------
+
 
 class TimeLogsPublic(SQLModel):
     data: list[TimeLogPublic]
@@ -1120,3 +1167,17 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# ----- Igie ------
+class AuditLog(SQLModel, table=True):
+    __tablename__ = "audit_logs"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    action: str = Field(max_length=100)
+    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    target_user_ids: list[str] = Field(sa_column=Column(JSONB))
+    performed_by: uuid.UUID = Field(foreign_key="users.id")
+    timestamp: datetime = Field(default_factory=get_datetime_utc)
+    changes: dict = Field(sa_column=Column(JSONB))
+# ----- Igie ------
