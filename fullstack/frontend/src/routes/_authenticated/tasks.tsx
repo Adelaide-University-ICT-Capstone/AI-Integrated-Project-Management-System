@@ -26,6 +26,21 @@ export const Route = createFileRoute('/_authenticated/tasks')({
   component: TaskBoard,
 })
 
+// Color-coded due date helper based on Harri's spec
+const getDueDateColor = (dueDate: string, status: string) => {
+  if (status === 'done') return 'text-gray-500 dark:text-gray-400'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(dueDate)
+  due.setHours(0, 0, 0, 0)
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return 'text-red-600 font-semibold'
+  if (diffDays < 3) return 'text-orange-600 font-semibold'
+  if (diffDays < 7) return 'text-yellow-600 font-medium'
+  if (diffDays < 14) return 'text-green-600'
+  return 'text-gray-500 dark:text-gray-400'
+}
+
 interface Task {
   id: string
   title: string
@@ -137,7 +152,7 @@ function TaskCard({
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined
 
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'done'
+  const dueDateColor = getDueDateColor(task.dueDate, task.status)
 
   return (
     <div
@@ -170,7 +185,7 @@ function TaskCard({
             <User size={12} />
             <span>{task.assignee}</span>
           </div>
-          <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+          <div className={`flex items-center gap-1 ${dueDateColor}`}>
             <Clock size={12} />
             <span>{new Date(task.dueDate).toLocaleDateString()}</span>
           </div>
@@ -236,7 +251,7 @@ function DroppableColumn({
 }
 
 function HoverTooltip({ task, position }: { task: Task; position: { x: number; y: number } }) {
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'done'
+  const dueDateColor = getDueDateColor(task.dueDate, task.status)
 
   return (
     <div
@@ -265,7 +280,7 @@ function HoverTooltip({ task, position }: { task: Task; position: { x: number; y
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500 dark:text-gray-400">Due Date</span>
-          <span className={`font-medium flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
+          <span className={`font-medium flex items-center gap-1 ${dueDateColor}`}>
             <Clock size={12} /> {new Date(task.dueDate).toLocaleDateString()}
           </span>
         </div>
@@ -422,7 +437,6 @@ function TaskBoard() {
 
   const sensors = useSensors(useSensor(PointerSensor))
 
-  // Get unique project names for the filter tabs
   const allProjects = Array.from(new Set(tasks.map((t) => t.project)))
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -463,9 +477,8 @@ function TaskBoard() {
   }
 
   const handleHover = (task: Task, rect: DOMRect) => {
-    if (activeTask) return // don't show tooltip while dragging
+    if (activeTask) return
     setHoveredTask(task)
-    // Position tooltip to the right of the card, vertically centered with it
     setTooltipPos({
       x: rect.right + 16,
       y: rect.top,
@@ -486,7 +499,6 @@ function TaskBoard() {
 
   return (
     <div className="space-y-6 min-w-0">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Task Board</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">

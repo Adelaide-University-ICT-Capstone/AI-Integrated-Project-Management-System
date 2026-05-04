@@ -11,13 +11,14 @@ import {
   Calendar,
   DollarSign,
   Hash,
-  CheckCircle2,
   TrendingUp,
   ListTodo,
   Plus,
   Trash2,
   ChevronRight,
   ChevronLeft,
+  Users,
+  ChevronDown,
 } from 'lucide-react'
 const baseUrl = import.meta.env.VITE_API_URL
 import { toast } from 'react-toastify'
@@ -25,6 +26,32 @@ import { toast } from 'react-toastify'
 export const Route = createFileRoute('/_authenticated/projects/new')({
   component: NewProject,
 })
+
+// Staff list — should match the People page mock data.
+// TODO: when People backend exists, fetch this list from API instead.
+const STAFF = [
+  { id: 's1', name: 'Harri Rassias', role: 'Structural Engineer', avatarColor: 'bg-blue-500' },
+  { id: 's2', name: 'Sarah Chen', role: 'Project Manager', avatarColor: 'bg-purple-500' },
+  { id: 's3', name: 'Mike Rodriguez', role: 'Drafter', avatarColor: 'bg-orange-500' },
+  { id: 's4', name: 'Emily Watson', role: 'MEP Engineer', avatarColor: 'bg-teal-500' },
+  { id: 's5', name: 'David Kim', role: 'Safety Officer', avatarColor: 'bg-green-500' },
+]
+
+const ROLE_PILL_STYLES: Record<string, string> = {
+  'Project Manager': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'Structural Engineer': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  'MEP Engineer': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  'Drafter': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  'Safety Officer': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+}
+
+const getRolePillClass = (role: string) =>
+  ROLE_PILL_STYLES[role] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+
+type Assignment = {
+  staffId: string
+  hours: number
+}
 
 type WorkflowPhase = {
   id: string
@@ -37,9 +64,17 @@ type Subtask = {
   title: string
   phaseId: string
   priority: 'low' | 'medium' | 'high' | 'critical'
+  assignments: Assignment[]
 }
 
 type StepKey = 'details' | 'workflow' | 'subtasks'
+
+const priorityColors = {
+  low: 'bg-gray-200 text-gray-700',
+  medium: 'bg-blue-200 text-blue-700',
+  high: 'bg-orange-200 text-orange-700',
+  critical: 'bg-red-200 text-red-700',
+}
 
 function NewProject() {
   const navigate = useNavigate()
@@ -75,6 +110,11 @@ function NewProject() {
     title: '',
     phaseId: '',
     priority: 'medium' as Subtask['priority'],
+  })
+  const [expandedSubtaskId, setExpandedSubtaskId] = useState<string | null>(null)
+  const [newAssignment, setNewAssignment] = useState<{ staffId: string; hours: string }>({
+    staffId: '',
+    hours: '',
   })
 
   const calculateDaysElapsed = () => {
@@ -144,7 +184,6 @@ function NewProject() {
 
   const removePhase = (id: string) => {
     setPhases(phases.filter((p) => p.id !== id))
-    // Also remove subtasks tied to this phase
     setSubtasks(subtasks.filter((s) => s.phaseId !== id))
   }
 
@@ -164,18 +203,70 @@ function NewProject() {
     }
     setSubtasks([
       ...subtasks,
-      { id: Date.now().toString(), ...newSubtask },
+      { id: Date.now().toString(), ...newSubtask, assignments: [] },
     ])
     setNewSubtask({ title: '', phaseId: newSubtask.phaseId, priority: 'medium' })
   }
 
   const removeSubtask = (id: string) => {
     setSubtasks(subtasks.filter((s) => s.id !== id))
+    if (expandedSubtaskId === id) setExpandedSubtaskId(null)
   }
 
   const updateSubtaskPhase = (id: string, phaseId: string) => {
     setSubtasks(subtasks.map((s) => (s.id === id ? { ...s, phaseId } : s)))
   }
+
+  // Assignment handlers
+  const addAssignment = (subtaskId: string) => {
+    if (!newAssignment.staffId) {
+      toast.error('Select a team member')
+      return
+    }
+    const hours = parseFloat(newAssignment.hours)
+    if (isNaN(hours) || hours <= 0) {
+      toast.error('Enter valid hours')
+      return
+    }
+    setSubtasks(
+      subtasks.map((s) =>
+        s.id === subtaskId
+          ? {
+              ...s,
+              assignments: [...s.assignments, { staffId: newAssignment.staffId, hours }],
+            }
+          : s,
+      ),
+    )
+    setNewAssignment({ staffId: '', hours: '' })
+  }
+
+  const removeAssignment = (subtaskId: string, staffId: string) => {
+    setSubtasks(
+      subtasks.map((s) =>
+        s.id === subtaskId
+          ? { ...s, assignments: s.assignments.filter((a) => a.staffId !== staffId) }
+          : s,
+      ),
+    )
+  }
+
+  const updateAssignmentHours = (subtaskId: string, staffId: string, hours: number) => {
+    setSubtasks(
+      subtasks.map((s) =>
+        s.id === subtaskId
+          ? {
+              ...s,
+              assignments: s.assignments.map((a) =>
+                a.staffId === staffId ? { ...a, hours } : a,
+              ),
+            }
+          : s,
+      ),
+    )
+  }
+
+  const getStaff = (staffId: string) => STAFF.find((s) => s.id === staffId)
 
   // Final submit
   const handleSubmit = async () => {
@@ -195,8 +286,8 @@ function NewProject() {
       date_received: formData.dateReceived,
       start_date: formData.dateReceived,
       due_date: formData.dueDate,
-      // workflow_phases and subtasks stored locally for now (backend doesn't accept them yet)
-      // when backend is ready: phases, subtasks
+      // phases, subtasks, and assignments stored locally for now
+      // TODO: send to backend once API supports them
     }
 
     try {
@@ -218,16 +309,8 @@ function NewProject() {
     }
   }
 
-  const priorityColors = {
-    low: 'bg-gray-200 text-gray-700',
-    medium: 'bg-blue-200 text-blue-700',
-    high: 'bg-orange-200 text-orange-700',
-    critical: 'bg-red-200 text-red-700',
-  }
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate({ to: '/projects/' })}
@@ -239,7 +322,6 @@ function NewProject() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* Title */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create New Project</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -285,7 +367,6 @@ function NewProject() {
           })}
         </div>
 
-        {/* Body */}
         <div className="p-6">
           {/* STEP 1 — DETAILS */}
           {currentStep === 'details' && (
@@ -599,7 +680,7 @@ function NewProject() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Add Subtasks to Phases</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Break each phase into actionable subtasks. These will appear on the Task Board.
+                  Break each phase into actionable subtasks. Click a subtask to assign team members and hours.
                 </p>
               </div>
 
@@ -659,50 +740,168 @@ function NewProject() {
                       <p className="text-sm text-gray-500 dark:text-gray-400">No subtasks added yet</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                          <tr>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Title</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Phase</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Priority</th>
-                            <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {subtasks.map((subtask) => (
-                            <tr key={subtask.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-4 py-3 font-medium text-gray-900 dark:text-white text-sm">{subtask.title}</td>
-                              <td className="px-4 py-3">
-                                <select
-                                  value={subtask.phaseId}
-                                  onChange={(e) => updateSubtaskPhase(subtask.id, e.target.value)}
-                                  className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                >
-                                  {phases.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs px-2 py-1 rounded ${priorityColors[subtask.priority]}`}>
-                                  {subtask.priority}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  onClick={() => removeSubtask(subtask.id)}
-                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-3">
+                      {subtasks.map((subtask) => {
+                        const phase = phases.find((p) => p.id === subtask.phaseId)
+                        const isExpanded = expandedSubtaskId === subtask.id
+                        const totalHours = subtask.assignments.reduce((sum, a) => sum + a.hours, 0)
+                        const availableStaff = STAFF.filter(
+                          (s) => !subtask.assignments.some((a) => a.staffId === s.id),
+                        )
+
+                        return (
+                          <div key={subtask.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                            {/* Subtask Row */}
+                            <div
+                              className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                              onClick={() => setExpandedSubtaskId(isExpanded ? null : subtask.id)}
+                            >
+                              <ChevronDown
+                                size={18}
+                                className={`text-gray-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 dark:text-white text-sm">{subtask.title}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <select
+                                    value={subtask.phaseId}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => updateSubtaskPhase(subtask.id, e.target.value)}
+                                    className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                  >
+                                    {phases.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className={`text-xs px-2 py-0.5 rounded ${priorityColors[subtask.priority]}`}>
+                                    {subtask.priority}
+                                  </span>
+                                  {subtask.assignments.length > 0 && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                      <Users size={12} /> {subtask.assignments.length} assigned · {totalHours}h
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeSubtask(subtask.id)
+                                }}
+                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+
+                            {/* Assignments Panel */}
+                            {isExpanded && (
+                              <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 px-4 py-3">
+                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2 tracking-wide">
+                                  Assigned Team ({subtask.assignments.length})
+                                </div>
+
+                                {subtask.assignments.length === 0 ? (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">No one assigned yet</p>
+                                ) : (
+                                  <div className="space-y-2 mb-3">
+                                    {subtask.assignments.map((assignment) => {
+                                      const staff = getStaff(assignment.staffId)
+                                      if (!staff) return null
+                                      const initials = staff.name
+                                        .split(' ')
+                                        .map((n) => n[0])
+                                        .join('')
+                                        .slice(0, 2)
+                                      return (
+                                        <div
+                                          key={assignment.staffId}
+                                          className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                        >
+                                          <div className="md:col-span-5 flex items-center gap-2">
+                                            <div
+                                              className={`w-7 h-7 ${staff.avatarColor} rounded-full flex items-center justify-center text-white text-xs font-bold`}
+                                            >
+                                              {initials}
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{staff.name}</span>
+                                          </div>
+                                          <div className="md:col-span-4">
+                                            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${getRolePillClass(staff.role)}`}>
+                                              {staff.role}
+                                            </span>
+                                          </div>
+                                          <div className="md:col-span-2 flex items-center gap-1">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              step="0.5"
+                                              value={assignment.hours}
+                                              onChange={(e) => updateAssignmentHours(subtask.id, assignment.staffId, parseFloat(e.target.value) || 0)}
+                                              className="w-full px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                            />
+                                            <span className="text-xs text-gray-500">h</span>
+                                          </div>
+                                          <button
+                                            onClick={() => removeAssignment(subtask.id, assignment.staffId)}
+                                            className="md:col-span-1 p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-end"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Add Assignment Row */}
+                                {availableStaff.length > 0 ? (
+                                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                    <select
+                                      value={newAssignment.staffId}
+                                      onChange={(e) => setNewAssignment({ ...newAssignment, staffId: e.target.value })}
+                                      className="md:col-span-7 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white text-sm"
+                                    >
+                                      <option value="">Select team member...</option>
+                                      {availableStaff.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.name} — {s.role}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      value={newAssignment.hours}
+                                      onChange={(e) => setNewAssignment({ ...newAssignment, hours: e.target.value })}
+                                      placeholder="Hours"
+                                      className="md:col-span-3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white text-sm"
+                                    />
+                                    <button
+                                      onClick={() => addAssignment(subtask.id)}
+                                      className="md:col-span-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                                    >
+                                      <Plus size={14} /> Add
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 italic">All available staff have been assigned</p>
+                                )}
+
+                                {totalHours > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-400">Total Allocated Hours</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">{totalHours} hours</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </>
