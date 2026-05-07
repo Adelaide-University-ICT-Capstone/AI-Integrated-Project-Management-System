@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import useAuth from '@/hooks/useAuth'
-import './login.css'
+import { useState } from "react"
+import { createFileRoute } from "@tanstack/react-router"
+import useAuth from "@/hooks/useAuth"
+import "./login.css"
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute("/login")({
   component: Login,
 })
 
 function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const { loginMutation } = useAuth()
 
   const handleLogin = (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -24,13 +24,13 @@ function Login() {
       <div className="login-left">
         <div className="top-left-text">
           <h1>GamaFlow</h1>
-          <p>AI project management intelligence Platform</p>
+          <p>AI project management intelligence platform</p>
         </div>
       </div>
 
       {/* RIGHT SIDE */}
       <div className="login-right">
-<div className="login-box">
+        <div className="login-box">
           <h2>Welcome Back!</h2>
           <p className="subtitle">Sign in to continue</p>
 
@@ -52,10 +52,12 @@ function Login() {
               required
             />
 
-            <a href="/recover-password" className="forgot">Forgot your password?</a>
+            <a href="/recover-password" className="forgot">
+              Forgot your password?
+            </a>
 
             <button type="submit" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? 'SIGNING IN...' : 'LOGIN'}
+              {loginMutation.isPending ? "SIGNING IN..." : "LOGIN"}
             </button>
           </form>
         </div>
