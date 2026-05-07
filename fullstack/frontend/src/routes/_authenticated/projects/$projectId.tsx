@@ -4,7 +4,6 @@ import {
   Calendar,
   MapPin,
   Building2,
-  AlertTriangle,
   CheckCircle2,
   Clock,
   TrendingUp,
@@ -45,10 +44,14 @@ type WorkflowPhase = {
   progress: number
 }
 
+type MaterialStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
+
 type Material = {
   name: string
-  status: string
-  quantity: string
+  status: MaterialStatus
+  subcontractor: string
+  orderedDate: string
+  isDefault?: boolean
 }
 
 type WorkforceMember = {
@@ -69,16 +72,33 @@ const AVATAR_COLORS = [
   'bg-indigo-500',
 ]
 
-const getMaterialStatusColor = (status: string) => {
+// Default subcontractor items pre-loaded for every project (per Harri's spec)
+const DEFAULT_MATERIALS: Material[] = [
+  { name: 'Survey', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+  { name: 'Soil Testing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+  { name: 'Timber Framing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+]
+
+// Mock subcontractor list — should match Subcontractors page.
+// TODO: when backend supports it, fetch from API instead
+const SUBCONTRACTORS = [
+  'ABC Surveyors',
+  'GeoCon Labs',
+  'Steel Supply Co',
+  'Premier Concrete',
+  'Reliable Timber Co',
+]
+
+const getMaterialStatusPillClass = (status: MaterialStatus) => {
   switch (status) {
-    case 'delivered':
-      return 'text-green-600 dark:text-green-400'
-    case 'in-transit':
-      return 'text-blue-600 dark:text-blue-400'
-    case 'ordered':
-      return 'text-yellow-600 dark:text-yellow-400'
+    case 'Received':
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    case 'Ordered':
+      return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+    case 'By Client':
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
     default:
-      return 'text-gray-600 dark:text-gray-400'
+      return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
   }
 }
 
@@ -103,7 +123,7 @@ function ProjectDetails() {
 
   // Editable workflow, materials, workforce (frontend state until backend supports it)
   const [workflow, setWorkflow] = useState<WorkflowPhase[]>([])
-  const [materials, setMaterials] = useState<Material[]>([])
+  const [materials, setMaterials] = useState<Material[]>(DEFAULT_MATERIALS)
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([])
 
   // Edit mode for workflow
@@ -113,7 +133,12 @@ function ProjectDetails() {
   // Modal states for adding materials and workforce
   const [showAddMaterial, setShowAddMaterial] = useState(false)
   const [showAddWorker, setShowAddWorker] = useState(false)
-  const [newMaterial, setNewMaterial] = useState({ name: '', status: 'ordered', quantity: '' })
+  const [newMaterial, setNewMaterial] = useState<Omit<Material, 'isDefault'>>({
+    name: '',
+    status: 'N/A',
+    subcontractor: '',
+    orderedDate: '',
+  })
   const [newWorker, setNewWorker] = useState({ name: '', role: '', status: 'active' })
 
   const { data: statusData } = useQuery({
@@ -226,19 +251,33 @@ function ProjectDetails() {
 
   // Material handlers
   const addMaterial = () => {
-    if (!newMaterial.name.trim() || !newMaterial.quantity.trim()) {
-      toast.error('Please fill in name and quantity')
+    if (!newMaterial.name.trim()) {
+      toast.error('Please enter material name')
       return
     }
-    setMaterials([...materials, newMaterial])
-    setNewMaterial({ name: '', status: 'ordered', quantity: '' })
+    setMaterials([...materials, { ...newMaterial }])
+    setNewMaterial({ name: '', status: 'N/A', subcontractor: '', orderedDate: '' })
     setShowAddMaterial(false)
     toast.success('Material added')
   }
 
   const removeMaterial = (index: number) => {
+    if (materials[index].isDefault) {
+      toast.info('Default subcontractor items cannot be removed')
+      return
+    }
     setMaterials(materials.filter((_, i) => i !== index))
     toast.success('Material removed')
+  }
+
+  const updateMaterialField = <K extends keyof Material>(
+    index: number,
+    field: K,
+    value: Material[K],
+  ) => {
+    const updated = [...materials]
+    updated[index] = { ...updated[index], [field]: value }
+    setMaterials(updated)
   }
 
   // Workforce handlers
@@ -264,6 +303,85 @@ function ProjectDetails() {
     setWorkforce(workforce.filter((_, i) => i !== index))
     toast.success('Team member removed')
   }
+
+  // Render a single material card (used in Overview and Resources sections)
+  const renderMaterialCard = (material: Material, index: number) => (
+    <div
+      key={index}
+      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 relative group"
+    >
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Package size={18} className="text-gray-400 flex-shrink-0" />
+          <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">{material.name}</h4>
+          {material.isDefault && (
+            <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+              Default
+            </span>
+          )}
+        </div>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${getMaterialStatusPillClass(material.status)}`}>
+          {material.status}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">
+            Subcontractor
+          </label>
+          <select
+            value={material.subcontractor}
+            onChange={(e) => updateMaterialField(index, 'subcontractor', e.target.value)}
+            className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          >
+            <option value="">Select subcontractor...</option>
+            {SUBCONTRACTORS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">
+            When Ordered
+          </label>
+          <input
+            type="date"
+            value={material.orderedDate}
+            onChange={(e) => updateMaterialField(index, 'orderedDate', e.target.value)}
+            className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">
+            Status
+          </label>
+          <select
+            value={material.status}
+            onChange={(e) => updateMaterialField(index, 'status', e.target.value as MaterialStatus)}
+            className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          >
+            <option value="N/A">N/A</option>
+            <option value="Ordered">Ordered</option>
+            <option value="Received">Received</option>
+            <option value="By Client">By Client</option>
+          </select>
+        </div>
+      </div>
+
+      {!material.isDefault && (
+        <button
+          onClick={() => removeMaterial(index)}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-opacity"
+          title="Remove material"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  )
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -500,54 +618,23 @@ function ProjectDetails() {
                 )}
               </div>
 
-              {/* Materials */}
+              {/* Materials & Subcontractor Orders */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Package size={20} /> Materials Status
+                    <Package size={20} /> Materials &amp; Subcontractor Orders
                   </h3>
                   <button
-                    onClick={() => setActiveTab('resources')}
+                    onClick={() => setShowAddMaterial(true)}
                     className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    <Plus size={16} /> Manage in Resources
+                    <Plus size={16} /> Add Material
                   </button>
                 </div>
 
-                {materials.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                    <Package size={40} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No materials added yet</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {materials.map((material, index) => (
-                      <div
-                        key={index}
-                        onClick={() => setActiveTab('resources')}
-                        className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow relative group"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <Package size={20} className="text-gray-400" />
-                          <span className={`text-xs font-semibold capitalize ${getMaterialStatusColor(material.status)}`}>
-                            {material.status.replace('-', ' ')}
-                          </span>
-                        </div>
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-1">{material.name}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{material.quantity}</p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeMaterial(index)
-                          }}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-opacity"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {materials.map((material, index) => renderMaterialCard(material, index))}
+                </div>
               </div>
 
               {/* Workforce */}
@@ -601,7 +688,7 @@ function ProjectDetails() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Wrench size={20} /> Resources & Materials
+                  <Wrench size={20} /> Resources &amp; Materials
                 </h3>
                 <button
                   onClick={() => setShowAddMaterial(true)}
@@ -611,47 +698,79 @@ function ProjectDetails() {
                 </button>
               </div>
 
-              {materials.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                  <Wrench size={48} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">No materials added yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Click "Add Material" to get started</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                      <tr>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Material</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Quantity</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Status</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {materials.map((material, index) => (
-                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{material.name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{material.quantity}</td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs font-semibold capitalize ${getMaterialStatusColor(material.status)}`}>
-                              {material.status.replace('-', ' ')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Material</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Subcontractor</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">When Ordered</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Status</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {materials.map((material, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 dark:text-white">{material.name}</span>
+                            {material.isDefault && (
+                              <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={material.subcontractor}
+                            onChange={(e) => updateMaterialField(index, 'subcontractor', e.target.value)}
+                            className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select...</option>
+                            {SUBCONTRACTORS.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="date"
+                            value={material.orderedDate}
+                            onChange={(e) => updateMaterialField(index, 'orderedDate', e.target.value)}
+                            className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={material.status}
+                            onChange={(e) => updateMaterialField(index, 'status', e.target.value as MaterialStatus)}
+                            className={`px-2 py-1 text-xs font-medium rounded-full border-0 cursor-pointer ${getMaterialStatusPillClass(material.status)}`}
+                          >
+                            <option value="N/A">N/A</option>
+                            <option value="Ordered">Ordered</option>
+                            <option value="Received">Received</option>
+                            <option value="By Client">By Client</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {material.isDefault ? (
+                            <span className="text-xs text-gray-400 italic">Default</span>
+                          ) : (
                             <button
                               onClick={() => removeMaterial(index)}
                               className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                             >
                               <Trash2 size={16} />
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -686,12 +805,24 @@ function ProjectDetails() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcontractor</label>
+                <select
+                  value={newMaterial.subcontractor}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, subcontractor: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select subcontractor...</option>
+                  {SUBCONTRACTORS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">When Ordered</label>
                 <input
-                  type="text"
-                  value={newMaterial.quantity}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, quantity: e.target.value })}
-                  placeholder="e.g., 450 tons"
+                  type="date"
+                  value={newMaterial.orderedDate}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, orderedDate: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 />
               </div>
@@ -699,12 +830,13 @@ function ProjectDetails() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                 <select
                   value={newMaterial.status}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, status: e.target.value })}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, status: e.target.value as MaterialStatus })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 >
-                  <option value="ordered">Ordered</option>
-                  <option value="in-transit">In Transit</option>
-                  <option value="delivered">Delivered</option>
+                  <option value="N/A">N/A</option>
+                  <option value="Ordered">Ordered</option>
+                  <option value="Received">Received</option>
+                  <option value="By Client">By Client</option>
                 </select>
               </div>
               <div className="flex gap-3 pt-2">
