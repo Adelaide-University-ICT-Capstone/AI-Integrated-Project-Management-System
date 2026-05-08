@@ -240,6 +240,7 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 completion_percent=calculate_project_completion_percent(session=session, project=p),
                 is_invoiced=is_project_invoiced(session=session, project=p),
                 project_tab=get_project_tab(session=session, project=p),
+                fee_estimate=p.fee_final,
             )
         )
     return result
@@ -413,6 +414,14 @@ def delete_project(*, session: Session, project_id: uuid.UUID) -> bool:
     session.commit()
     return True
 
+def delete_all_projects(*, session: Session) -> int:
+    deleted = session.exec(select(Project)).all()
+    count = len(deleted)
+    for project in deleted:
+        session.delete(project)
+    session.commit()
+    return count
+
 def update_project(*, session: Session, project_id: uuid.UUID, project_data: ProjectUpdateRequest) -> Project | None:
     project = session.get(Project, project_id)
     if not project:
@@ -420,6 +429,9 @@ def update_project(*, session: Session, project_id: uuid.UUID, project_data: Pro
 
     if project_data.status is not None:
         status_type = get_status_type(session=session, status_name=project_data.status)
+
+        if not status_type:
+            raise ValueError(f"Status type '{project_data.status}' does not exist.")
         project.current_status_id = status_type.id
 
     if project_data.project_name is not None:

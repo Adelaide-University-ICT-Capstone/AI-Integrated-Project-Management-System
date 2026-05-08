@@ -1,4 +1,4 @@
-import { Link as RouterLink } from "@tanstack/react-router"
+import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
 import { ChevronsUpDown, LogOut, Settings } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -43,6 +43,10 @@ function UserInfo({ fullName, email }: UserInfoProps) {
 export function User({ user }: { user: any }) {
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const settingsPath = pathname.startsWith("/admin")
+    ? "/admin/settings"
+    : "/settings"
 
   if (!user) return null
 
@@ -79,7 +83,7 @@ export function User({ user }: { user: any }) {
               <UserInfo fullName={user?.full_name} email={user?.email} />
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <RouterLink to="/settings" onClick={handleMenuClick}>
+            <RouterLink to={settingsPath} onClick={handleMenuClick}>
               <DropdownMenuItem>
                 <Settings />
                 User Settings

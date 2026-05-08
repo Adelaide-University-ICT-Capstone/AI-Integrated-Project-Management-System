@@ -44,12 +44,14 @@ from app.crud.projects import (
     is_project_invoiced,
     get_project_tab,
     delete_project,
+    delete_all_projects,
     update_project,
 )
 
 from app.crud.project_statuses import (
     get_status_type,
     create_status_type,
+    get_all_status_types
 )
 
 __all__ = [
@@ -98,8 +100,10 @@ __all__ = [
     "is_project_invoiced",
     "get_project_tab",
     "delete_project",
+    "delete_all_projects",
     "update_project",
     # project statuses
     "get_status_type",
     "create_status_type",
+    "get_all_status_types",
 ]

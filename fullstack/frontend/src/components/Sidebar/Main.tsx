@@ -36,7 +36,11 @@ export function Main({ items }: MainProps) {
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
-            const isActive = currentPath === item.path
+            const shouldMatchChildren =
+              item.path !== "/" && item.path !== "/admin"
+            const isActive =
+              currentPath === item.path ||
+              (shouldMatchChildren && currentPath.startsWith(`${item.path}/`))
 
             return (
               <SidebarMenuItem key={item.title}>

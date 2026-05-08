@@ -104,6 +104,7 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDeta
         completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
         is_invoiced=crud.is_project_invoiced(session=session, project=project),
         project_tab=crud.get_project_tab(session=session, project=project),
+        fee_estimate=project.fee_final,
     )
 
 
@@ -296,6 +297,12 @@ def delete_project(project_id: uuid.UUID, session: SessionDep):
     if not crud.delete_project(session=session, project_id=project_id):
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
     return {"message": "Project deleted successfully"}
+
+@router.delete("")
+def delete_all_projects(session: SessionDep):
+    count = crud.delete_all_projects(session=session)
+    return {"message": f"Successfully deleted {count} projects"}
+
 
 @router.patch("/{project_id}", response_model=Message)
 def update_project(

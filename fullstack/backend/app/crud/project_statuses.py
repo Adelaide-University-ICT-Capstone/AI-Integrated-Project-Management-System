@@ -24,3 +24,7 @@ def create_status_type(*, session: Session, status_name: str) -> ProjectStatusTy
         session.commit()
         session.refresh(status_type)
         return status_type
+
+
+def get_all_status_types(*, session: Session) -> list[ProjectStatusType]:
+    return list(session.exec(select(ProjectStatusType)).all())

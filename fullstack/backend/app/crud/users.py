@@ -87,21 +87,26 @@ def get_all_users_with_roles(*, session: Session) -> list[tuple[User, str | None
 
 
 def create_user_with_employee(
-    *, session: Session, user_in: AdminUserCreate, role_id: uuid.UUID | None
+    *, session: Session, user_in: AdminUserCreate
 ) -> User:
     employee = Employee(
         first_name="",
         last_name="",
+        full_name=user_in.full_name,
         email=user_in.email,
-        role_id=role_id,
-        is_active=False,
+        is_active=True,
     )
     session.add(employee)
     session.commit()
     session.refresh(employee)
 
     db_obj = User.model_validate(
-        UserCreate(email=user_in.email, password=user_in.password),
+        UserCreate(
+            email=user_in.email,
+            password=user_in.password,
+            full_name=user_in.full_name,
+            is_superuser=user_in.is_superuser,
+        ),
         update={
             "hashed_password": get_password_hash(user_in.password),
             "employee_id": employee.id,
