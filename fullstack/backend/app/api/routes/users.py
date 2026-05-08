@@ -14,6 +14,7 @@ from app.models import (
     Role,
     UpdatePassword,
     User,
+    UserCreate,
     UserDetail,
     UserProfile,
     UserPublic,
@@ -87,6 +88,24 @@ def create_user(*, session: SessionDep, user_in: AdminUserCreate) -> Any:
     return user
 
 
+@router.post("/signup", response_model=UserPublic)
+def register_user(*, session: SessionDep, user_in: UserRegister) -> Any:
+    if crud.get_user_by_email(session=session, email=user_in.email):
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system",
+        )
+    user = crud.create_user(
+        session=session,
+        user_create=UserCreate(
+            email=user_in.email,
+            password=user_in.password,
+            full_name=user_in.full_name,
+        ),
+    )
+    return user
+
+
 @router.patch("/me", response_model=UserPublic)
 def update_user_me(
     *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
@@ -123,6 +142,16 @@ def update_password_me(
 @router.get("/me", response_model=UserProfile)
 def read_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     return crud.get_user_profile(session=session, user=current_user)
+
+
+@router.delete("/me", response_model=Message)
+def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Message:
+    if current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="Super users are not allowed to delete themselves"
+        )
+    crud.delete_user_and_employee(session=session, user=current_user)
+    return Message(message="User deleted successfully")
 
 
 @router.get("/{user_id}", response_model=UserPublic)

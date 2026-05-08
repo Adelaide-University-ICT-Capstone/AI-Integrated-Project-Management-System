@@ -2,26 +2,39 @@ from datetime import date
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status as http_status
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_superuser, get_current_user
 from app.models import (
     AssignmentWithRole,
     MonthlyCountResponse,
     MonthlyInvoiceResponse,
     ProjectDetailsResponse,
     ProjectDetailWithRoles,
+    ProjectMilestonePublic,
+    ProjectMilestoneTreeCreate,
+    ProjectMilestoneUpdate,
     ProjectSummary,
+    ProjectTaskManagementResponse,
+    ProjectTaskPublic,
+    ProjectTaskTreeCreate,
+    ProjectTaskTreeUpdate,
     ProjectUpdateRequest,
     ProjectsListResponse,
     ProjectCreateRequest,
     ProjectCreateResponse,
     ProjectDetail,
-    Message
+    Message,
+    Role,
+    Subcontractor,
 )
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["projects"],
+    dependencies=[Depends(get_current_user)],
+)
 
 # --- PROJECT CREATION ----
 @router.post("", response_model=ProjectCreateResponse)
@@ -42,8 +55,25 @@ def create_project(project: ProjectCreateRequest, session: SessionDep) -> Projec
     "",
     response_model=ProjectDetailsResponse,
 )
-def get_all_projects(session: SessionDep, status: str | None = None) -> ProjectDetailsResponse:
-    projects = crud.get_projects_by_status(session=session, status=status)
+def get_all_projects(
+    session: SessionDep,
+    status: str | None = None,
+    tab: str | None = None,
+) -> ProjectDetailsResponse:
+    if tab:
+        allowed_tabs = {
+            crud.PROJECT_TAB_IN_PROGRESS,
+            crud.PROJECT_TAB_TO_BE_INVOICED,
+            crud.PROJECT_TAB_COMPLETED,
+        }
+        if tab not in allowed_tabs:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="Invalid project tab",
+            )
+        projects = crud.get_projects_by_tab(session=session, tab=tab)
+    else:
+        projects = crud.get_projects_by_status(session=session, status=status)
     details = crud.build_project_details(session=session, projects=projects)
     return ProjectDetailsResponse(data=details, count=len(details))
 
@@ -60,6 +90,10 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDeta
         project_id=project.id,
         job_number=project.job_number,
         project_name=project.project_name,
+        contract_title=project.contract_title,
+        agent=project.agent,
+        job_title=project.job_title,
+        address=project.full_address,
         company_name=project.client.company_name if project.client else None,
         company_address=project.client.billing_address if project.client else None,
         client_name=project.client.client_name if project.client else None,
@@ -67,6 +101,9 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDeta
         start_date=project.start_date,
         due_date=project.due_date,
         days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
+        completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
+        is_invoiced=crud.is_project_invoiced(session=session, project=project),
+        project_tab=crud.get_project_tab(session=session, project=project),
     )
 
 
@@ -98,6 +135,10 @@ def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> Projec
         project_id=project.id,
         job_number=project.job_number,
         project_name=project.project_name,
+        contract_title=project.contract_title,
+        agent=project.agent,
+        job_title=project.job_title,
+        address=project.full_address,
         company_name=project.client.company_name if project.client else None,
         company_address=project.client.billing_address if project.client else None,
         client_name=project.client.client_name if project.client else None,
@@ -105,14 +146,155 @@ def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> Projec
         start_date=project.start_date,
         due_date=project.due_date,
         days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
+        completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
+        is_invoiced=crud.is_project_invoiced(session=session, project=project),
+        project_tab=crud.get_project_tab(session=session, project=project),
         assignments=assignments,
     )
+
+
+@router.get(
+    "/{project_id}/task-management",
+    response_model=ProjectTaskManagementResponse,
+)
+def get_project_task_management(session: SessionDep, project_id: uuid.UUID) -> ProjectTaskManagementResponse:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    milestones = crud.get_project_task_management(session=session, project_id=project_id)
+    return ProjectTaskManagementResponse(project_id=project_id, milestones=milestones)
+
+
+@router.post(
+    "/{project_id}/milestones",
+    response_model=ProjectMilestonePublic,
+    status_code=http_status.HTTP_201_CREATED,
+)
+def create_project_milestone(
+    project_id: uuid.UUID,
+    milestone: ProjectMilestoneTreeCreate,
+    session: SessionDep,
+) -> ProjectMilestonePublic:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    created = crud.create_project_milestone(
+        session=session,
+        project_id=project_id,
+        milestone_data=milestone,
+    )
+    return ProjectMilestonePublic.model_validate(created)
+
+
+@router.patch(
+    "/{project_id}/milestones/{milestone_id}",
+    response_model=ProjectMilestonePublic,
+)
+def update_project_milestone(
+    project_id: uuid.UUID,
+    milestone_id: uuid.UUID,
+    milestone: ProjectMilestoneUpdate,
+    session: SessionDep,
+) -> ProjectMilestonePublic:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    existing = crud.get_project_milestone(session=session, milestone_id=milestone_id)
+    if not existing or existing.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+    updated = crud.update_project_milestone(
+        session=session,
+        milestone=existing,
+        updates=milestone.model_dump(exclude_unset=True),
+    )
+    return ProjectMilestonePublic.model_validate(updated)
+
+
+@router.post(
+    "/{project_id}/milestones/{milestone_id}/tasks",
+    response_model=ProjectTaskPublic,
+    status_code=http_status.HTTP_201_CREATED,
+)
+def create_project_task(
+    project_id: uuid.UUID,
+    milestone_id: uuid.UUID,
+    task: ProjectTaskTreeCreate,
+    session: SessionDep,
+) -> ProjectTaskPublic:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    milestone = crud.get_project_milestone(session=session, milestone_id=milestone_id)
+    if not milestone or milestone.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+    if task.parent_task_id:
+        parent_task = crud.get_project_task(session=session, task_id=task.parent_task_id)
+        if not parent_task or parent_task.milestone_id != milestone_id:
+            raise HTTPException(status_code=400, detail="Parent task must belong to the same milestone")
+    if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
+        raise HTTPException(status_code=404, detail="Assigned role not found")
+    if task.subcontractor_id and not session.get(Subcontractor, task.subcontractor_id):
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    created = crud.create_project_task(
+        session=session,
+        milestone_id=milestone_id,
+        task_data=task,
+    )
+    return ProjectTaskPublic.model_validate(created)
+
+
+@router.patch(
+    "/{project_id}/tasks/{task_id}",
+    response_model=ProjectTaskPublic,
+)
+def update_project_task(
+    project_id: uuid.UUID,
+    task_id: uuid.UUID,
+    task: ProjectTaskTreeUpdate,
+    session: SessionDep,
+) -> ProjectTaskPublic:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    existing = crud.get_project_task(session=session, task_id=task_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    milestone = crud.get_project_milestone(session=session, milestone_id=existing.milestone_id)
+    if not milestone or milestone.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.parent_task_id:
+        parent_task = crud.get_project_task(session=session, task_id=task.parent_task_id)
+        if not parent_task or parent_task.milestone_id != existing.milestone_id:
+            raise HTTPException(status_code=400, detail="Parent task must belong to the same milestone")
+        if parent_task.id == existing.id:
+            raise HTTPException(status_code=400, detail="Task cannot be its own parent")
+    if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
+        raise HTTPException(status_code=404, detail="Assigned role not found")
+    if task.subcontractor_id and not session.get(Subcontractor, task.subcontractor_id):
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    updated = crud.update_project_task(
+        session=session,
+        task=existing,
+        updates=task.model_dump(exclude_unset=True),
+    )
+    return ProjectTaskPublic.model_validate(updated)
 
 
 @router.delete("/{project_id}")
 def delete_project(project_id: uuid.UUID, session: SessionDep):
     if not crud.delete_project(session=session, project_id=project_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
     return {"message": "Project deleted successfully"}
 
 @router.patch("/{project_id}", response_model=Message)
@@ -123,12 +305,12 @@ def update_project(
 ) -> Message:
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     try:
         crud.update_project(session=session, project_id=project_id, project_data=project)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     return Message(message="Project updated successfully")
 

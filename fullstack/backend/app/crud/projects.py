@@ -1,6 +1,6 @@
 import uuid
 from calendar import monthrange
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from app.crud.project_statuses import get_status_type
@@ -16,10 +16,32 @@ from app.models import (
     ProjectCreateRequest,
     ProjectDetail,
     ProjectMilestone,
+    ProjectMilestoneNode,
+    ProjectMilestoneTreeCreate,
     ProjectStatusType,
     ProjectSummary,
+    ProjectTask,
+    ProjectTaskNode,
+    ProjectTaskTreeCreate,
     ProjectUpdateRequest,
 )
+
+DEFAULT_MAIN_TASKS = (
+    "Preliminary Design & Documentation",
+    "Design & Documentation",
+)
+
+DEFAULT_SUBTASKS = (
+    "Soil Testing",
+    "Survey",
+    "Timber Framing",
+)
+
+PROJECT_TAB_IN_PROGRESS = "in_progress"
+PROJECT_TAB_TO_BE_INVOICED = "to_be_invoiced"
+PROJECT_TAB_COMPLETED = "completed"
+
+COMPLETED_TASK_STATUSES = {"complete", "completed", "done"}
 
 def get_or_create_client(
     *, session: Session, client_name: str, company_name: str | None, contact_email: str | None, billing_address: str | None
@@ -72,8 +94,11 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
         client_id=client.id,
         current_status_id=status_type.id,
         project_name=project_data.project_name,
+        contract_title=project_data.contract_title,
+        agent=project_data.agent,
+        job_title=project_data.job_title,
         project_type=project_data.project_types,
-        full_address=project_data.client_address,
+        full_address=project_data.address or project_data.client_address,
         date_received=project_data.date_received,
         fee_final=project_data.fee_estimate,
         start_date=project_data.start_date,
@@ -82,7 +107,111 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
     session.add(project)
     session.commit()
     session.refresh(project)
+    create_default_project_task_structure(session=session, project=project, project_data=project_data)
     return project
+
+
+def percent_complete(completed: int, total: int) -> Decimal:
+    if total <= 0:
+        return Decimal("0")
+    return (Decimal(completed) * Decimal("100") / Decimal(total)).quantize(Decimal("0.01"))
+
+
+def calculate_project_completion_percent(*, session: Session, project: Project) -> Decimal:
+    if project.completion_date:
+        return Decimal("100")
+
+    tasks = list(
+        session.exec(
+            select(ProjectTask)
+            .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
+            .where(ProjectMilestone.project_id == project.id)
+            .where(ProjectTask.is_excluded == False)
+        ).all()
+    )
+    if tasks:
+        completed_tasks = sum(
+            1
+            for task in tasks
+            if task.completion_date
+            or (task.milestone_status or "").strip().lower() in COMPLETED_TASK_STATUSES
+        )
+        return percent_complete(completed_tasks, len(tasks))
+
+    milestones = list(
+        session.exec(
+            select(ProjectMilestone).where(ProjectMilestone.project_id == project.id)
+        ).all()
+    )
+    if milestones:
+        completed_milestones = sum(
+            1 for milestone in milestones if milestone.is_complete or milestone.completion_date
+        )
+        return percent_complete(completed_milestones, len(milestones))
+
+    return Decimal("0")
+
+
+def is_project_invoiced(*, session: Session, project: Project) -> bool:
+    status_name = project.current_status.status_name if project.current_status else None
+    if status_name == "completed & invoiced":
+        return True
+    if project.invoice_amount and project.invoice_amount > 0:
+        return True
+    invoice_count = session.exec(
+        select(func.count()).select_from(Invoice).where(Invoice.project_id == project.id)
+    ).one()
+    return invoice_count > 0
+
+
+def get_project_tab(*, session: Session, project: Project) -> str:
+    completion_percent = calculate_project_completion_percent(session=session, project=project)
+    if completion_percent < Decimal("100"):
+        return PROJECT_TAB_IN_PROGRESS
+    if is_project_invoiced(session=session, project=project):
+        return PROJECT_TAB_COMPLETED
+    return PROJECT_TAB_TO_BE_INVOICED
+
+
+def midpoint_date(start: date, end: date) -> date:
+    return start + timedelta(days=(end - start).days // 2)
+
+
+def create_default_project_task_structure(
+    *, session: Session, project: Project, project_data: ProjectCreateRequest
+) -> None:
+    preliminary_due_date = (
+        project_data.preliminary_due_date
+        or midpoint_date(project_data.start_date, project_data.due_date)
+    )
+    design_due_date = project_data.design_due_date or project_data.due_date
+
+    default_milestones = (
+        (DEFAULT_MAIN_TASKS[0], preliminary_due_date, 1),
+        (DEFAULT_MAIN_TASKS[1], design_due_date, 2),
+    )
+
+    for milestone_name, due_date_value, display_order in default_milestones:
+        milestone = ProjectMilestone(
+            project_id=project.id,
+            milestone_name=milestone_name,
+            due_date=due_date_value,
+            display_order=display_order,
+        )
+        session.add(milestone)
+        session.flush()
+
+        for task_name in DEFAULT_SUBTASKS:
+            session.add(
+                ProjectTask(
+                    milestone_id=milestone.id,
+                    task_name=task_name,
+                    due_date=due_date_value,
+                    core_phase_name=milestone_name,
+                )
+            )
+
+    session.commit()
 
 
 def build_project_details(*, session: Session, projects: list[Project]) -> list[ProjectDetail]:
@@ -96,7 +225,11 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 project_id=p.id,
                 job_number=p.job_number,
                 project_name=p.project_name,
-                comany_name=p.client.company_name if client else None,
+                contract_title=p.contract_title,
+                agent=p.agent,
+                job_title=p.job_title,
+                address=p.full_address,
+                company_name=p.client.company_name if client else None,
                 company_address=p.client.billing_address if client else None,
                 client_name=p.client.client_name if client else None,
                 status=p.current_status.status_name if p.current_status else None,
@@ -104,9 +237,155 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 due_date=p.due_date,
                 date_received=p.created_at.date() if p.created_at else None,
                 days_elapsed=days,
+                completion_percent=calculate_project_completion_percent(session=session, project=p),
+                is_invoiced=is_project_invoiced(session=session, project=p),
+                project_tab=get_project_tab(session=session, project=p),
             )
         )
     return result
+
+
+def get_project_milestone(*, session: Session, milestone_id: uuid.UUID) -> ProjectMilestone | None:
+    return session.get(ProjectMilestone, milestone_id)
+
+
+def get_project_task(*, session: Session, task_id: uuid.UUID) -> ProjectTask | None:
+    return session.get(ProjectTask, task_id)
+
+
+def create_project_milestone(
+    *, session: Session, project_id: uuid.UUID, milestone_data: ProjectMilestoneTreeCreate
+) -> ProjectMilestone:
+    milestone = ProjectMilestone.model_validate(
+        milestone_data,
+        update={"project_id": project_id},
+    )
+    session.add(milestone)
+    session.commit()
+    session.refresh(milestone)
+    return milestone
+
+
+def update_project_milestone(
+    *, session: Session, milestone: ProjectMilestone, updates: dict
+) -> ProjectMilestone:
+    milestone.sqlmodel_update(updates)
+    session.add(milestone)
+    session.commit()
+    session.refresh(milestone)
+    return milestone
+
+
+def create_project_task(
+    *,
+    session: Session,
+    milestone_id: uuid.UUID,
+    task_data: ProjectTaskTreeCreate,
+) -> ProjectTask:
+    task = ProjectTask.model_validate(
+        task_data,
+        update={"milestone_id": milestone_id},
+    )
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def update_project_task(*, session: Session, task: ProjectTask, updates: dict) -> ProjectTask:
+    task.sqlmodel_update(updates)
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
+    nodes = {
+        task.id: ProjectTaskNode(
+            id=task.id,
+            milestone_id=task.milestone_id,
+            parent_task_id=task.parent_task_id,
+            task_name=task.task_name,
+            task_description=task.task_description,
+            due_date=task.due_date,
+            milestone_status=task.milestone_status,
+            core_phase_name=task.core_phase_name,
+            assigned_role_id=task.assigned_role_id,
+            assigned_role_name=task.assigned_role.role_name if getattr(task, "assigned_role", None) else None,
+            allocated_hours=task.allocated_hours,
+            subcontractor_id=task.subcontractor_id,
+            subcontractor_name=task.subcontractor.company_name if getattr(task, "subcontractor", None) else None,
+            subcontractor_status=task.subcontractor_status,
+            subcontractor_ordered_date=task.subcontractor_ordered_date,
+            completion_date=task.completion_date,
+            invoice_amount=task.invoice_amount,
+            fee_final=task.fee_final,
+            is_excluded=task.is_excluded,
+            paid_date=task.paid_date,
+        )
+        for task in tasks
+    }
+
+    roots: list[ProjectTaskNode] = []
+    sorted_tasks = sorted(
+        tasks,
+        key=lambda task: (
+            task.parent_task_id is not None,
+            task.due_date or date.max,
+            task.created_at or datetime.min,
+            task.task_name.lower(),
+        ),
+    )
+
+    for task in sorted_tasks:
+        node = nodes[task.id]
+        if task.parent_task_id and task.parent_task_id in nodes:
+            nodes[task.parent_task_id].children.append(node)
+        else:
+            roots.append(node)
+
+    return roots
+
+
+def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> list[ProjectMilestoneNode]:
+    milestones = list(
+        session.exec(
+            select(ProjectMilestone)
+            .where(ProjectMilestone.project_id == project_id)
+            .order_by(
+                col(ProjectMilestone.display_order),
+                col(ProjectMilestone.created_at),
+            )
+        ).all()
+    )
+
+    task_rows = list(
+        session.exec(
+            select(ProjectTask)
+            .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
+            .where(ProjectMilestone.project_id == project_id)
+            .order_by(col(ProjectTask.created_at))
+        ).all()
+    )
+    tasks_by_milestone: dict[uuid.UUID, list[ProjectTask]] = {}
+    for task in task_rows:
+        tasks_by_milestone.setdefault(task.milestone_id, []).append(task)
+
+    return [
+        ProjectMilestoneNode(
+            id=milestone.id,
+            project_id=milestone.project_id,
+            milestone_name=milestone.milestone_name,
+            description_type=milestone.description_type,
+            due_date=milestone.due_date,
+            completion_date=milestone.completion_date,
+            is_complete=milestone.is_complete,
+            display_order=milestone.display_order,
+            tasks=build_task_tree(tasks=tasks_by_milestone.get(milestone.id, [])),
+        )
+        for milestone in milestones
+    ]
 
 
 
@@ -115,6 +394,15 @@ def get_projects_by_status(*, session: Session, status: str | None = None) -> li
     if status:
         query = query.join(ProjectStatusType).where(ProjectStatusType.status_name == status)
     return list(session.exec(query.order_by(col(Project.created_at).desc())).all())
+
+
+def get_projects_by_tab(*, session: Session, tab: str) -> list[Project]:
+    projects = get_all_active_projects(session=session)
+    return [
+        project
+        for project in projects
+        if get_project_tab(session=session, project=project) == tab
+    ]
 
 
 def delete_project(*, session: Session, project_id: uuid.UUID) -> bool:
@@ -136,6 +424,14 @@ def update_project(*, session: Session, project_id: uuid.UUID, project_data: Pro
 
     if project_data.project_name is not None:
         project.project_name = project_data.project_name
+    if project_data.contract_title is not None:
+        project.contract_title = project_data.contract_title
+    if project_data.agent is not None:
+        project.agent = project_data.agent
+    if project_data.job_title is not None:
+        project.job_title = project_data.job_title
+    if project_data.address is not None:
+        project.full_address = project_data.address
     if project_data.project_types is not None:
         project.project_type = project_data.project_types
     if project_data.date_received is not None:

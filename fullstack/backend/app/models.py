@@ -6,7 +6,6 @@ from pydantic import EmailStr
 from sqlalchemy import DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.types import Enum as SQLEnum
 from enum import Enum
 
 
@@ -45,6 +44,7 @@ class Role(RoleBase, table=True):
     )
     employees: list["Employee"] = Relationship(back_populates="role")
     subcontractors: list["Subcontractor"] = Relationship(back_populates="role")
+    project_tasks: list["ProjectTask"] = Relationship(back_populates="assigned_role")
 
 
 class RolePublic(RoleBase):
@@ -78,6 +78,13 @@ class ProjectStatus(str, Enum):
     eng_qa = "Eng/QA Review"
     construction = "construction"
     blank = "-"
+
+
+class SubcontractorStatus(str, Enum):
+    not_applicable = "N/A"
+    ordered = "ordered"
+    received = "received"
+    by_client = "by client"
 
 
 class ProjectStatusTypeCreate(ProjectStatusTypeBase):
@@ -273,6 +280,7 @@ class Subcontractor(SubcontractorBase, table=True):
     )
     role: Role | None = Relationship(back_populates="subcontractors")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="subcontractor")
+    project_tasks: list["ProjectTask"] = Relationship(back_populates="subcontractor")
     time_logs: list["TimeLog"] = Relationship(back_populates="subcontractor")
 
 
@@ -392,6 +400,9 @@ class ProjectBase(SQLModel):
     client_id: uuid.UUID = Field(foreign_key="clients.id")
     current_status_id: uuid.UUID | None = Field(default=None, foreign_key="project_status_types.id")
     project_name: str | None = Field(default=None, max_length=255)
+    contract_title: str | None = Field(default=None, max_length=255)
+    agent: str | None = Field(default=None, max_length=255)
+    job_title: str | None = Field(default=None, max_length=255)
     sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
@@ -415,6 +426,9 @@ class ProjectUpdate(SQLModel):
     client_id: uuid.UUID | None = None
     current_status_id: uuid.UUID | None = None
     project_name: str | None = Field(default=None, max_length=255)
+    contract_title: str | None = Field(default=None, max_length=255)
+    agent: str | None = Field(default=None, max_length=255)
+    job_title: str | None = Field(default=None, max_length=255)
     sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
@@ -511,6 +525,15 @@ class ProjectMilestonesPublic(SQLModel):
     count: int
 
 
+class ProjectMilestoneTreeCreate(SQLModel):
+    milestone_name: str = Field(max_length=255)
+    description_type: str | None = Field(default=None, max_length=100)
+    due_date: date | None = None
+    completion_date: date | None = None
+    is_complete: bool = False
+    display_order: int | None = None
+
+
 # ---------------------------------------------------------------------------
 # Project Tasks  (FK -> project_milestones)
 # ---------------------------------------------------------------------------
@@ -519,8 +542,15 @@ class ProjectTaskBase(SQLModel):
     milestone_id: uuid.UUID = Field(foreign_key="project_milestones.id")
     task_name: str = Field(max_length=255)
     task_description: str | None = Field(default=None, sa_type=Text)
+    parent_task_id: uuid.UUID | None = Field(default=None, foreign_key="project_tasks.id")
+    due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
+    assigned_role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
+    allocated_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
+    subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
+    subcontractor_status: str = Field(default=SubcontractorStatus.not_applicable.value, max_length=50)
+    subcontractor_ordered_date: date | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
     fee_final: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -535,8 +565,15 @@ class ProjectTaskCreate(ProjectTaskBase):
 class ProjectTaskUpdate(SQLModel):
     task_name: str | None = Field(default=None, max_length=255)
     task_description: str | None = None
+    parent_task_id: uuid.UUID | None = None
+    due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
+    subcontractor_id: uuid.UUID | None = None
+    subcontractor_status: str | None = None
+    subcontractor_ordered_date: date | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
     fee_final: Decimal | None = None
@@ -557,6 +594,8 @@ class ProjectTask(ProjectTaskBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     milestone: ProjectMilestone | None = Relationship(back_populates="tasks")
+    assigned_role: Role | None = Relationship(back_populates="project_tasks")
+    subcontractor: Subcontractor | None = Relationship(back_populates="project_tasks")
 
     # Two FKs from project_task_orders point to project_tasks (task_id + depends_on_task_id).
     # Use raw SA relationship with explicit foreign_keys to disambiguate.
@@ -579,6 +618,80 @@ class ProjectTaskPublic(ProjectTaskBase):
 class ProjectTasksPublic(SQLModel):
     data: list[ProjectTaskPublic]
     count: int
+
+
+class ProjectTaskTreeCreate(SQLModel):
+    task_name: str = Field(max_length=255)
+    task_description: str | None = None
+    due_date: date | None = None
+    parent_task_id: uuid.UUID | None = None
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
+    subcontractor_id: uuid.UUID | None = None
+    subcontractor_status: str = SubcontractorStatus.not_applicable.value
+    subcontractor_ordered_date: date | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+
+
+class ProjectTaskTreeUpdate(SQLModel):
+    task_name: str | None = None
+    task_description: str | None = None
+    due_date: date | None = None
+    parent_task_id: uuid.UUID | None = None
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
+    subcontractor_id: uuid.UUID | None = None
+    subcontractor_status: str | None = None
+    subcontractor_ordered_date: date | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+    completion_date: date | None = None
+    invoice_amount: Decimal | None = None
+    fee_final: Decimal | None = None
+    is_excluded: bool | None = None
+    paid_date: date | None = None
+
+
+class ProjectTaskNode(SQLModel):
+    id: uuid.UUID
+    milestone_id: uuid.UUID
+    parent_task_id: uuid.UUID | None = None
+    task_name: str
+    task_description: str | None = None
+    due_date: date | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+    assigned_role_id: uuid.UUID | None = None
+    assigned_role_name: str | None = None
+    allocated_hours: Decimal | None = None
+    subcontractor_id: uuid.UUID | None = None
+    subcontractor_name: str | None = None
+    subcontractor_status: str = SubcontractorStatus.not_applicable.value
+    subcontractor_ordered_date: date | None = None
+    completion_date: date | None = None
+    invoice_amount: Decimal | None = None
+    fee_final: Decimal | None = None
+    is_excluded: bool = False
+    paid_date: date | None = None
+    children: list["ProjectTaskNode"] = Field(default_factory=list)
+
+
+class ProjectMilestoneNode(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    milestone_name: str
+    description_type: str | None = None
+    due_date: date | None = None
+    completion_date: date | None = None
+    is_complete: bool = False
+    display_order: int | None = None
+    tasks: list[ProjectTaskNode] = Field(default_factory=list)
+
+
+class ProjectTaskManagementResponse(SQLModel):
+    project_id: uuid.UUID
+    milestones: list[ProjectMilestoneNode]
 
 
 # ---------------------------------------------------------------------------
@@ -1030,10 +1143,16 @@ class ProjectCreateRequest(SQLModel):
     client_company: str | None = None
     client_contact: str | None = None
     client_address: str | None = None
+    address: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
     fee_estimate: Decimal | None = None
     date_received: date
     start_date: date
     due_date: date
+    preliminary_due_date: date | None = None
+    design_due_date: date | None = None
 
 class ProjectCreateResponse(SQLModel):
     project_id: uuid.UUID
@@ -1043,6 +1162,10 @@ class ProjectCreateResponse(SQLModel):
 class ProjectUpdateRequest(SQLModel):
     project_name: str | None = None
     project_types: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
+    address: str | None = None
     status: str | None = None
     date_received: date | None = None
     start_date: date | None = None
@@ -1058,6 +1181,10 @@ class ProjectDetail(SQLModel):
     project_id: uuid.UUID
     job_number: str
     project_name: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
+    address: str | None = None
     company_name: str | None = None
     company_address: str | None = None
     client_name: str | None = None
@@ -1065,6 +1192,9 @@ class ProjectDetail(SQLModel):
     start_date: date | None = None
     due_date: date | None = None
     days_elapsed: int | None = None
+    completion_percent: Decimal | None = None
+    is_invoiced: bool = False
+    project_tab: str | None = None
 
 
 class AssignmentWithRole(SQLModel):
@@ -1074,7 +1204,7 @@ class AssignmentWithRole(SQLModel):
 
 
 class ProjectDetailWithRoles(ProjectDetail):
-    assignments: list[AssignmentWithRole] = []
+    assignments: list[AssignmentWithRole] = Field(default_factory=list)
 
 
 class ProjectDetailsResponse(SQLModel):
