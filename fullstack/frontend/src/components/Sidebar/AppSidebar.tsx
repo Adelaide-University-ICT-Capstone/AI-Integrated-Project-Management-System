@@ -51,9 +51,13 @@ export function AppSidebar() {
       <SidebarHeader className="px-4 py-6 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center">
         {/* GAMA Branding */}
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg shrink-0">
-            <span className="font-bold text-white text-lg">G</span>
-          </div>
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 overflow-hidden bg-white">
+            <img
+              src="/gama-logo.png"
+              alt="GAMA Consulting"
+              className="w-full h-full object-contain p-0.5"
+            />
+        </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">GAMA Consulting</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Project Management</p>
