@@ -38,7 +38,6 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 
 @router.get(
     "/all-users",
-    dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersDetail,
 )
 def read_all_users(session: SessionDep) -> Any:
