@@ -449,6 +449,9 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
         for milestone in milestones
     ]
 
+def delete_project_task(*, session: Session, task: ProjectTask) -> None:
+    session.delete(task)
+    session.commit()
 
 
 def get_projects_by_status(*, session: Session, status: str | None = None) -> list[Project]:

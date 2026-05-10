@@ -51,7 +51,8 @@ from app.crud.projects import (
     update_material,
     create_material,
     get_material,
-    get_materials_by_project_id
+    get_materials_by_project_id,
+    delete_project_task
 )
 
 from app.crud.project_statuses import (
@@ -120,6 +121,7 @@ __all__ = [
     "get_all_status_types",
     #tasks
     "get_tasks",
+    "delete_project_task",
     #materials,
     "update_material",
     "create_material",
