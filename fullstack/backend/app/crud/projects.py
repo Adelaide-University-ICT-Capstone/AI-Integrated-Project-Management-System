@@ -76,7 +76,15 @@ def get_all_projects(*, session: Session) -> list[Project]:
         ).all()
     )
 
-
+def get_projects_by_due_date(*, session: Session, start: date, end: date) -> list[Project]:
+    return list(
+        session.exec(
+            select(Project)
+            .where(Project.due_date >= start)
+            .where(Project.due_date <= end)
+            .order_by(col(Project.due_date))
+        ).all()
+    )
 
 def create_project(*, session: Session, project_data: ProjectCreateRequest) -> Project:
     client = get_or_create_client(

@@ -78,6 +78,21 @@ def get_all_projects(
     return ProjectDetailsResponse(data=details, count=len(details))
 
 @router.get(
+    "/due-date",
+    response_model=ProjectDetailsResponse,
+)
+def get_projects_by_due_date(
+    session: SessionDep,
+    start: date,
+    end: date,
+) -> ProjectDetailsResponse:
+    projects = crud.get_projects_by_due_date(session=session, start=start, end=end)
+    details = crud.build_project_details(session=session, projects=projects)
+    return ProjectDetailsResponse(data=details, count=len(details))
+
+
+
+@router.get(
     "/{project_id}",
     response_model=ProjectDetail,
 )
