@@ -281,7 +281,7 @@ class Subcontractor(SubcontractorBase, table=True):
     )
     role: Role | None = Relationship(back_populates="subcontractors")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="subcontractor")
-    project_tasks: list["ProjectTask"] = Relationship(back_populates="subcontractor")
+    materials: list["Material"] = Relationship(back_populates="subcontractor")
     time_logs: list["TimeLog"] = Relationship(back_populates="subcontractor")
 
 
@@ -550,9 +550,6 @@ class ProjectTaskBase(SQLModel):
     core_phase_name: str | None = Field(default=None, max_length=100)
     assigned_role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
     allocated_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
-    subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
-    subcontractor_status: str = Field(default=SubcontractorStatus.not_applicable.value, max_length=50)
-    subcontractor_ordered_date: date | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
     fee_final: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -573,9 +570,6 @@ class ProjectTaskUpdate(SQLModel):
     core_phase_name: str | None = Field(default=None, max_length=100)
     assigned_role_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
-    subcontractor_id: uuid.UUID | None = None
-    subcontractor_status: str | None = None
-    subcontractor_ordered_date: date | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
     fee_final: Decimal | None = None
@@ -597,7 +591,6 @@ class ProjectTask(ProjectTaskBase, table=True):
     )
     milestone: ProjectMilestone | None = Relationship(back_populates="tasks")
     assigned_role: Role | None = Relationship(back_populates="project_tasks")
-    subcontractor: Subcontractor | None = Relationship(back_populates="project_tasks")
 
     # Two FKs from project_task_orders point to project_tasks (task_id + depends_on_task_id).
     # Use raw SA relationship with explicit foreign_keys to disambiguate.
@@ -629,9 +622,6 @@ class ProjectTaskTreeCreate(SQLModel):
     parent_task_id: uuid.UUID | None = None
     assigned_role_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
-    subcontractor_id: uuid.UUID | None = None
-    subcontractor_status: str = SubcontractorStatus.not_applicable.value
-    subcontractor_ordered_date: date | None = None
     milestone_status: str | None = None
     core_phase_name: str | None = None
 
@@ -643,9 +633,6 @@ class ProjectTaskTreeUpdate(SQLModel):
     parent_task_id: uuid.UUID | None = None
     assigned_role_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
-    subcontractor_id: uuid.UUID | None = None
-    subcontractor_status: str | None = None
-    subcontractor_ordered_date: date | None = None
     milestone_status: str | None = None
     core_phase_name: str | None = None
     completion_date: date | None = None
@@ -667,10 +654,6 @@ class ProjectTaskNode(SQLModel):
     assigned_role_id: uuid.UUID | None = None
     assigned_role_name: str | None = None
     allocated_hours: Decimal | None = None
-    subcontractor_id: uuid.UUID | None = None
-    subcontractor_name: str | None = None
-    subcontractor_status: str = SubcontractorStatus.not_applicable.value
-    subcontractor_ordered_date: date | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
     fee_final: Decimal | None = None
@@ -960,7 +943,8 @@ class MaterialBase(SQLModel):
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
     received_date: date | None = None
-    status: str | None = Field(default=None, max_length=100)
+    subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
+    status: str = Field(default=SubcontractorStatus.not_applicable.value, max_length=50)
     notes: str | None = Field(default=None, sa_type=Text)
 
 
@@ -979,6 +963,7 @@ class MaterialUpdate(SQLModel):
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
     received_date: date | None = None
+    subcontractor_id: uuid.UUID | None = None
     status: str | None = Field(default=None, max_length=100)
     notes: str | None = None
 
@@ -996,6 +981,7 @@ class Material(MaterialBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     project: Project | None = Relationship(back_populates="materials")
+    subcontractor: Subcontractor | None = Relationship(back_populates="materials")
 
 
 class MaterialPublic(MaterialBase):

@@ -11,6 +11,8 @@ from app.models import (
     Client,
     Employee,
     Invoice,
+    Material,
+    MaterialCreate,
     Project,
     ProjectAssignment,
     ProjectCreateRequest,
@@ -24,6 +26,7 @@ from app.models import (
     ProjectTaskNode,
     ProjectTaskTreeCreate,
     ProjectUpdateRequest,
+    SubcontractorStatus
 )
 
 DEFAULT_MAIN_TASKS = (
@@ -32,6 +35,12 @@ DEFAULT_MAIN_TASKS = (
 )
 
 DEFAULT_SUBTASKS = (
+    "Task 1",
+    "Task 2",
+    "Task 3",
+)
+
+DEFAULT_MATERIALS = (
     "Soil Testing",
     "Survey",
     "Timber Framing",
@@ -219,8 +228,36 @@ def create_default_project_task_structure(
                 )
             )
 
+    for material_name in DEFAULT_MATERIALS:
+        session.add(
+            Material(
+                project_id=project.id,
+                name=material_name,
+                # Add any other default fields if needed (e.g., unit="pieces", quantity=Decimal("1"))
+            )
+        )
+
     session.commit()
 
+def create_material(*, session: Session, project_id: uuid.UUID, material_data: MaterialCreate) -> Material:
+    material = Material.model_validate(material_data, update={"project_id": project_id})
+    session.add(material)
+    session.commit()
+    session.refresh(material)
+    return material
+
+def update_material(*, session: Session, material: Material, updates: dict) -> Material:
+    material.sqlmodel_update(updates)
+    session.add(material)
+    session.commit()
+    session.refresh(material)
+    return material
+
+def get_material(*, session: Session, material_id: uuid.UUID) -> Material | None:
+    return session.get(Material, material_id)
+
+def get_materials_by_project_id(*, session: Session, project_id: uuid.UUID) -> list[Material]:
+    return list(session.exec(select(Material).where(Material.project_id == project_id)).all())
 
 def build_project_details(*, session: Session, projects: list[Project]) -> list[ProjectDetail]:
     today = date.today()
@@ -343,10 +380,6 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
             assigned_role_id=task.assigned_role_id,
             assigned_role_name=task.assigned_role.role_name if getattr(task, "assigned_role", None) else None,
             allocated_hours=task.allocated_hours,
-            subcontractor_id=task.subcontractor_id,
-            subcontractor_name=task.subcontractor.company_name if getattr(task, "subcontractor", None) else None,
-            subcontractor_status=task.subcontractor_status,
-            subcontractor_ordered_date=task.subcontractor_ordered_date,
             completion_date=task.completion_date,
             invoice_amount=task.invoice_amount,
             fee_final=task.fee_final,
