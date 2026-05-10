@@ -308,6 +308,26 @@ def update_project_task(*, session: Session, task: ProjectTask, updates: dict) -
     session.refresh(task)
     return task
 
+def get_tasks(
+    *,
+    session: Session,
+    start: date | None = None,
+    end: date | None = None,
+    status: str | None = None,
+) -> list[ProjectTask]:
+    query = select(ProjectTask)
+    if start is not None:
+        query = query.where(ProjectTask.due_date >= start)
+    if end is not None:
+        query = query.where(ProjectTask.due_date <= end)
+    if status is not None:
+        query = query.where(func.lower(ProjectTask.milestone_status) == status.lower())
+
+    return list(
+        session.exec(
+            query.order_by(col(ProjectTask.due_date), col(ProjectTask.created_at))
+        ).all()
+    )
 
 def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     nodes = {

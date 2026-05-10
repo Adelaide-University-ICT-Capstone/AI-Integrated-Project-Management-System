@@ -46,7 +46,8 @@ from app.crud.projects import (
     delete_project,
     delete_all_projects,
     update_project,
-    get_projects_by_due_date
+    get_projects_by_due_date,
+    get_tasks
 )
 
 from app.crud.project_statuses import (
@@ -108,4 +109,6 @@ __all__ = [
     "get_status_type",
     "create_status_type",
     "get_all_status_types",
+    #tasks
+    "get_tasks"
 ]

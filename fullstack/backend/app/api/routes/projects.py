@@ -20,6 +20,7 @@ from app.models import (
     ProjectTaskPublic,
     ProjectTaskTreeCreate,
     ProjectTaskTreeUpdate,
+    ProjectTasksPublic,
     ProjectUpdateRequest,
     ProjectsListResponse,
     ProjectCreateRequest,
@@ -90,6 +91,22 @@ def get_projects_by_due_date(
     details = crud.build_project_details(session=session, projects=projects)
     return ProjectDetailsResponse(data=details, count=len(details))
 
+
+@router.get(
+    "/tasks",
+    response_model=ProjectTasksPublic,
+)
+def get_tasks(
+    session: SessionDep,
+    status: str | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> ProjectTasksPublic:
+    tasks = crud.get_tasks(session=session, status=status, start=start, end=end)
+    return ProjectTasksPublic(
+        data=[ProjectTaskPublic.model_validate(task) for task in tasks],
+        count=len(tasks),
+    )
 
 
 @router.get(
