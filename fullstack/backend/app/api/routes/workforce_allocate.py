@@ -2,21 +2,26 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.crud.workforce_allocate import (
+    check_role_exists,
+    create_assignment,
+    create_audit_log,
+    delete_assignment,
+    get_assignment,
+    get_user_employee_id,
+    update_assignment_role,
+)
 from app.models import (
     Project,
     ProjectAssignment,
-    Role,
-    User,
     WorkforceAssignmentRequest,
-    WorkforceDeleteRequest,
     WorkforceAssignmentResponse,
-    WorkforcePostResponse,
-    WorkforcePatchResponse,
+    WorkforceDeleteRequest,
     WorkforceDeleteResponse,
-    AuditLog,
+    WorkforcePatchResponse,
+    WorkforcePostResponse,
 )
 
 router = APIRouter(tags=["workforce allocation"])
@@ -35,37 +40,21 @@ def check_project_permission(
     if current_user.is_superuser:
         return project
 
-    raise HTTPException(
-        status_code=403,
-        detail="Only the project owner or superuser can manage workforce allocation",
+    employee_id = get_user_employee_id(session, current_user.id)
+
+    assignment = get_assignment(
+        session=session,
+        project_id=project_id,
+        employee_id=employee_id,
     )
 
+    if assignment and assignment.role and assignment.role.role_name == "project_manager":
+        return project
 
-def get_user_employee_id(session: SessionDep, user_id: uuid.UUID) -> uuid.UUID:
-    user = session.get(User, user_id)
-
-    if not user:
-        raise HTTPException(status_code=404, detail=f"User not found: {user_id}")
-
-    if not user.employee_id:
-        raise HTTPException(
-            status_code=404,
-            detail=f"User is not linked to an employee: {user_id}",
-        )
-
-    return user.employee_id
-
-
-def check_role_exists(session: SessionDep, role_id: uuid.UUID) -> Role:
-    role = session.get(Role, role_id)
-
-    if not role:
-        raise HTTPException(status_code=404, detail=f"Role not found: {role_id}")
-
-    if not role.is_active:
-        raise HTTPException(status_code=400, detail=f"Role is inactive: {role_id}")
-
-    return role
+    raise HTTPException(
+        status_code=403,
+        detail="Only a project manager or superuser can manage workforce allocation",
+    )
 
 
 def to_assignment_response(
@@ -78,25 +67,6 @@ def to_assignment_response(
         role_id=assignment.role_id,
         created_at=assignment.created_at,
     )
-
-
-def write_audit_log(
-    session: SessionDep,
-    action: str,
-    project_id: uuid.UUID,
-    target_user_ids: list[uuid.UUID],
-    performed_by: uuid.UUID,
-    changes: dict[str, object],
-) -> None:
-    audit_log = AuditLog(
-        action=action,
-        project_id=project_id,
-        target_user_ids=[str(user_id) for user_id in target_user_ids],
-        performed_by=performed_by,
-        changes=changes,
-    )
-
-    session.add(audit_log)
 
 
 @router.post(
@@ -121,12 +91,11 @@ def assign_workforce(
         employee_id = get_user_employee_id(session, item.user_id)
         check_role_exists(session, item.role_id)
 
-        existing_assignment = session.exec(
-            select(ProjectAssignment).where(
-                ProjectAssignment.project_id == project_id,
-                ProjectAssignment.employee_id == employee_id,
-            )
-        ).first()
+        existing_assignment = get_assignment(
+            session=session,
+            project_id=project_id,
+            employee_id=employee_id,
+        )
 
         if existing_assignment:
             raise HTTPException(
@@ -134,16 +103,16 @@ def assign_workforce(
                 detail=f"User is already assigned to this project: {item.user_id}",
             )
 
-        assignment = ProjectAssignment(
+        assignment = create_assignment(
+            session=session,
             project_id=project_id,
             employee_id=employee_id,
             role_id=item.role_id,
         )
 
-        session.add(assignment)
         created_assignments.append(assignment)
-    
-    write_audit_log(
+
+    create_audit_log(
         session=session,
         action="assign",
         project_id=project_id,
@@ -158,7 +127,7 @@ def assign_workforce(
                 for item in data
             ]
         },
-)
+    )
 
     session.commit()
 
@@ -192,12 +161,11 @@ def update_workforce_roles(
         employee_id = get_user_employee_id(session, item.user_id)
         check_role_exists(session, item.role_id)
 
-        assignment = session.exec(
-            select(ProjectAssignment).where(
-                ProjectAssignment.project_id == project_id,
-                ProjectAssignment.employee_id == employee_id,
-            )
-        ).first()
+        assignment = get_assignment(
+            session=session,
+            project_id=project_id,
+            employee_id=employee_id,
+        )
 
         if not assignment:
             raise HTTPException(
@@ -205,26 +173,30 @@ def update_workforce_roles(
                 detail=f"Existing assignment not found for user: {item.user_id}",
             )
 
-        assignment.role_id = item.role_id
-        session.add(assignment)
+        assignment = update_assignment_role(
+            session=session,
+            assignment=assignment,
+            role_id=item.role_id,
+        )
+
         updated_assignments.append(assignment)
 
-    write_audit_log(
-    session=session,
-    action="update_role",
-    project_id=project_id,
-    target_user_ids=[item.user_id for item in data],
-    performed_by=current_user.id,
-    changes={
-        "updated": [
-            {
-                "user_id": str(item.user_id),
-                "new_role_id": str(item.role_id),
-            }
-            for item in data
-        ]
-    },
-)
+    create_audit_log(
+        session=session,
+        action="update_role",
+        project_id=project_id,
+        target_user_ids=[item.user_id for item in data],
+        performed_by=current_user.id,
+        changes={
+            "updated": [
+                {
+                    "user_id": str(item.user_id),
+                    "new_role_id": str(item.role_id),
+                }
+                for item in data
+            ]
+        },
+    )
 
     session.commit()
 
@@ -257,12 +229,11 @@ def remove_workforce(
     for user_id in data.user_ids:
         employee_id = get_user_employee_id(session, user_id)
 
-        assignment = session.exec(
-            select(ProjectAssignment).where(
-                ProjectAssignment.project_id == project_id,
-                ProjectAssignment.employee_id == employee_id,
-            )
-        ).first()
+        assignment = get_assignment(
+            session=session,
+            project_id=project_id,
+            employee_id=employee_id,
+        )
 
         if not assignment:
             raise HTTPException(
@@ -270,20 +241,20 @@ def remove_workforce(
                 detail=f"Assignment not found for user: {user_id}",
             )
 
-        session.delete(assignment)
+        delete_assignment(session=session, assignment=assignment)
         removed_count += 1
 
-    write_audit_log(
-    session=session,
-    action="remove",
-    project_id=project_id,
-    target_user_ids=data.user_ids,
-    performed_by=current_user.id,
-    changes={
-        "removed_user_ids": [str(user_id) for user_id in data.user_ids]
-    },
-)
-    
+    create_audit_log(
+        session=session,
+        action="remove",
+        project_id=project_id,
+        target_user_ids=data.user_ids,
+        performed_by=current_user.id,
+        changes={
+            "removed_user_ids": [str(user_id) for user_id in data.user_ids]
+        },
+    )
+
     session.commit()
 
     return WorkforceDeleteResponse(
