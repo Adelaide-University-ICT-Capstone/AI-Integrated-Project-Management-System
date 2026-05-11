@@ -581,6 +581,115 @@ class ProjectTasksPublic(SQLModel):
     data: list[ProjectTaskPublic]
     count: int
 
+# --------------------------------------------------------------------------- Igie
+# Project Subtask Models
+# Stores workforce allocation and estimated hours for subtasks
+
+class ProjectSubtaskBase(SQLModel):
+    # Parent project/task references
+    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    task_id: uuid.UUID = Field(foreign_key="project_tasks.id")
+
+    # Subtask details
+    subtask_name: str = Field(max_length=255)
+    subtask_description: str | None = Field(default=None, sa_type=Text)
+
+    # Assigned project manager + estimated hours
+    project_manager_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    project_manager_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+    # Assigned drafter + estimated hours
+    draft_engineer_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    draft_engineer_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+    # Assigned engineer + estimated hours
+    engineer_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    engineer_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+
+# Create schema
+class ProjectSubtaskCreate(ProjectSubtaskBase):
+    pass
+
+
+# Update schema
+class ProjectSubtaskUpdate(SQLModel):
+    subtask_name: str | None = Field(default=None, max_length=255)
+    subtask_description: str | None = None
+
+    project_manager_id: uuid.UUID | None = None
+    project_manager_hours: Decimal | None = None
+
+    draft_engineer_id: uuid.UUID | None = None
+    draft_engineer_hours: Decimal | None = None
+
+    engineer_id: uuid.UUID | None = None
+    engineer_hours: Decimal | None = None
+
+
+# PATCH request body for assigning workforce to subtasks
+class ProjectSubtaskAssignmentUpdate(SQLModel):
+    project_manager: uuid.UUID | None = None
+    project_manager_hours: Decimal | None = None
+
+    draft_engineer: uuid.UUID | None = None
+    draft_engineer_hours: Decimal | None = None
+
+    engineer: uuid.UUID | None = None
+    engineer_hours: Decimal | None = None
+
+
+# Database table
+class ProjectSubtask(ProjectSubtaskBase, table=True):
+    __tablename__ = "project_subtasks"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# Public response schema
+class ProjectSubtaskPublic(ProjectSubtaskBase):
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+# Multiple subtasks response schema
+class ProjectSubtasksPublic(SQLModel):
+    data: list[ProjectSubtaskPublic]
+    count: int
+
+# --------------------------------------------------------------------------- Igie
 
 # ---------------------------------------------------------------------------
 # Project Task Orders  (two FKs -> project_tasks)
