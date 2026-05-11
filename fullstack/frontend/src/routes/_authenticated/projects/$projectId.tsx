@@ -22,6 +22,7 @@ import { toast } from 'react-toastify'
 const baseUrl = import.meta.env.VITE_API_URL
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
+import { error } from 'node:console'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
@@ -47,6 +48,7 @@ type WorkflowPhase = {
 type MaterialStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
 
 type Material = {
+  id?: string
   name: string
   status: MaterialStatus
   subcontractor: string
@@ -88,6 +90,35 @@ const SUBCONTRACTORS = [
   'Premier Concrete',
   'Reliable Timber Co',
 ]
+
+
+const mapStatus = (backendStatus: string) => { 
+  switch (backendStatus) {
+    case 'ordered':
+      return 'Ordered'
+    case 'received':
+      return 'Received'
+    case 'by_client':
+      return 'By Client'
+    default:
+      return 'N/A'
+  }
+}
+
+const mapFrontendFieldToBackend = (field: keyof Material) => {
+  switch (field) {
+    case 'name':
+      return 'name'
+    case 'status':
+      return 'status'
+    case 'subcontractor':
+      return 'subcontractor'
+    case 'orderedDate':
+      return 'ordered_date'
+    default:
+      return field
+  }
+}
 
 const getMaterialStatusPillClass = (status: MaterialStatus) => {
   switch (status) {
@@ -171,7 +202,44 @@ function ProjectDetails() {
         setLoading(false)
       }
     }
+
+
+    const fetchMaterials = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}/materials`, {
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+        })
+
+        const result = await response.json();
+        console.log('Fetched materials:', result);
+        if (response.ok) {
+
+          const apiMaterials: Material[] = result.map((m: any) => ({
+            id: m.id,
+            name: m.name || '',
+            status: mapStatus(m.status),
+            orderedDate: m.ordered_date || '',
+            subcontractor: m.supplier_name || '',
+          }))
+          setMaterials(apiMaterials)
+        } 
+
+      } catch (error) {
+        console.error('Error fetching materials:', error)
+        toast.error('Network error while fetching materials')
+      }
+    }
+
+
     fetchProject()
+    fetchMaterials() // Fetch materials separately
+
+
   }, [projectId])
 
   // Calculate overall progress from workflow phases
@@ -283,14 +351,38 @@ function ProjectDetails() {
     toast.success('Material removed')
   }
 
-  const updateMaterialField = <K extends keyof Material>(
+  const updateMaterialField = async <K extends keyof Material>(
     index: number,
     field: K,
     value: Material[K],
   ) => {
-    const updated = [...materials]
-    updated[index] = { ...updated[index], [field]: value }
-    setMaterials(updated)
+
+    console.log(`Updating material at index ${index}: setting ${field} to ${value}`)
+    const material = materials[index];
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}/materials/${material.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ [mapFrontendFieldToBackend(field)]: value?.toString().toLowerCase() }),  // Send only the changed field
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update material');
+      }
+
+      // Update local state on success
+      const updated = [...materials];
+      updated[index] = { ...updated[index], [field]: value };
+      setMaterials(updated);
+      toast.success('Material updated successfully');
+    } catch (error) {
+      console.error('Error updating material:', error);
+    }
   }
 
   // Workforce handlers
