@@ -5,15 +5,11 @@ import {
   Search,
   Building2,
   Mail,
-  Phone,
-  MapPin,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Edit2,
-  Trash2,
   X,
   Send,
+  Edit2,
+  Trash2,
+  LayoutGrid,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -21,350 +17,232 @@ export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
 })
 
+// ----- Data types -----
+
+type ServiceType = 'Survey' | 'Soil Testing' | 'Timber Framing' | 'Other'
+type OrderStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
+
 interface Subcontractor {
   id: string
   name: string
-  type: string
   email: string
   phone: string
-  location: string
-  status: 'active' | 'pending' | 'completed'
-  project: string
-  service: string
-  deadline: string
-  aiAlert?: string
+  services: ServiceType[]
 }
+
+interface Order {
+  id: string
+  subcontractorId: string
+  service: ServiceType
+  projectId: string
+  projectName: string
+  orderedDate: string
+  status: OrderStatus
+}
+
+// ----- Mock data -----
 
 const initialSubcontractors: Subcontractor[] = [
-  {
-    id: '1',
-    name: 'GeoCon Labs',
-    type: 'Soil Testing',
-    email: 'contact@geoconlabs.com',
-    phone: '+1 (555) 123-4567',
-    location: 'Downtown District',
-    status: 'pending',
-    project: 'Highway Bridge Restoration',
-    service: 'Soil bearing capacity test',
-    deadline: '2026-04-05',
-    aiAlert: 'Deadline approaching - schedule reminder sent',
-  },
-  {
-    id: '2',
-    name: 'ABC Surveyors',
-    type: 'Land Survey',
-    email: 'info@abcsurveyors.com',
-    phone: '+1 (555) 234-5678',
-    location: 'Metro Area',
-    status: 'active',
-    project: 'Downtown Office Complex',
-    service: 'Topographic survey and boundary marking',
-    deadline: '2026-04-10',
-  },
-  {
-    id: '3',
-    name: 'Steel Supply Co',
-    type: 'Materials Supplier',
-    email: 'orders@steelsupply.com',
-    phone: '+1 (555) 345-6789',
-    location: 'Industrial Zone',
-    status: 'active',
-    project: 'Downtown Office Complex',
-    service: 'Structural steel beams and columns',
-    deadline: '2026-04-15',
-  },
-  {
-    id: '4',
-    name: 'Foundation Masters',
-    type: 'Subcontractor',
-    email: 'contact@foundationmasters.com',
-    phone: '+1 (555) 456-7890',
-    location: 'City Center',
-    status: 'completed',
-    project: 'Residential Tower Foundation',
-    service: 'Foundation excavation and preparation',
-    deadline: '2026-03-25',
-  },
-  {
-    id: '5',
-    name: 'TimberFrame Pro',
-    type: 'Materials Supplier',
-    email: 'sales@timberframepro.com',
-    phone: '+1 (555) 567-8901',
-    location: 'Westside',
-    status: 'pending',
-    project: 'Residential Tower Foundation',
-    service: 'Engineered timber framing materials',
-    deadline: '2026-04-02',
-    aiAlert: 'Order deadline in 3 days - confirm quantities',
-  },
+  { id: 'sc1', name: 'Big Wood Suppliers', email: 'orders@bigwood.com', phone: '+1 (555) 100-2001', services: ['Timber Framing'] },
+  { id: 'sc2', name: 'GeoCon Labs', email: 'contact@geoconlabs.com', phone: '+1 (555) 100-2002', services: ['Soil Testing'] },
+  { id: 'sc3', name: 'ABC Surveyors', email: 'info@abcsurveyors.com', phone: '+1 (555) 100-2003', services: ['Survey'] },
+  { id: 'sc4', name: 'Steel Supply Co', email: 'orders@steelsupply.com', phone: '+1 (555) 100-2004', services: ['Other'] },
+  { id: 'sc5', name: 'TimberFrame Pro', email: 'sales@timberframepro.com', phone: '+1 (555) 100-2005', services: ['Timber Framing'] },
 ]
 
-const subcontractorTypes = [
-  'Soil Testing', 'Land Survey', 'Materials Supplier', 'Subcontractor',
-  'Consultant', 'Testing Lab', 'Equipment Rental', 'Concrete Supplier',
-  'Electrical', 'Plumbing',
-]
-
-function SubcontractorCard({
-  subcontractor,
-  onEdit,
-  onDelete,
-  onPrompt,
-}: {
-  subcontractor: Subcontractor
-  onEdit: () => void
-  onDelete: () => void
-  onPrompt: () => void
-}) {
-  const statusColors = {
-    active: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  }
-
-  const statusIcons = {
-    active: <Clock size={14} />,
-    pending: <AlertCircle size={14} />,
-    completed: <CheckCircle size={14} />,
-  }
-
-  const isUrgent =
-    subcontractor.status === 'pending' &&
-    new Date(subcontractor.deadline).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000
-
-  return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg border ${
-      isUrgent ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-gray-200 dark:border-gray-700'
-    } p-5 hover:shadow-md transition-shadow`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Building2 size={18} className="text-gray-400" />
-            <h3 className="font-bold text-gray-900 dark:text-white">{subcontractor.name}</h3>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{subcontractor.type}</p>
-        </div>
-        <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${statusColors[subcontractor.status]}`}>
-          {statusIcons[subcontractor.status]}
-          <span className="capitalize ml-1">{subcontractor.status}</span>
-        </div>
-      </div>
-
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Mail size={14} className="text-gray-400 flex-shrink-0" />
-          <a href={`mailto:${subcontractor.email}`} className="hover:text-blue-600 truncate">
-            {subcontractor.email}
-          </a>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Phone size={14} className="text-gray-400 flex-shrink-0" />
-          <span>{subcontractor.phone}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <MapPin size={14} className="text-gray-400 flex-shrink-0" />
-          <span>{subcontractor.location}</span>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
-        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</div>
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{subcontractor.project}</div>
-        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Required</div>
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{subcontractor.service}</div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">Deadline</span>
-          <span className={`font-medium ${isUrgent ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
-            {new Date(subcontractor.deadline).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
-
-      {subcontractor.aiAlert && (
-        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="text-xs font-medium text-yellow-800 dark:text-yellow-400 mb-1">AI Alert</div>
-              <div className="text-xs text-yellow-700 dark:text-yellow-500">{subcontractor.aiAlert}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <button
-          onClick={onPrompt}
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Send size={14} />
-          Send Prompt
-        </button>
-        <button
-          onClick={onEdit}
-          className="p-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <Edit2 size={16} />
-        </button>
-        <button
-          onClick={onDelete}
-          className="p-2 border border-gray-300 dark:border-gray-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-    </div>
-  )
+const today = new Date()
+const daysAgo = (n: number) => {
+  const d = new Date(today)
+  d.setDate(d.getDate() - n)
+  return d.toISOString().split('T')[0]
 }
 
-function SubcontractorModal({
+const initialOrders: Order[] = [
+  { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
+  { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
+  { id: 'o3', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2023-012', projectName: 'Residential Tower Foundation', orderedDate: daysAgo(28), status: 'Ordered' },
+  { id: 'o4', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(2), status: 'Received' },
+  { id: 'o5', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(35), status: 'Ordered' },
+  { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
+  { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
+]
+
+const PROJECT_OPTIONS = [
+  { id: 'PRJ-2024-001', name: 'Downtown Office Complex' },
+  { id: 'PRJ-2024-002', name: 'Highway Bridge Restoration' },
+  { id: 'PRJ-2024-003', name: 'Bridge Renovation Project' },
+  { id: 'PRJ-2024-004', name: 'Shopping Mall Expansion' },
+  { id: 'PRJ-2023-012', name: 'Residential Tower Foundation' },
+]
+
+const SERVICE_TYPES: ServiceType[] = ['Survey', 'Soil Testing', 'Timber Framing', 'Other']
+
+// ----- Helpers -----
+
+const daysBetween = (dateStr: string) => {
+  if (!dateStr) return 0
+  const d = new Date(dateStr)
+  d.setHours(0, 0, 0, 0)
+  const t = new Date()
+  t.setHours(0, 0, 0, 0)
+  return Math.floor((t.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+const getOrderAlert = (order: Order): { label: string; tone: 'green' | 'yellow' | 'red' | 'gray' } => {
+  if (order.status === 'Received') return { label: '✓ Done', tone: 'green' }
+  if (order.status === 'By Client') return { label: '✓ N/A', tone: 'green' }
+  if (order.status === 'N/A') return { label: '—', tone: 'gray' }
+  const days = daysBetween(order.orderedDate)
+  if (days >= 30) return { label: '🚨 >30d follow-up', tone: 'red' }
+  if (days >= 21) return { label: '🚨 >21d follow-up', tone: 'red' }
+  if (days >= 7) return { label: '⏰ >7d', tone: 'yellow' }
+  return { label: '✓ On track', tone: 'green' }
+}
+
+const alertToneClass = {
+  green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  gray: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+}
+
+const statusPillClass: Record<OrderStatus, string> = {
+  'N/A': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  'Ordered': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  'Received': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  'By Client': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+}
+
+const servicePillClass: Record<ServiceType, string> = {
+  'Survey': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'Soil Testing': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  'Timber Framing': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  'Other': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
+}
+
+const avatarColorFromName = (name: string) => {
+  const colors = ['bg-blue-600', 'bg-purple-600', 'bg-orange-600', 'bg-teal-600', 'bg-pink-600', 'bg-green-600', 'bg-indigo-600']
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
+const initials = (name: string) =>
+  name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+
+const formatDaysAgo = (dateStr: string) => {
+  if (!dateStr) return '—'
+  const d = daysBetween(dateStr)
+  if (d === 0) return 'today'
+  if (d === 1) return 'yesterday'
+  return `${d} days ago`
+}
+
+// ----- Grid column definitions (kept identical between header + row) -----
+
+const ROW_COLS_BY_SC = 'grid-cols-[1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
+const ROW_COLS_BY_SVC = 'grid-cols-[1.2fr_1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
+
+// ----- New Order Modal -----
+
+function NewOrderModal({
   subcontractor,
   onClose,
   onSave,
 }: {
-  subcontractor?: Subcontractor
+  subcontractor: Subcontractor
   onClose: () => void
-  onSave: (data: Partial<Subcontractor>) => void
+  onSave: (order: Omit<Order, 'id'>) => void
 }) {
   const [formData, setFormData] = useState({
-    name: subcontractor?.name || '',
-    type: subcontractor?.type || 'Soil Testing',
-    email: subcontractor?.email || '',
-    phone: subcontractor?.phone || '',
-    location: subcontractor?.location || '',
-    project: subcontractor?.project || 'Downtown Office Complex',
-    service: subcontractor?.service || '',
-    deadline: subcontractor?.deadline || '',
+    service: subcontractor.services[0] as ServiceType,
+    projectId: PROJECT_OPTIONS[0].id,
+    orderedDate: new Date().toISOString().split('T')[0],
+    status: 'Ordered' as OrderStatus,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.email || !formData.deadline) {
-      toast.error('Please fill in required fields')
-      return
-    }
-    onSave(formData)
+    const project = PROJECT_OPTIONS.find((p) => p.id === formData.projectId)
+    if (!project) return
+    onSave({
+      subcontractorId: subcontractor.id,
+      service: formData.service,
+      projectId: formData.projectId,
+      projectName: project.name,
+      orderedDate: formData.orderedDate,
+      status: formData.status,
+    })
     onClose()
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {subcontractor ? 'Edit Subcontractor' : 'Add New Subcontractor'}
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">New Order</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">For {subcontractor.name}</p>
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
             <X size={20} />
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Company name"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                {subcontractorTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="contact@example.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="+1 (555) 000-0000"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Location</label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="City or region"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Deadline *</label>
-              <input
-                type="date"
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Project</label>
-              <select
-                value={formData.project}
-                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option>Downtown Office Complex</option>
-                <option>Highway Bridge Restoration</option>
-                <option>Residential Tower Foundation</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Service Required</label>
-              <textarea
-                value={formData.service}
-                onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                rows={3}
-                placeholder="Describe the service or work required"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service</label>
+            <select
+              value={formData.service}
+              onChange={(e) => setFormData({ ...formData, service: e.target.value as ServiceType })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              {SERVICE_TYPES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
-
-          <div className="flex gap-3 pt-4">
-            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
-              {subcontractor ? 'Update' : 'Add'} Subcontractor
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</label>
+            <select
+              value={formData.projectId}
+              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              {PROJECT_OPTIONS.map((p) => (
+                <option key={p.id} value={p.id}>{p.id} — {p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ordered Date</label>
+            <input
+              type="date"
+              value={formData.orderedDate}
+              onChange={(e) => setFormData({ ...formData, orderedDate: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as OrderStatus })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              <option value="N/A">N/A</option>
+              <option value="Ordered">Ordered</option>
+              <option value="Received">Received</option>
+              <option value="By Client">By Client</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+              Create Order
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-6 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Cancel
             </button>
@@ -375,155 +253,489 @@ function SubcontractorModal({
   )
 }
 
-function Subcontractors() {
-  const [subcontractors, setSubcontractors] = useState(initialSubcontractors)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [showModal, setShowModal] = useState(false)
-  const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | undefined>()
+// ----- Add Subcontractor Modal -----
 
-  const handleAdd = () => { setEditingSubcontractor(undefined); setShowModal(true) }
-  const handleEdit = (s: Subcontractor) => { setEditingSubcontractor(s); setShowModal(true) }
-  const handleDelete = (id: string) => {
-    setSubcontractors(subcontractors.filter((s) => s.id !== id))
-    toast.success('Subcontractor removed')
-  }
-  const handleSave = (data: Partial<Subcontractor>) => {
-    if (editingSubcontractor) {
-      setSubcontractors(subcontractors.map((s) => s.id === editingSubcontractor.id ? { ...s, ...data } : s))
-      toast.success('Subcontractor updated')
-    } else {
-      setSubcontractors([...subcontractors, { ...data as Subcontractor, id: Date.now().toString(), status: 'pending' }])
-      toast.success('Subcontractor added')
-    }
-  }
-  const handlePrompt = (s: Subcontractor) => toast.success(`AI prompt sent to ${s.name}`)
-
-  const filtered = subcontractors.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.project.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'all' || s.status === filterStatus
-    return matchesSearch && matchesFilter
+function AddSubcontractorModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: (sc: Omit<Subcontractor, 'id'>) => void
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    services: [] as ServiceType[],
   })
 
-  const stats = {
-    total: subcontractors.length,
-    active: subcontractors.filter((s) => s.status === 'active').length,
-    pending: subcontractors.filter((s) => s.status === 'pending').length,
-    completed: subcontractors.filter((s) => s.status === 'completed').length,
+  const toggleService = (s: ServiceType) => {
+    setFormData((prev) => ({
+      ...prev,
+      services: prev.services.includes(s)
+        ? prev.services.filter((x) => x !== s)
+        : [...prev.services, s],
+    }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.name.trim() || !formData.email.trim()) {
+      toast.error('Please fill in name and email')
+      return
+    }
+    if (formData.services.length === 0) {
+      toast.error('Pick at least one service')
+      return
+    }
+    onSave(formData)
+    onClose()
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Subcontractor Management</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Track and coordinate third-party engagements</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Subcontractor</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <X size={20} />
+          </button>
         </div>
-        <button
-          onClick={handleAdd}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={20} />
-          Add Subcontractor
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-gray-900 dark:text-white', border: 'border-gray-200 dark:border-gray-700' },
-          { label: 'Active', value: stats.active, color: 'text-blue-600', border: 'border-blue-200 dark:border-blue-800' },
-          { label: 'Pending', value: stats.pending, color: 'text-yellow-600', border: 'border-yellow-200 dark:border-yellow-800' },
-          { label: 'Completed', value: stats.completed, color: 'text-green-600', border: 'border-green-200 dark:border-green-800' },
-        ].map((stat) => (
-          <div key={stat.label} className={`bg-white dark:bg-gray-800 rounded-lg border ${stat.border} p-4`}>
-            <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* AI Automation */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-            <Send className="text-white" size={20} />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Big Wood Suppliers"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              required
+            />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">AI-Powered Coordination</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Automated tracking and intelligent prompting</p>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="contact@example.com"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              required
+            />
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { value: '5', label: 'Auto-reminders sent this week', color: 'text-purple-600' },
-            { value: '2', label: 'Urgent deadlines detected', color: 'text-blue-600' },
-            { value: '98%', label: 'On-time completion rate', color: 'text-green-600' },
-          ].map((item) => (
-            <div key={item.label} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className={`text-2xl font-bold ${item.color} mb-1`}>{item.value}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{item.label}</div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+1 (555) 000-0000"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Services Provided</label>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_TYPES.map((s) => (
+                <button
+                  type="button"
+                  key={s}
+                  onClick={() => toggleService(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    formData.services.includes(s)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+              Add Subcontractor
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ----- Order Row Component -----
+
+function OrderRow({
+  order,
+  showSubcontractor = false,
+  subcontractorName = '',
+  onDelete,
+}: {
+  order: Order
+  showSubcontractor?: boolean
+  subcontractorName?: string
+  onDelete: () => void
+}) {
+  const alert = getOrderAlert(order)
+  const cols = showSubcontractor ? ROW_COLS_BY_SVC : ROW_COLS_BY_SC
+
+  return (
+    <div className={`grid ${cols} gap-2 px-4 py-2 items-center text-xs border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/30`}>
+      {showSubcontractor && (
+        <span className="font-medium text-gray-900 dark:text-white truncate text-xs">{subcontractorName}</span>
+      )}
+      <span className="font-mono text-blue-700 dark:text-blue-400 text-[11px] truncate">{order.projectId}</span>
+      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${servicePillClass[order.service]}`}>
+        {order.service}
+      </span>
+      <span className="justify-self-center text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatDaysAgo(order.orderedDate)}</span>
+      <span className={`justify-self-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusPillClass[order.status]}`}>
+        {order.status}
+      </span>
+      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${alertToneClass[alert.tone]}`}>
+        {alert.label}
+      </span>
+      <button
+        onClick={onDelete}
+        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-center"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  )
+}
+
+// ----- Main Component -----
+
+function Subcontractors() {
+  const [subcontractors, setSubcontractors] = useState(initialSubcontractors)
+  const [orders, setOrders] = useState(initialOrders)
+  const [view, setView] = useState<'subcontractor' | 'service'>('subcontractor')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showAddSubcontractor, setShowAddSubcontractor] = useState(false)
+  const [newOrderForSc, setNewOrderForSc] = useState<Subcontractor | null>(null)
+
+  const totalActiveOrders = orders.length
+  const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
+  const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
+
+  const matchSearch = (text: string) => text.toLowerCase().includes(searchTerm.toLowerCase())
+
+  const handleAddSubcontractor = (sc: Omit<Subcontractor, 'id'>) => {
+    setSubcontractors([...subcontractors, { ...sc, id: `sc${Date.now()}` }])
+    toast.success(`${sc.name} added`)
+  }
+
+  const handleAddOrder = (order: Omit<Order, 'id'>) => {
+    setOrders([...orders, { ...order, id: `o${Date.now()}` }])
+    toast.success('Order created')
+  }
+
+  const handleDeleteOrder = (id: string) => {
+    setOrders(orders.filter((o) => o.id !== id))
+    toast.success('Order removed')
+  }
+
+  const handleDeleteSubcontractor = (id: string) => {
+    if (window.confirm('Remove this subcontractor and all their orders?')) {
+      setSubcontractors(subcontractors.filter((s) => s.id !== id))
+      setOrders(orders.filter((o) => o.subcontractorId !== id))
+      toast.success('Subcontractor removed')
+    }
+  }
+
+  const filteredSubcontractors = subcontractors.filter((sc) =>
+    matchSearch(sc.name) || sc.services.some((s) => matchSearch(s)),
+  )
+
+  const ordersByService = SERVICE_TYPES.reduce((acc, service) => {
+    acc[service] = orders.filter((o) => {
+      const sc = subcontractors.find((s) => s.id === o.subcontractorId)
+      const matches =
+        matchSearch(o.projectName) ||
+        matchSearch(o.projectId) ||
+        (sc && matchSearch(sc.name)) ||
+        matchSearch(o.service)
+      return o.service === service && matches
+    })
+    return acc
+  }, {} as Record<ServiceType, Order[]>)
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Subcontractors</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          Cross-project order summary, grouped by subcontractor or service
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+        {/* LEFT SIDE PANEL */}
+        <aside className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 h-fit lg:sticky lg:top-4 space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">View By</h3>
+            <div className="space-y-1">
+              <button
+                onClick={() => setView('subcontractor')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                  view === 'subcontractor'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Building2 size={16} />
+                <span className="flex-1">By Subcontractor</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  view === 'subcontractor' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}>
+                  {subcontractors.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setView('service')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                  view === 'service'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <LayoutGrid size={16} />
+                <span className="flex-1">By Service</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  view === 'service' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}>
+                  {SERVICE_TYPES.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Quick Stats</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Total active orders</span>
+                <span className="font-bold text-gray-900 dark:text-white">{totalActiveOrders}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Need follow-up</span>
+                <span className="font-bold text-red-600">{followUpCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Ordered &gt;7 days</span>
+                <span className="font-bold text-yellow-600">{overSevenDaysCount}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <button
+              onClick={() => setShowAddSubcontractor(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              <Plus size={16} />
+              Add Subcontractor
+            </button>
+          </div>
+        </aside>
+
+        {/* MAIN AREA */}
+        <main className="space-y-4 min-w-0">
+          {/* AI Coordination panel */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Send className="text-white" size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-white">AI-Powered Coordination</h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Day-based alerts following Harri's spec</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="text-lg font-bold text-yellow-600">{overSevenDaysCount}</div>
+                <div className="text-[11px] text-gray-600 dark:text-gray-400">Over 7 days · daily reminder</div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="text-lg font-bold text-red-600">{followUpCount}</div>
+                <div className="text-[11px] text-gray-600 dark:text-gray-400">Follow-up needed (&gt;21d)</div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                <div className="text-lg font-bold text-green-600">98%</div>
+                <div className="text-[11px] text-gray-600 dark:text-gray-400">On-time completion</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search subcontractors..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder={view === 'subcontractor' ? 'Search subcontractors...' : 'Search orders by project or service...'}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             />
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
+
+          {/* VIEW: BY SUBCONTRACTOR */}
+          {view === 'subcontractor' && (
+            <div className="space-y-4">
+              {filteredSubcontractors.length === 0 ? (
+                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <Building2 size={48} className="mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400">No subcontractors match your search</p>
+                </div>
+              ) : (
+                filteredSubcontractors.map((sc) => {
+                  const scOrders = orders.filter((o) => o.subcontractorId === sc.id)
+                  return (
+                    <div key={sc.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700">
+                        <div className={`w-10 h-10 ${avatarColorFromName(sc.name)} rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                          {initials(sc.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 dark:text-white">{sc.name}</h3>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+                            <span>{sc.services.join(', ')}</span>
+                            <span>·</span>
+                            <span>{scOrders.length} {scOrders.length === 1 ? 'order' : 'orders'}</span>
+                            <span>·</span>
+                            <span className="flex items-center gap-1"><Mail size={11} /> {sc.email}</span>
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => toast.info('Edit subcontractor coming soon')}
+                            className="p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                            title="Edit"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubcontractor(sc.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            title="Remove"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => setNewOrderForSc(sc)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium whitespace-nowrap"
+                          >
+                            <Plus size={14} /> New Order
+                          </button>
+                        </div>
+                      </div>
+
+                      {scOrders.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400 italic">
+                          No orders yet — click "New Order" to create one
+                        </div>
+                      ) : (
+                        <>
+                          {/* Header row — uses SAME grid as data row */}
+                          <div className={`grid ${ROW_COLS_BY_SC} gap-2 px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700`}>
+                            <span>Project</span>
+                            <span className="justify-self-center">Service</span>
+                            <span className="justify-self-center">Ordered</span>
+                            <span className="justify-self-center">Status</span>
+                            <span className="justify-self-center">Alert</span>
+                            <span></span>
+                          </div>
+                          {scOrders.map((order) => (
+                            <OrderRow
+                              key={order.id}
+                              order={order}
+                              onDelete={() => handleDeleteOrder(order.id)}
+                            />
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+
+          {/* VIEW: BY SERVICE */}
+          {view === 'service' && (
+            <div className="space-y-4">
+              {SERVICE_TYPES.map((service) => {
+                const svcOrders = ordersByService[service]
+                return (
+                  <div key={service} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${servicePillClass[service]}`}>
+                        {service}
+                      </span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {svcOrders.length} {svcOrders.length === 1 ? 'order' : 'orders'} across projects
+                      </span>
+                    </div>
+
+                    {svcOrders.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400 italic">
+                        No active orders for {service.toLowerCase()}
+                      </div>
+                    ) : (
+                      <>
+                        <div className={`grid ${ROW_COLS_BY_SVC} gap-2 px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700`}>
+                          <span>Subcontractor</span>
+                          <span>Project</span>
+                          <span className="justify-self-center">Service</span>
+                          <span className="justify-self-center">Ordered</span>
+                          <span className="justify-self-center">Status</span>
+                          <span className="justify-self-center">Alert</span>
+                          <span></span>
+                        </div>
+                        {svcOrders.map((order) => {
+                          const sc = subcontractors.find((s) => s.id === order.subcontractorId)
+                          return (
+                            <OrderRow
+                              key={order.id}
+                              order={order}
+                              showSubcontractor
+                              subcontractorName={sc?.name || 'Unknown'}
+                              onDelete={() => handleDeleteOrder(order.id)}
+                            />
+                          )
+                        })}
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </main>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((s) => (
-          <SubcontractorCard
-            key={s.id}
-            subcontractor={s}
-            onEdit={() => handleEdit(s)}
-            onDelete={() => handleDelete(s.id)}
-            onPrompt={() => handlePrompt(s)}
-          />
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <Building2 size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No subcontractors found</h3>
-          <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filters</p>
-        </div>
+      {showAddSubcontractor && (
+        <AddSubcontractorModal
+          onClose={() => setShowAddSubcontractor(false)}
+          onSave={handleAddSubcontractor}
+        />
       )}
-
-      {showModal && (
-        <SubcontractorModal
-          subcontractor={editingSubcontractor}
-          onClose={() => setShowModal(false)}
-          onSave={handleSave}
+      {newOrderForSc && (
+        <NewOrderModal
+          subcontractor={newOrderForSc}
+          onClose={() => setNewOrderForSc(null)}
+          onSave={handleAddOrder}
         />
       )}
     </div>

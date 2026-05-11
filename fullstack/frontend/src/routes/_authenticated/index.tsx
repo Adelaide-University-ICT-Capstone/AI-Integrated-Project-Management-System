@@ -10,6 +10,9 @@ import {
   ArrowRight,
   Building2,
   Users,
+  ChevronDown,
+  ChevronUp,
+  Building,
 } from 'lucide-react'
 import { Bar, Pie } from 'react-chartjs-2'
 import {
@@ -22,6 +25,7 @@ import {
   Legend,
 } from 'chart.js'
 
+import { useState } from 'react'
 import { useQuery } from "@tanstack/react-query"
 import { projectsApi } from "../../api/project"
 
@@ -107,7 +111,7 @@ const recentTasks = [
 ]
 
 function Dashboard() {
-  
+  const [showCompanyStats, setShowCompanyStats] = useState(false)
   // active projects number
   const { data: activeData } = useQuery({
     queryKey: ['activeCount'],
@@ -213,7 +217,76 @@ function Dashboard() {
           </div>
         </div>
       </div>
+      
+{/* Company Overall Statistics Dropdown */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <button
+          onClick={() => setShowCompanyStats(!showCompanyStats)}
+          className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+              <Building className="text-indigo-600" size={20} />
+            </div>
+            <div className="text-left">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Company Overall Statistics</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Click to view company-wide metrics</p>
+            </div>
+          </div>
+          {showCompanyStats ? (
+            <ChevronUp className="text-gray-400" size={24} />
+          ) : (
+            <ChevronDown className="text-gray-400" size={24} />
+          )}
+        </button>
 
+        {showCompanyStats && (
+          <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-lg p-5 border border-indigo-100 dark:border-indigo-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Company Projects</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">47</p>
+                  <p className="text-sm text-indigo-600 mt-2 flex items-center gap-1">
+                    <TrendingUp size={16} /> +8 this quarter
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+                  <FolderKanban className="text-indigo-600" size={24} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 dark:bg-red-900/10 rounded-lg p-5 border border-red-100 dark:border-red-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">At-Risk Projects</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">12</p>
+                  <p className="text-sm text-red-600 mt-2">Across all teams</p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="text-red-600" size={24} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-5 border border-green-100 dark:border-green-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Team Utilization</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">87%</p>
+                  <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+                    <TrendingUp size={16} /> +5% vs last month
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <Users className="text-green-600" size={24} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       {/* AI Alerts */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
         <div className="flex items-center gap-3 mb-4">
