@@ -11,6 +11,8 @@ from app.models import (
     Client,
     Employee,
     Invoice,
+    Material,
+    MaterialCreate,
     Project,
     ProjectAssignment,
     ProjectCreateRequest,
@@ -24,6 +26,7 @@ from app.models import (
     ProjectTaskNode,
     ProjectTaskTreeCreate,
     ProjectUpdateRequest,
+    SubcontractorStatus
 )
 
 DEFAULT_MAIN_TASKS = (
@@ -32,6 +35,12 @@ DEFAULT_MAIN_TASKS = (
 )
 
 DEFAULT_SUBTASKS = (
+    "Task 1",
+    "Task 2",
+    "Task 3",
+)
+
+DEFAULT_MATERIALS = (
     "Soil Testing",
     "Survey",
     "Timber Framing",
@@ -76,7 +85,15 @@ def get_all_projects(*, session: Session) -> list[Project]:
         ).all()
     )
 
-
+def get_projects_by_due_date(*, session: Session, start: date, end: date) -> list[Project]:
+    return list(
+        session.exec(
+            select(Project)
+            .where(Project.due_date >= start)
+            .where(Project.due_date <= end)
+            .order_by(col(Project.due_date))
+        ).all()
+    )
 
 def create_project(*, session: Session, project_data: ProjectCreateRequest) -> Project:
     client = get_or_create_client(
@@ -211,8 +228,36 @@ def create_default_project_task_structure(
                 )
             )
 
+    for material_name in DEFAULT_MATERIALS:
+        session.add(
+            Material(
+                project_id=project.id,
+                name=material_name,
+                # Add any other default fields if needed (e.g., unit="pieces", quantity=Decimal("1"))
+            )
+        )
+
     session.commit()
 
+def create_material(*, session: Session, project_id: uuid.UUID, material_data: MaterialCreate) -> Material:
+    material = Material.model_validate(material_data, update={"project_id": project_id})
+    session.add(material)
+    session.commit()
+    session.refresh(material)
+    return material
+
+def update_material(*, session: Session, material: Material, updates: dict) -> Material:
+    material.sqlmodel_update(updates)
+    session.add(material)
+    session.commit()
+    session.refresh(material)
+    return material
+
+def get_material(*, session: Session, material_id: uuid.UUID) -> Material | None:
+    return session.get(Material, material_id)
+
+def get_materials_by_project_id(*, session: Session, project_id: uuid.UUID) -> list[Material]:
+    return list(session.exec(select(Material).where(Material.project_id == project_id)).all())
 
 def build_project_details(*, session: Session, projects: list[Project]) -> list[ProjectDetail]:
     today = date.today()
@@ -300,6 +345,26 @@ def update_project_task(*, session: Session, task: ProjectTask, updates: dict) -
     session.refresh(task)
     return task
 
+def get_tasks(
+    *,
+    session: Session,
+    start: date | None = None,
+    end: date | None = None,
+    status: str | None = None,
+) -> list[ProjectTask]:
+    query = select(ProjectTask)
+    if start is not None:
+        query = query.where(ProjectTask.due_date >= start)
+    if end is not None:
+        query = query.where(ProjectTask.due_date <= end)
+    if status is not None:
+        query = query.where(func.lower(ProjectTask.milestone_status) == status.lower())
+
+    return list(
+        session.exec(
+            query.order_by(col(ProjectTask.due_date), col(ProjectTask.created_at))
+        ).all()
+    )
 
 def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     nodes = {
@@ -315,10 +380,6 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
             assigned_role_id=task.assigned_role_id,
             assigned_role_name=task.assigned_role.role_name if getattr(task, "assigned_role", None) else None,
             allocated_hours=task.allocated_hours,
-            subcontractor_id=task.subcontractor_id,
-            subcontractor_name=task.subcontractor.company_name if getattr(task, "subcontractor", None) else None,
-            subcontractor_status=task.subcontractor_status,
-            subcontractor_ordered_date=task.subcontractor_ordered_date,
             completion_date=task.completion_date,
             invoice_amount=task.invoice_amount,
             fee_final=task.fee_final,
@@ -388,6 +449,9 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
         for milestone in milestones
     ]
 
+def delete_project_task(*, session: Session, task: ProjectTask) -> None:
+    session.delete(task)
+    session.commit()
 
 
 def get_projects_by_status(*, session: Session, status: str | None = None) -> list[Project]:
