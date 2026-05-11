@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState, useMemo } from 'react'
 import {
   FolderKanban,
   CheckSquare,
@@ -10,7 +11,11 @@ import {
   ArrowRight,
   Building2,
   Users,
+  Calendar,
+  ChevronDown,
+  FileText,
 } from 'lucide-react'
+
 import { Bar, Pie } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -24,14 +29,17 @@ import {
 
 import { useQuery } from "@tanstack/react-query"
 import { projectsApi } from "../../api/project"
-
-
+import { invoicesApi } from "../../api/invoices"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
 export const Route = createFileRoute('/_authenticated/')({
   component: Dashboard,
 })
+
+// ---------------------------------------------------------------------------
+// Static data (charts + AI section — unchanged)
+// ---------------------------------------------------------------------------
 
 const projectData = [
   { month: 'Jan', completed: 4, inProgress: 8 },
@@ -48,33 +56,6 @@ const taskStatusData = [
   { name: 'Pending', value: 18, color: '#f59e0b' },
   { name: 'Overdue', value: 5, color: '#ef4444' },
 ]
-
-/* const _recentProjects = [
-  {
-    id: '1',
-    name: 'Downtown Office Complex',
-    type: 'Commercial',
-    progress: 65,
-    dueDate: '2026-05-15',
-    client: 'Metro Development Corp',
-  },
-  {
-    id: '2',
-    name: 'Highway Bridge Restoration',
-    type: 'Infrastructure',
-    progress: 42,
-    dueDate: '2026-06-30',
-    client: 'State Transportation Dept',
-  },
-  {
-    id: '3',
-    name: 'Residential Tower Foundation',
-    type: 'Residential',
-    progress: 15,
-    dueDate: '2026-07-20',
-    client: 'Skyline Properties',
-  },
-] */
 
 const aiAlerts = [
   {
@@ -106,38 +87,152 @@ const recentTasks = [
   { id: 3, title: 'Submit permit application', project: 'Highway Bridge Restoration', due: '2026-04-05', assignee: 'Harri Rassias' },
 ]
 
+// ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+
+type DueToggle = 'today' | 'tomorrow' | 'this_week' | 'next_week' | 'this_month' | 'next_month'
+
+const DUE_TOGGLE_LABELS: Record<DueToggle, string> = {
+  today: 'Today',
+  tomorrow: 'Tomorrow',
+  this_week: 'This Week',
+  next_week: 'Next Week',
+  this_month: 'This Month',
+  next_month: 'Next Month',
+}
+
+function formatDateForApi(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yyyy = date.getFullYear()
+  return `${dd}-${mm}-${yyyy}`
+}
+
+function midnight(d: Date): Date {
+  const c = new Date(d)
+  c.setHours(0, 0, 0, 0)
+  return c
+}
+
+function getToggleRange(option: DueToggle): { rangeStart: Date; rangeEnd: Date } {
+  const today = midnight(new Date())
+
+  switch (option) {
+    case 'today':
+      return { rangeStart: today, rangeEnd: today }
+
+    case 'tomorrow': {
+      const d = new Date(today)
+      d.setDate(d.getDate() + 1)
+      return { rangeStart: d, rangeEnd: d }
+    }
+
+    case 'this_week': {
+      const day = today.getDay() // 0 = Sun
+      const end = new Date(today)
+      end.setDate(today.getDate() + (day === 0 ? 0 : 7 - day)) // to Sunday
+      return { rangeStart: today, rangeEnd: end }
+    }
+
+    case 'next_week': {
+      const day = today.getDay()
+      const start = new Date(today)
+      start.setDate(today.getDate() + (day === 0 ? 1 : 8 - day)) // next Monday
+      const end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      return { rangeStart: start, rangeEnd: end }
+    }
+
+    case 'this_month': {
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      return { rangeStart: today, rangeEnd: end }
+    }
+
+    case 'next_month': {
+      const start = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+      const end = new Date(today.getFullYear(), today.getMonth() + 2, 0)
+      return { rangeStart: start, rangeEnd: end }
+    }
+  }
+}
+
+function formatCurrency(value: string | number | null | undefined): string {
+  const num = parseFloat(String(value ?? '0'))
+  if (isNaN(num)) return '$0'
+  return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 }).format(num)
+}
+
+function daysOverdue(dueDateStr: string | null): number {
+  if (!dueDateStr) return 0
+  const due = midnight(new Date(dueDateStr))
+  const today = midnight(new Date())
+  return Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
 function Dashboard() {
-  
-  // active projects number
+  const [dueToggle, setDueToggle] = useState<DueToggle>('this_month')
+  const [toggleOpen, setToggleOpen] = useState(false)
+
+  // ── computed dates (memoised so they don't shift on every render) ──────────
+  const { rangeStart, rangeEnd, apiDateStr } = useMemo(() => {
+    const { rangeStart, rangeEnd } = getToggleRange(dueToggle)
+    return { rangeStart, rangeEnd, apiDateStr: formatDateForApi(rangeEnd) }
+  }, [dueToggle])
+
+  const { startOfMonthStr, endOfMonthStr } = useMemo(() => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return { startOfMonthStr: formatDateForApi(start), endOfMonthStr: formatDateForApi(end) }
+  }, [])
+
+  // ── queries ────────────────────────────────────────────────────────────────
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAllProjects,
+  })
+
+  const { data: dueProjectsData } = useQuery({
+    queryKey: ['projectsDue', apiDateStr],
+    queryFn: () => projectsApi.getProjectsExpectedByDate(apiDateStr),
+  })
+
+  const { data: overdueProjectsData, isLoading: overdueLoading } = useQuery({
+    queryKey: ['overdueProjects'],
+    queryFn: projectsApi.getOverdueProjects,
+  })
+
+  const { data: overdueInvoicesData } = useQuery({
+    queryKey: ['invoicesFinish', startOfMonthStr],
+    queryFn: () => invoicesApi.getFinishedInvoices(startOfMonthStr),
+  })
+
+  const { data: expectedInvoicesData } = useQuery({
+    queryKey: ['invoicesExpected', endOfMonthStr],
+    queryFn: () => invoicesApi.getExpectedInvoices(endOfMonthStr),
+  })
+
   const { data: activeData } = useQuery({
     queryKey: ['activeCount'],
     queryFn: projectsApi.getCurrentProjectCount,
-  });
+  })
 
-  // all projects number
-  const { data: projectsData, } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAllProjects,
-  });
-  console.log("Projects Data from API:", projectsData);
-  
-  // completed projects number
-  const { data: completedCountData } = useQuery({
-    queryKey: ['completedCount'],
-    queryFn: projectsApi.getCompletedProjectCount,
-  });
-  
-  // risk projects number
-  const { data: delayedData } = useQuery({
-    queryKey: ['delayedProjects'],
-    queryFn: projectsApi.getDelayedProjects,
-  });
+  // ── derived values ──────────────────────────────────────────────────────────
+  const dueCount = useMemo(() => {
+    if (!dueProjectsData?.data) return 0
+    return dueProjectsData.data.filter(p => {
+      if (!p.due_date) return false
+      const d = midnight(new Date(p.due_date))
+      return d >= rangeStart && d <= rangeEnd
+    }).length
+  }, [dueProjectsData, rangeStart, rangeEnd])
 
-  //revenue
-
-
-  
-
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -155,15 +250,19 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
+      {/* ── Stats Row ─────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        {/* 1 — Active Projects */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Active Projects</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{activeData?.current_month ?? 0}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {projectsData?.count ?? 0}
+              </p>
               <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
-                <TrendingUp size={16} /> +2 this month
+                <TrendingUp size={16} /> {activeData?.current_month ?? 0} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -172,49 +271,167 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* 2 — Projects Due (toggle) */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Tasks</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{projectsData?.count ?? 0}</p> 
-              <p className="text-sm text-gray-500 mt-2">{completedCountData?.count ?? 0} completed</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Projects Due</p>
+                {/* Toggle dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setToggleOpen(o => !o)}
+                    className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full"
+                  >
+                    {DUE_TOGGLE_LABELS[dueToggle]}
+                    <ChevronDown size={12} />
+                  </button>
+                  {toggleOpen && (
+                    <div className="absolute left-0 top-6 z-20 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1">
+                      {(Object.keys(DUE_TOGGLE_LABELS) as DueToggle[]).map(key => (
+                        <button
+                          key={key}
+                          onClick={() => { setDueToggle(key); setToggleOpen(false) }}
+                          className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                            dueToggle === key ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          {DUE_TOGGLE_LABELS[key]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{dueCount}</p>
+              <p className="text-sm text-gray-500 mt-2">projects</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-              <CheckSquare className="text-green-600" size={24} />
+            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Calendar className="text-amber-600" size={24} />
             </div>
           </div>
         </div>
 
+        {/* 3 — Overdue Invoices (issued but unpaid >14 days) */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">At Risk Items</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{delayedData?.length ?? 0}</p>
-              <p className="text-sm text-red-600 mt-2">Requires attention</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Overdue Invoices</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {overdueInvoicesData?.count ?? 0}
+              </p>
+              <p className="text-sm text-red-600 mt-2">
+                {formatCurrency(overdueInvoicesData?.total)} outstanding
+              </p>
             </div>
             <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="text-red-600" size={24} />
+              <DollarSign className="text-red-600" size={24} />
             </div>
           </div>
         </div>
 
+        {/* 4 — Expected to Invoice This Month */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Revenue (YTD)</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">$2.4M</p>
-              <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
-                <TrendingUp size={16} /> +18% vs last year
+              <p className="text-sm text-gray-600 dark:text-gray-400">To Invoice This Month</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {expectedInvoicesData?.count ?? 0}
+              </p>
+              <p className="text-sm text-emerald-600 mt-2">
+                {formatCurrency(expectedInvoicesData?.total)} expected
               </p>
             </div>
             <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-              <DollarSign className="text-emerald-600" size={24} />
+              <FileText className="text-emerald-600" size={24} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* AI Alerts */}
+      {/* ── Overdue Projects List ──────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="text-red-600" size={18} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Overdue Projects</h2>
+            {overdueProjectsData?.data && overdueProjectsData.data.length > 0 && (
+              <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                {overdueProjectsData.data.length}
+              </span>
+            )}
+          </div>
+          <Link to="/projects/" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            View All <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {overdueLoading ? (
+          <div className="px-6 pb-6 text-sm text-gray-500">Loading…</div>
+        ) : !overdueProjectsData?.data?.length ? (
+          <div className="px-6 pb-6 flex items-center gap-2 text-sm text-green-600">
+            <CheckSquare size={16} /> No overdue projects — great work!
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {overdueProjectsData.data.map(project => (
+              <Link
+                key={project.project_id}
+                to="/projects/$projectId"
+                params={{ projectId: project.project_id }}
+                className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+              >
+                {/* Job number badge */}
+                <span className="text-xs font-mono font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded flex-shrink-0">
+                  {project.job_number}
+                </span>
+
+                {/* Project name + client */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 truncate">
+                    {project.project_name ?? 'Unnamed Project'}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{project.client_name}</p>
+                </div>
+
+                {/* Status badge */}
+                {project.status && (
+                  <span className="hidden sm:inline-flex px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
+                    {project.status}
+                  </span>
+                )}
+
+                {/* Due date + days overdue */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm text-red-600 font-medium flex items-center gap-1 justify-end">
+                    <Clock size={13} />
+                    {project.due_date ? new Date(project.due_date).toLocaleDateString('en-AU') : 'No date'}
+                  </p>
+                  <p className="text-xs text-red-500 mt-0.5">
+                    {daysOverdue(project.due_date)} days overdue
+                  </p>
+                </div>
+
+                {/* Fee */}
+                {project.fee_estimate != null && (
+                  <div className="hidden lg:block text-right flex-shrink-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(project.fee_estimate)}
+                    </p>
+                    <p className="text-xs text-gray-500">fee</p>
+                  </div>
+                )}
+
+                <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── AI Risk Alerts (unchanged) ─────────────────────────────────────────── */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -254,7 +471,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* ── Charts (unchanged) ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Project Progress Overview</h2>
@@ -289,7 +506,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Projects & Upcoming Tasks */}
+      {/* ── Recent Projects & Upcoming Tasks (unchanged) ───────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -300,7 +517,7 @@ function Dashboard() {
           </div>
           <div className="space-y-4">
             {projectsData?.data?.slice(0, 3).map((project: any) => (
-              <div key={project.project_id} className="..."> 
+              <div key={project.project_id} className="">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -310,17 +527,17 @@ function Dashboard() {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{project.client_name}</p>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                        {project.status.toUpperCase()}
+                        {project.status?.toUpperCase()}
                       </span>
                       <span className="text-gray-500 flex items-center gap-1">
-                        <Clock size={14} /> 
+                        <Clock size={14} />
                         Due {project.due_date ? new Date(project.due_date).toLocaleDateString() : 'TBD'}
                       </span>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {project.progress ?? 0}%
+                      {project.progress ?? 0}%
                     </div>
                     <div className="text-sm text-gray-500">Complete</div>
                   </div>
@@ -355,6 +572,9 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Spacer so the toggle dropdown doesn't get clipped */}
+      <div className="h-4" />
     </div>
   )
 }

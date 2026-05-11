@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouterState } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import {
   User,
@@ -11,12 +11,16 @@ import {
   Save,
   Camera,
   Upload,
+  Shield,
+  ArrowRight,
+  LayoutDashboard,
 } from 'lucide-react'
 import useAuth from '@/hooks/useAuth'
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: Settings,
 })
+
 
 const AVATAR_COLORS = [
   'bg-blue-500',
@@ -31,8 +35,10 @@ const AVATAR_COLORS = [
   'bg-cyan-500',
 ]
 
-function Settings() {
+export function Settings() {
   const { user } = useAuth()
+  const { location } = useRouterState()
+  const isAdminContext = location.pathname.startsWith('/admin')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [username, setUsername] = useState(user?.full_name || '')
@@ -349,6 +355,43 @@ function Settings() {
           ))}
         </div>
       </div>
+
+      {/* Admin Section — superusers only */}
+      {user?.is_superuser && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+              <Shield className="text-purple-600 dark:text-purple-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Administration</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Access admin tools and system settings</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            You have superuser privileges. The admin dashboard lets you manage users, roles, and system-wide configuration.
+          </p>
+          {isAdminContext ? (
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
+            >
+              <LayoutDashboard size={18} />
+              Switch to User View
+              <ArrowRight size={16} />
+            </Link>
+          ) : (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+            >
+              <Shield size={18} />
+              Go to Admin Dashboard
+              <ArrowRight size={16} />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Email Preferences Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">

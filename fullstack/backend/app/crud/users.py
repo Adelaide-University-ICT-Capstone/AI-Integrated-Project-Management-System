@@ -1,4 +1,6 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from sqlmodel import Session, col, func, select
@@ -7,7 +9,9 @@ from app.core.security import get_password_hash, verify_password
 from app.models import (
     AdminUserCreate,
     Employee,
+    EmployeeHoursDetail,
     Role,
+    TimeLog,
     User,
     UserCreate,
     UserProfile,
@@ -160,3 +164,36 @@ def delete_user_and_employee(*, session: Session, user: User) -> None:
         if employee:
             session.delete(employee)
             session.commit()
+
+
+def get_employee_hours_since(
+    *, session: Session, since: date, user_ids: list[uuid.UUID] | None = None
+) -> list[EmployeeHoursDetail]:
+    query = (
+        select(Employee, func.sum(TimeLog.hours_worked), Role.role_name)
+        .join(TimeLog, TimeLog.employee_id == Employee.id)
+        .outerjoin(Role, Employee.role_id == Role.id)
+        .where(TimeLog.log_date >= since)
+        .group_by(Employee.id, Role.role_name)
+    )
+
+    if user_ids:
+        employee_ids = session.exec(
+            select(User.employee_id)
+            .where(col(User.id).in_(user_ids))
+            .where(User.employee_id != None)
+        ).all()
+        if not employee_ids:
+            return []
+        query = query.where(col(Employee.id).in_(employee_ids))
+
+    rows = session.exec(query).all()
+    return [
+        EmployeeHoursDetail(
+            employee_id=emp.id,
+            name=emp.full_name or f"{emp.first_name} {emp.last_name}".strip(),
+            working_hours=total_hours or Decimal("0"),
+            role=role_name,
+        )
+        for emp, total_hours, role_name in rows
+    ]

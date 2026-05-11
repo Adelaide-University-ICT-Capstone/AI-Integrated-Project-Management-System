@@ -4,6 +4,7 @@ from app.crud.users import (
     create_user_with_employee,
     delete_user_and_employee,
     get_all_users_with_roles,
+    get_employee_hours_since,
     get_user_by_email,
     get_user_profile,
     get_users,
@@ -17,6 +18,8 @@ from app.crud.projects import (
     count_completed_projects,
     get_all_active_projects,
     get_delayed_projects,
+    get_overdue_projects,
+    get_projects_expected_by_date,
     get_project_manager,
     month_bounds,
     prev_month,
@@ -36,7 +39,12 @@ from app.crud.projects import (
 from app.crud.project_statuses import (
     get_status_type,
     create_status_type,
-    get_all_status_types
+    get_all_status_types,
+)
+
+from app.crud.invoices import (
+    get_finished_invoices_since,
+    get_expected_invoices_before,
 )
 
 __all__ = [
@@ -46,6 +54,7 @@ __all__ = [
     "create_user_with_employee",
     "delete_user_and_employee",
     "get_all_users_with_roles",
+    "get_employee_hours_since",
     "get_user_by_email",
     "get_user_profile",
     "get_users",
@@ -58,6 +67,8 @@ __all__ = [
     "count_completed_projects",
     "get_all_active_projects",
     "get_delayed_projects",
+    "get_overdue_projects",
+    "get_projects_expected_by_date",
     "get_project_manager",
     "month_bounds",
     "prev_month",
@@ -76,4 +87,7 @@ __all__ = [
     "get_status_type",
     "create_status_type",
     "get_all_status_types",
+    # invoices
+    "get_finished_invoices_since",
+    "get_expected_invoices_before",
 ]

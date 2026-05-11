@@ -14,8 +14,9 @@ Authorization: Bearer <access_token>
 1. [Authentication](#1-authentication)
 2. [Users](#2-users)
 3. [Projects](#3-projects)
-4. [Statuses](#4-statuses)
-5. [Utilities](#5-utilities)
+4. [Invoices](#4-invoices)
+5. [Statuses](#5-statuses)
+6. [Utilities](#6-utilities)
 
 ---
 
@@ -147,6 +148,43 @@ Retrieve a paginated list of all users.
   "count": 0
 }
 ```
+
+---
+
+### GET `/users/time_log/{date}`
+Get total working hours per employee since a given date.
+
+**Auth**: None
+
+**Path Parameters**:
+| Parameter | Type | Format | Required |
+|-----------|------|--------|----------|
+| date | string | `dd-mm-yyyy` | Yes |
+
+**Query Parameters**:
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| user_ids | UUID[] | No | Filter to specific users; omit to return all employees with logged hours |
+
+**Response** `200` — `EmployeeHoursResponse`:
+```json
+{
+  "data": [
+    {
+      "employee_id": "uuid",
+      "name": "string | null",
+      "working_hours": "decimal",
+      "role": "string | null"
+    }
+  ],
+  "count": 0
+}
+```
+
+**Error Responses**:
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid date format |
 
 ---
 
@@ -440,6 +478,54 @@ Get the count of completed projects for the current month vs the previous month.
 
 ---
 
+### GET `/projects/overdue`
+Get all active projects that are past their due date and not yet completed.
+
+**Auth**: None
+
+**Response** `200` — `ProjectDetailsResponse`:
+```json
+{
+  "data": [
+    {
+      "project_id": "uuid",
+      "job_number": "string",
+      "project_name": "string | null",
+      "company_name": "string | null",
+      "company_address": "string | null",
+      "client_name": "string | null",
+      "status": "string | null",
+      "start_date": "date | null",
+      "due_date": "date | null",
+      "days_elapsed": "integer | null",
+      "fee_estimate": "decimal | null"
+    }
+  ],
+  "count": 0
+}
+```
+
+---
+
+### GET `/projects/expected-to-finish/{date}`
+Get all active projects whose due date falls on or before the given date and are not yet completed.
+
+**Auth**: None
+
+**Path Parameters**:
+| Parameter | Type | Format | Required |
+|-----------|------|--------|----------|
+| date | string | `dd-mm-yyyy` | Yes |
+
+**Response** `200` — `ProjectDetailsResponse` (same shape as `/projects/overdue`)
+
+**Error Responses**:
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid date format |
+
+---
+
 ### GET `/projects/invoice-bill`
 Get the total invoice amounts for the current month vs the previous month.
 
@@ -547,7 +633,64 @@ Delete all projects.
 
 ---
 
-## 4. Statuses
+## 4. Invoices
+
+### GET `/invoices/finish/{date}`
+Return invoices issued since `date` that are overdue — issued more than 14 days ago and not yet paid.
+
+**Auth**: None
+
+**Path Parameters**:
+| Parameter | Type | Format | Required |
+|-----------|------|--------|----------|
+| date | string | `dd-mm-yyyy` | Yes |
+
+**Response** `200` — `InvoiceListResponse`:
+```json
+{
+  "data": [
+    {
+      "invoice_id": "uuid",
+      "project_id": "uuid",
+      "project_name": "string | null",
+      "invoice_number": "string",
+      "invoice_date": "date | null",
+      "invoice_amount": "decimal | null",
+      "paid_date": "date | null"
+    }
+  ],
+  "count": 0,
+  "total": "decimal"
+}
+```
+
+**Error Responses**:
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid date format |
+
+---
+
+### GET `/invoices/expected/{date}`
+Return invoices not yet issued (`invoice_date` is null) on active projects whose `due_date` is on or before `date`, plus the total expected value.
+
+**Auth**: None
+
+**Path Parameters**:
+| Parameter | Type | Format | Required |
+|-----------|------|--------|----------|
+| date | string | `dd-mm-yyyy` | Yes |
+
+**Response** `200` — `InvoiceListResponse` (same shape as `/invoices/finish/{date}`)
+
+**Error Responses**:
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid date format |
+
+---
+
+## 5. Statuses
 
 ### GET `/statuses`
 Get all available project status values.
@@ -561,7 +704,7 @@ Get all available project status values.
 
 ---
 
-## 5. Utilities
+## 6. Utilities
 
 ### GET `/utils/health-check/`
 Simple health check to confirm the API is running.

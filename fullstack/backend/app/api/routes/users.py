@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
@@ -9,6 +10,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     AdminUserCreate,
+    EmployeeHoursResponse,
     Message,
     UpdatePassword,
     User,
@@ -172,3 +174,17 @@ def delete_user(
         )
     crud.delete_user_and_employee(session=session, user=user)
     return Message(message="User deleted successfully")
+
+
+@router.get("/time_log/{date_str}", response_model=EmployeeHoursResponse)
+def get_employee_time_log(
+    session: SessionDep,
+    date_str: str,
+    user_ids: list[uuid.UUID] | None = Query(default=None),
+) -> Any:
+    try:
+        since = datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use dd-mm-yyyy")
+    data = crud.get_employee_hours_since(session=session, since=since, user_ids=user_ids)
+    return EmployeeHoursResponse(data=data, count=len(data))

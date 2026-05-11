@@ -1100,6 +1100,34 @@ class MonthlyInvoiceResponse(SQLModel):
     previous_month_total: Decimal
 
 
+class EmployeeHoursDetail(SQLModel):
+    employee_id: uuid.UUID
+    name: str | None = None
+    working_hours: Decimal
+    role: str | None = None
+
+
+class EmployeeHoursResponse(SQLModel):
+    data: list[EmployeeHoursDetail]
+    count: int
+
+
+class InvoiceDetail(SQLModel):
+    invoice_id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str | None = None
+    invoice_number: str
+    invoice_date: date | None = None
+    invoice_amount: Decimal | None = None
+    paid_date: date | None = None
+
+
+class InvoiceListResponse(SQLModel):
+    data: list[InvoiceDetail]
+    count: int
+    total: Decimal
+
+
 # ---------------------------------------------------------------------------
 # Generic / Auth helpers
 # ---------------------------------------------------------------------------
