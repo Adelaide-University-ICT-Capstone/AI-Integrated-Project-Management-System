@@ -8,540 +8,955 @@ export const Route = createFileRoute("/workforce")({
   component: WorkforcePage,
 })
 
-const projects = ["Project Alpha", "Project Beta", "Project Gamma"]
-
-// Gama brand palette extracted from logo
-const CYAN = "#00AEEF"
-const CYAN_DIM = "rgba(0,174,239,0.13)"
-const CYAN_BORDER = "rgba(0,174,239,0.32)"
-const GAMA_GREY = "#8a8f9a"
-
-const roleColors: Record<string, { dot: string; tag: string; text: string }> = {
-  "Frontend Developer": { dot: "#00AEEF", tag: "rgba(0,174,239,0.11)", text: "#00AEEF" },
-  "Backend Developer": { dot: "#5b8dee", tag: "rgba(91,141,238,0.11)", text: "#5b8dee" },
-  "Security Engineer": { dot: "#00d4b4", tag: "rgba(0,212,180,0.11)", text: "#00d4b4" },
-  default:             { dot: "#8a8f9a", tag: "rgba(138,143,154,0.11)", text: "#8a8f9a" },
+// ── Types ────────────────────────────────────────────────────────────────────
+interface Worker {
+  id: number
+  name: string
+  role: string
+  status?: "active" | "completed" | "available"
 }
 
-function getRoleColor(role: string) {
-  return roleColors[role] ?? roleColors["default"]
+interface ProjectWorker extends Worker {
+  assignedRole: string
 }
 
-function WorkforcePage() {
-  const [workers, setWorkers] = useState<any[]>([])
-  const [assignedWorkers, setAssignedWorkers] = useState<any[]>([])
-  const [selectedProject, setSelectedProject] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [loadingId, setLoadingId] = useState<number | null>(null)
-  const [, setTick] = useState(0)
+interface Project {
+  id: string
+  code: string
+  name: string
+  department: string
+  location: string
+  startDate: string
+  deliveryDate: string
+  progress: number
+  status: "Completed" | "In Progress" | "Planning"
+  aiInsight: { message: string; detail: string; confidence: number }
+  tasks: { name: string; progress: number }[]
+  materials: { name: string; qty: string; status: "Delivered" | "Pending" | "In Transit" }[]
+  workforce: ProjectWorker[]
+}
 
-  useEffect(() => {
-    fetchWorkers()
-    const interval = setInterval(() => setTick((t) => t + 1), 1000)
-    return () => clearInterval(interval)
-  }, [])
+// ── Mock data ─────────────────────────────────────────────────────────────────
+const MOCK_PROJECTS: Project[] = [
+  {
+    id: "PRJ-2024-003",
+    code: "PRJ-2024-003",
+    name: "Bridge Renovation Project",
+    department: "City Infrastructure Department",
+    location: "River District",
+    startDate: "Nov 1, 2023",
+    deliveryDate: "Mar 15, 2024",
+    progress: 100,
+    status: "Completed",
+    aiInsight: {
+      message: "Project Successfully Completed",
+      detail: "All phases completed on time and within budget. Excellent team performance throughout the project lifecycle.",
+      confidence: 100,
+    },
+    tasks: [
+      { name: "Planning", progress: 100 },
+      { name: "Foundation", progress: 100 },
+      { name: "Structural", progress: 100 },
+      { name: "MEP", progress: 100 },
+      { name: "Finishing", progress: 100 },
+    ],
+    materials: [
+      { name: "Steel Beams", qty: "180 tons", status: "Delivered" },
+      { name: "Concrete Mix", qty: "900 m³", status: "Delivered" },
+      { name: "Reinforcement Bars", qty: "75 tons", status: "Delivered" },
+    ],
+    workforce: [
+      { id: 1, name: "Harri Rassias", role: "Structural Engineer", assignedRole: "Structural Engineer", status: "completed" },
+      { id: 2, name: "Robert Johnson", role: "Project Manager", assignedRole: "Project Manager", status: "completed" },
+    ],
+  },
+  {
+    id: "PRJ-2024-004",
+    code: "PRJ-2024-004",
+    name: "City Park Redevelopment",
+    department: "Parks & Recreation",
+    location: "Northside",
+    startDate: "Jan 15, 2024",
+    deliveryDate: "Jun 30, 2024",
+    progress: 62,
+    status: "In Progress",
+    aiInsight: {
+      message: "On Track — Minor Risk",
+      detail: "Material deliveries running 3 days behind schedule. Recommend pre-ordering Phase 3 supplies now.",
+      confidence: 87,
+    },
+    tasks: [
+      { name: "Site Clearing", progress: 100 },
+      { name: "Landscaping", progress: 80 },
+      { name: "Pathways", progress: 55 },
+      { name: "Amenities", progress: 30 },
+      { name: "Lighting", progress: 0 },
+    ],
+    materials: [
+      { name: "Paving Stones", qty: "2,400 m²", status: "Delivered" },
+      { name: "Topsoil", qty: "340 m³", status: "In Transit" },
+      { name: "Playground Equipment", qty: "1 set", status: "Pending" },
+    ],
+    workforce: [
+      { id: 3, name: "Sarah Chen", role: "Landscape Architect", assignedRole: "Lead Designer", status: "active" },
+    ],
+  },
+]
 
-  const fetchWorkers = async () => {
-    try {
-      const data = await getWorkforce()
-      setWorkers(data)
-    } catch {
-      setWorkers([
-        { id: 1, name: "Alice", role: "Frontend Developer" },
-        { id: 2, name: "Bob", role: "Backend Developer" },
-        { id: 3, name: "Charlie", role: "Security Engineer" },
-      ])
-    } finally {
-      setLoading(false)
+// ── Nav items ─────────────────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { label: "Dashboard" },
+  { label: "Projects", active: true },
+  { label: "Task Board" },
+  { label: "Subcontractors" },
+  { label: "AI Assistant" },
+  { label: "Settings" },
+]
+
+// ── Colour helpers ────────────────────────────────────────────────────────────
+const STATUS_COLOURS: Record<string, { bg: string; text: string }> = {
+  Completed:   { bg: "#dcfce7", text: "#16a34a" },
+  "In Progress": { bg: "#dbeafe", text: "#2563eb" },
+  Planning:    { bg: "#fef9c3", text: "#ca8a04" },
+}
+
+function progressColor(pct: number) {
+  if (pct === 100) return "#22c55e"
+  if (pct >= 60)  return "#3b82f6"
+  if (pct >= 30)  return "#f59e0b"
+  return "#ef4444"
+}
+
+const AVATAR_PALETTE = [
+  "#3b82f6", "#8b5cf6", "#ec4899", "#f97316",
+  "#14b8a6", "#6366f1", "#22c55e", "#f43f5e",
+]
+
+function avatarColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length]
+}
+
+// ── Circular progress ─────────────────────────────────────────────────────────
+function CircleProgress({ pct }: { pct: number }) {
+  const r = 42
+  const circ = 2 * Math.PI * r
+  const dash = (pct / 100) * circ
+  const color = progressColor(pct)
+  return (
+    <div style={{ position: "relative", width: 96, height: 96 }}>
+      <svg width="96" height="96" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="48" cy="48" r={r} fill="none" stroke="#e5e7eb" strokeWidth="7" />
+        <circle
+          cx="48" cy="48" r={r} fill="none"
+          stroke={color} strokeWidth="7"
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color }}>{pct}%</span>
+        <span style={{ fontSize: 9, color: "#9ca3af", letterSpacing: "0.04em" }}>Overall Progress</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Workforce Allocation Modal ────────────────────────────────────────────────
+function AllocationModal({
+  workers,
+  onClose,
+  onSave,
+}: {
+  workers: ProjectWorker[]
+  onClose: () => void
+  onSave: (updated: ProjectWorker[]) => void
+}) {
+  const [rows, setRows] = useState<ProjectWorker[]>(workers)
+  const [employee, setEmployee] = useState("")
+  const [role, setRole] = useState("")
+
+  const ROLE_OPTIONS = [
+    "Project Manager", "Structural Engineer", "Frontend Developer",
+    "Backend Developer", "Security Engineer", "Site Supervisor",
+    "Landscape Architect", "MEP Engineer",
+  ]
+
+  const EMPLOYEE_OPTIONS = [
+    "Alice Martin", "Bob Chen", "Charlie Davis", "Diana Ross",
+    "Harri Rassias", "Robert Johnson", "Sarah Chen", "Marcus Lee",
+  ]
+
+  const handleAdd = () => {
+    if (!employee || !role) return
+    const newRow: ProjectWorker = {
+      id: Date.now(),
+      name: employee,
+      role,
+      assignedRole: role,
+      status: "active",
     }
+    setRows((prev) => [...prev, newRow])
+    setEmployee("")
+    setRole("")
   }
 
-  const handleAssign = async (worker: any) => {
-    if (!selectedProject) {
-      toast.error("No project selected — choose a target first")
-      return
-    }
-    try {
-      setLoadingId(worker.id)
-      await assignWorker(worker.id)
-      setAssignedWorkers((prev) => [...prev, { ...worker, project: selectedProject }])
-      toast.success(`${worker.name} routed → ${selectedProject}`)
-    } catch {
-      setAssignedWorkers((prev) => [...prev, { ...worker, project: selectedProject }])
-    } finally {
-      setLoadingId(null)
-    }
-  }
-
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString("en-AU", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  })
-  const dateStr = now.toLocaleDateString("en-AU", {
-    weekday: "short", year: "numeric", month: "short", day: "numeric",
-  })
-
-  const utilPct =
-    workers.length > 0 ? Math.round((assignedWorkers.length / workers.length) * 100) : 0
-
-  const assignedInProject = assignedWorkers.filter((w) => w.project === selectedProject)
+  const handleRemove = (id: number) => setRows((prev) => prev.filter((r) => r.id !== id))
 
   return (
     <div style={{
-      minHeight: "100vh",
-      background: "#080a10",
-      fontFamily: "'Courier New', 'Courier', monospace",
-      color: "#e2e8f0",
+      position: "fixed", inset: 0, zIndex: 50,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <div style={{
+        background: "#fff",
+        borderRadius: 12,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+        width: 480,
+        maxHeight: "80vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "24px 28px 16px" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>
+            Workforce Allocation
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>
+            Increase your team power
+          </div>
+        </div>
+
+        {/* Add row */}
+        <div style={{
+          display: "flex", gap: 10, padding: "0 28px 16px", alignItems: "center",
+        }}>
+          <select
+            value={employee}
+            onChange={(e) => setEmployee(e.target.value)}
+            style={{
+              flex: 1, padding: "9px 12px",
+              border: "1px solid #d1d5db", borderRadius: 8,
+              fontSize: 13, color: "#374151", background: "#fff",
+              outline: "none", cursor: "pointer",
+            }}
+          >
+            <option value="">Employee</option>
+            {EMPLOYEE_OPTIONS.map((e) => <option key={e}>{e}</option>)}
+          </select>
+
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            style={{
+              flex: 1, padding: "9px 12px",
+              border: "1px solid #d1d5db", borderRadius: 8,
+              fontSize: 13, color: "#374151", background: "#fff",
+              outline: "none", cursor: "pointer",
+            }}
+          >
+            <option value="">Role</option>
+            {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+          </select>
+
+          <button
+            onClick={handleAdd}
+            style={{
+              padding: "9px 20px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Add
+          </button>
+        </div>
+
+        {/* Table */}
+        <div style={{
+          borderTop: "1px solid #f3f4f6",
+          overflowY: "auto",
+          flex: 1,
+        }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f9fafb" }}>
+                <th style={{
+                  padding: "10px 28px", textAlign: "left",
+                  fontSize: 12, fontWeight: 600, color: "#6b7280",
+                  letterSpacing: "0.03em",
+                }}>
+                  Employee Name
+                </th>
+                <th style={{
+                  padding: "10px 16px", textAlign: "left",
+                  fontSize: 12, fontWeight: 600, color: "#6b7280",
+                  letterSpacing: "0.03em",
+                }}>
+                  Role
+                </th>
+                <th style={{ width: 40 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{
+                    padding: "24px 28px", color: "#9ca3af",
+                    fontSize: 13, textAlign: "center",
+                  }}>
+                    No team members assigned yet
+                  </td>
+                </tr>
+              ) : rows.map((w) => (
+                <tr key={w.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "11px 28px", fontSize: 13, color: "#374151" }}>
+                    {w.name}
+                  </td>
+                  <td style={{ padding: "11px 16px", fontSize: 13, color: "#374151" }}>
+                    {w.assignedRole}
+                  </td>
+                  <td style={{ padding: "11px 16px", textAlign: "center" }}>
+                    <button
+                      onClick={() => handleRemove(w.id)}
+                      style={{
+                        background: "none", border: "none",
+                        color: "#9ca3af", cursor: "pointer",
+                        fontSize: 16, lineHeight: 1,
+                        padding: "2px 6px",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 10,
+          padding: "16px 28px",
+          borderTop: "1px solid #f3f4f6",
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "9px 20px",
+              background: "#fff",
+              border: "1px solid #d1d5db",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#374151",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { onSave(rows); onClose() }}
+            style={{
+              padding: "9px 20px",
+              background: "#2563eb",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Project Detail View ───────────────────────────────────────────────────────
+function ProjectDetail({
+  project,
+  onBack,
+  allWorkers,
+}: {
+  project: Project
+  onBack: () => void
+  allWorkers: Worker[]
+}) {
+  const [showModal, setShowModal] = useState(false)
+  const [workforce, setWorkforce] = useState<ProjectWorker[]>(project.workforce)
+  const [activeTab, setActiveTab] = useState<"Overview" | "Resources" | "Timeline">("Overview")
+
+  const statusStyle = STATUS_COLOURS[project.status] ?? STATUS_COLOURS["Planning"]
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", background: "#f9fafb" }}>
+      {/* Back + breadcrumb */}
+      <div style={{ padding: "16px 32px 0" }}>
+        <button
+          onClick={onBack}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "none", border: "none",
+            color: "#6b7280", fontSize: 13, cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+
+      <div style={{
+        margin: "16px 32px 24px",
+        background: "#fff",
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+        overflow: "hidden",
+      }}>
+        {/* Project header */}
+        <div style={{
+          padding: "24px 28px",
+          borderBottom: "1px solid #f3f4f6",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}>
+          <div style={{ flex: 1 }}>
+            {/* Code + status badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: "#9ca3af" }}>{project.code}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600,
+                background: statusStyle.bg, color: statusStyle.text,
+                padding: "2px 10px", borderRadius: 99,
+              }}>
+                {project.status}
+              </span>
+            </div>
+
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: "0 0 14px" }}>
+              {project.name}
+            </h1>
+
+            <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+              {[
+                { text: project.department },
+                { text: project.location },
+                { text: `Start: ${project.startDate}` },
+                { text: `Delivery: ${project.deliveryDate}` },
+              ].map((m) => (
+                <span key={m.text} style={{ fontSize: 13, color: "#6b7280" }}>
+                  {m.text}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <CircleProgress pct={project.progress} />
+        </div>
+
+        {/* AI Insight banner */}
+        <div style={{
+          margin: "20px 28px",
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          borderRadius: 10,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{
+                width: 16, height: 16, borderRadius: "50%",
+                background: "#16a34a",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: "#fff", fontSize: 10, flexShrink: 0,
+              }}>✓</span>
+              <span style={{ fontWeight: 600, fontSize: 14, color: "#15803d" }}>
+                AI System Insight
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#166534" }}>
+              {project.aiInsight.message}
+            </div>
+            <div style={{ fontSize: 12, color: "#4ade80", marginTop: 3 }}>
+              {project.aiInsight.detail}
+            </div>
+          </div>
+          <span style={{
+            fontSize: 12, color: "#16a34a", fontWeight: 600,
+            background: "#dcfce7", padding: "3px 10px", borderRadius: 99, whiteSpace: "nowrap",
+          }}>
+            {project.aiInsight.confidence}% confidence
+          </span>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ padding: "0 28px", borderBottom: "1px solid #f3f4f6" }}>
+          <div style={{ display: "flex", gap: 0 }}>
+            {(["Overview", "Resources", "Timeline"] as const).map((tab) => {
+              const active = activeTab === tab
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "10px 20px",
+                    background: "none",
+                    border: "none",
+                    borderBottom: active ? "2px solid #2563eb" : "2px solid transparent",
+                    color: active ? "#2563eb" : "#6b7280",
+                    fontWeight: active ? 600 : 400,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    marginBottom: -1,
+                  }}
+                >
+                  {tab}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Tab body */}
+        <div style={{ padding: "24px 28px" }}>
+
+          {/* ── Task Workflow Progress ── */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{
+              marginBottom: 16, fontSize: 14, fontWeight: 600, color: "#374151",
+            }}>
+              Task Workflow Progress
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {project.tasks.map((task) => {
+                const color = progressColor(task.progress)
+                return (
+                  <div key={task.name}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      marginBottom: 5, fontSize: 13,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{
+                          width: 18, height: 18, borderRadius: "50%",
+                          background: task.progress === 100 ? "#22c55e" : "#e5e7eb",
+                          border: task.progress === 100 ? "none" : "2px solid #d1d5db",
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 10, color: "#fff", flexShrink: 0,
+                        }}>
+                          {task.progress === 100 ? "✓" : ""}
+                        </span>
+                        <span style={{ color: "#374151" }}>{task.name}</span>
+                      </div>
+                      <span style={{ color: "#6b7280", fontSize: 12 }}>{task.progress}%</span>
+                    </div>
+                    <div style={{
+                      height: 6, background: "#f3f4f6", borderRadius: 99, overflow: "hidden",
+                    }}>
+                      <div style={{
+                        height: "100%", width: `${task.progress}%`,
+                        background: color, borderRadius: 99,
+                        transition: "width 0.4s ease",
+                      }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Materials Status ── */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              marginBottom: 16,
+            }}>
+              <div style={{
+                fontSize: 14, fontWeight: 600, color: "#374151",
+              }}>
+                Materials Status
+              </div>
+              <button style={{
+                padding: "5px 14px", border: "1px solid #d1d5db",
+                borderRadius: 7, background: "#fff", fontSize: 12,
+                color: "#374151", cursor: "pointer",
+              }}>
+                + Add
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              {project.materials.map((mat) => {
+                const statColor = mat.status === "Delivered"
+                  ? { text: "#16a34a", bg: "#dcfce7" }
+                  : mat.status === "In Transit"
+                  ? { text: "#d97706", bg: "#fef3c7" }
+                  : { text: "#6b7280", bg: "#f3f4f6" }
+                return (
+                  <div key={mat.name} style={{
+                    flex: "1 1 180px",
+                    border: "1px solid #f3f4f6",
+                    borderRadius: 10, padding: "14px 16px",
+                    background: "#fafafa",
+                  }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: statColor.text, background: statColor.bg,
+                      display: "inline-block", padding: "2px 9px",
+                      borderRadius: 99, marginBottom: 8,
+                    }}>
+                      {mat.status}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                      {mat.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                      {mat.qty}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Workforce Allocation ── */}
+          <div>
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              marginBottom: 16,
+            }}>
+              <div style={{
+                fontSize: 14, fontWeight: 600, color: "#374151",
+              }}>
+                Workforce Allocation
+              </div>
+              <button
+                onClick={() => setShowModal(true)}
+                style={{
+                  padding: "5px 14px", border: "1px solid #d1d5db",
+                  borderRadius: 7, background: "#fff", fontSize: 12,
+                  color: "#374151", cursor: "pointer",
+                }}
+              >
+                + Add
+              </button>
+            </div>
+
+            {workforce.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#9ca3af", padding: "8px 0" }}>
+                No team members assigned. Click add to assign workers.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                {workforce.map((w) => {
+                  const color = avatarColor(w.name)
+                  return (
+                    <div key={w.id} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                    }}>
+                      <div style={{
+                        width: 44, height: 44, borderRadius: "50%",
+                        background: color, color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 16, fontWeight: 700,
+                      }}>
+                        {w.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>
+                          {w.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                          {w.assignedRole}
+                        </div>
+                        {w.status && (
+                          <div style={{
+                            fontSize: 10,
+                            color: w.status === "completed" ? "#16a34a" : "#2563eb",
+                            marginTop: 2,
+                          }}>
+                            {w.status}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showModal && (
+        <AllocationModal
+          workers={workforce}
+          onClose={() => setShowModal(false)}
+          onSave={(updated) => {
+            setWorkforce(updated)
+            toast.success("Workforce updated successfully")
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Projects List View ────────────────────────────────────────────────────────
+function ProjectsList({ onSelect }: { onSelect: (p: Project) => void }) {
+  return (
+    <div style={{ flex: 1, padding: "28px 32px", overflow: "auto", background: "#f9fafb" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>Projects</h2>
+        <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+          {MOCK_PROJECTS.length} projects total
+        </p>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {MOCK_PROJECTS.map((project) => {
+          const statusStyle = STATUS_COLOURS[project.status] ?? STATUS_COLOURS["Planning"]
+          return (
+            <div
+              key={project.id}
+              onClick={() => onSelect(project)}
+              style={{
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                padding: "20px 24px",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                transition: "box-shadow 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)"
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.boxShadow = "none"
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: "#9ca3af" }}>{project.code}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600,
+                    background: statusStyle.bg, color: statusStyle.text,
+                    padding: "2px 10px", borderRadius: 99,
+                  }}>
+                    {project.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>
+                  {project.name}
+                </div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                  {project.department} · {project.location}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: progressColor(project.progress) }}>
+                    {project.progress}%
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af" }}>Progress</div>
+                </div>
+                <span style={{ color: "#d1d5db", fontSize: 18 }}>›</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+function WorkforcePage() {
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [activeNav, setActiveNav] = useState("Projects")
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+
+  useEffect(() => {
+    getWorkforce()
+      .then(setWorkers)
+      .catch(() =>
+        setWorkers([
+          { id: 1, name: "Alice Martin", role: "Frontend Developer" },
+          { id: 2, name: "Bob Chen", role: "Backend Developer" },
+          { id: 3, name: "Charlie Davis", role: "Security Engineer" },
+        ]),
+      )
+  }, [])
+
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+      background: "#f9fafb",
+      color: "#111827",
     }}>
 
       {/* ── TOPBAR ── */}
-      <div style={{
+      <header style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "0 36px",
-        height: "80px",
-        background: "#0c0f1a",
-        borderBottom: `1px solid ${CYAN_BORDER}`,
-        boxShadow: `0 2px 24px rgba(0,174,239,0.07)`,
+        padding: "0 24px",
+        height: 56,
+        background: "#fff",
+        borderBottom: "1px solid #e5e7eb",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        flexShrink: 0,
+        zIndex: 10,
       }}>
-        {/* Logo + wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+        {/* Brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img
             src="/assets/images/gama-logo.png"
-            style={{ height: "50px", objectFit: "contain" }}
-            alt="Gama Consulting"
+            alt="GAMA Consulting"
+            style={{ height: 38, objectFit: "contain" }}
           />
-          <div style={{ width: "1px", height: "32px", background: CYAN_BORDER }} />
+          <div style={{ width: 1, height: 28, background: "#e5e7eb" }} />
           <div>
-            <div style={{
-              fontSize: "14px", letterSpacing: "0.2em",
-              color: CYAN, fontWeight: 700,
-            }}>
-              WORKFORCE
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", lineHeight: 1.2 }}>
+              GAMA Consulting
             </div>
-            <div style={{
-              fontSize: "10px", letterSpacing: "0.14em",
-              color: GAMA_GREY, marginTop: "2px",
-            }}>
-              ALLOCATION SYSTEM
-            </div>
+            <div style={{ fontSize: 10, color: "#9ca3af" }}>Project Management System</div>
           </div>
         </div>
 
-        {/* Clock + live */}
-        <div style={{ display: "flex", alignItems: "center", gap: "22px" }}>
+        {/* Title */}
+        <div style={{
+          fontSize: 14, fontWeight: 600, color: "#374151",
+          letterSpacing: "0.01em",
+        }}>
+          AI Project Management Platform
+        </div>
+
+        {/* User */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: "11px", color: GAMA_GREY }}>{dateStr}</div>
-            <div style={{
-              fontSize: "16px", color: "#e2e8f0",
-              fontWeight: 700, letterSpacing: "0.06em",
-            }}>
-              {timeStr}
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Harri Rassias</div>
+            <div style={{ fontSize: 11, color: "#9ca3af" }}>Structural Engineer</div>
           </div>
           <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            fontSize: "11px", color: CYAN, letterSpacing: "0.1em",
+            width: 34, height: 34, borderRadius: "50%",
+            background: "#2563eb",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, fontWeight: 700, color: "#fff",
           }}>
-            <span style={{
-              width: "9px", height: "9px", borderRadius: "50%",
-              background: CYAN, display: "inline-block",
-              boxShadow: `0 0 10px ${CYAN}`,
-              animation: "gcPulse 2s infinite",
-            }} />
-            LIVE
+            HR
           </div>
+          <button style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "6px 14px", border: "1px solid #e5e7eb",
+            borderRadius: 7, background: "#fff",
+            fontSize: 12, color: "#6b7280", cursor: "pointer",
+          }}>
+            Logout
+          </button>
         </div>
-      </div>
-
-      {/* ── STATS BAR ── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        borderBottom: "1px solid #141726",
-        background: "#0c0f1a",
-      }}>
-        {[
-          { label: "TOTAL WORKFORCE", value: workers.length,  sub: "members loaded",                          color: "#e2e8f0" },
-          { label: "ASSIGNED",         value: assignedWorkers.length, sub: "this session",                   color: CYAN },
-          { label: "UTILIZATION",      value: `${utilPct}%`,  sub: "of workforce",
-            color: utilPct > 80 ? "#f87171" : utilPct > 50 ? "#facc15" : CYAN },
-          { label: "ACTIVE PROJECT",
-            value: selectedProject ? selectedProject.replace("Project ", "").toUpperCase() : "—",
-            sub: selectedProject ? `${assignedInProject.length} assigned` : "none selected",
-            color: "#5b8dee" },
-        ].map((stat, i) => (
-          <div key={i} style={{
-            padding: "20px 30px",
-            borderRight: i < 3 ? "1px solid #141726" : "none",
-            position: "relative",
-          }}>
-            {i === 0 && (
-              <div style={{
-                position: "absolute", top: 0, left: 0, right: 0, height: "2px",
-                background: `linear-gradient(90deg, ${CYAN}, transparent)`,
-              }} />
-            )}
-            <div style={{
-              fontSize: "10px", color: GAMA_GREY,
-              letterSpacing: "0.14em", marginBottom: "8px",
-            }}>
-              {stat.label}
-            </div>
-            <div style={{
-              fontSize: "28px", fontWeight: 700,
-              color: stat.color, lineHeight: 1,
-            }}>
-              {stat.value}
-            </div>
-            <div style={{ fontSize: "11px", color: "#374151", marginTop: "5px" }}>
-              {stat.sub}
-            </div>
-          </div>
-        ))}
-      </div>
+      </header>
 
       {/* ── BODY ── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "290px 1fr",
-        minHeight: "calc(100vh - 150px)",
-      }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
         {/* ── SIDEBAR ── */}
-        <div style={{
-          borderRight: "1px solid #141726",
-          padding: "30px 24px",
-          background: "#0a0d16",
+        <nav style={{
+          width: 220,
+          background: "#fff",
+          borderRight: "1px solid #e5e7eb",
+          padding: "20px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          flexShrink: 0,
         }}>
-          <div style={{
-            fontSize: "10px", color: GAMA_GREY,
-            letterSpacing: "0.14em", marginBottom: "16px",
-          }}>
-            SELECT TARGET PROJECT
-          </div>
-
-          {projects.map((project) => {
-            const active = selectedProject === project
-            const count = assignedWorkers.filter((w) => w.project === project).length
+          {NAV_ITEMS.map((item) => {
+            const active = activeNav === item.label
             return (
               <button
-                key={project}
-                onClick={() => setSelectedProject(project)}
+                key={item.label}
+                onClick={() => {
+                  setActiveNav(item.label)
+                  if (item.label !== "Projects") setSelectedProject(null)
+                }}
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
                   alignItems: "center",
+                  gap: 10,
                   width: "100%",
-                  padding: "13px 18px",
-                  marginBottom: "8px",
-                  borderRadius: "7px",
-                  border: active ? `1px solid ${CYAN_BORDER}` : "1px solid #1a1f2e",
-                  background: active ? CYAN_DIM : "transparent",
+                  padding: "9px 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: active ? "#eff6ff" : "transparent",
+                  color: active ? "#2563eb" : "#6b7280",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 400,
                   cursor: "pointer",
                   textAlign: "left",
-                  transition: "all 0.15s",
-                  position: "relative",
-                  overflow: "hidden",
-                  fontFamily: "inherit",
+                  transition: "all 0.12s",
                 }}
                 onMouseEnter={(e) => {
-                  if (!active) (e.currentTarget as HTMLElement).style.background = "#111526"
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "#f9fafb"
                 }}
                 onMouseLeave={(e) => {
                   if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"
                 }}
               >
-                {/* left cyan stripe when active */}
-                {active && (
-                  <div style={{
-                    position: "absolute", left: 0, top: 0, bottom: 0,
-                    width: "3px", background: CYAN,
-                  }} />
-                )}
-                <div style={{
-                  fontSize: "13px",
-                  color: active ? CYAN : "#c9d1d9",
-                  fontWeight: active ? 700 : 400,
-                  letterSpacing: "0.07em",
-                }}>
-                  {active ? "▶ " : "  "}{project.toUpperCase()}
-                </div>
-                {count > 0 && (
-                  <span style={{
-                    fontSize: "11px",
-                    background: CYAN_DIM,
-                    color: CYAN,
-                    padding: "2px 10px",
-                    borderRadius: "4px",
-                    border: `1px solid ${CYAN_BORDER}`,
-                  }}>
-                    {count}
-                  </span>
-                )}
+                {item.label}
               </button>
             )
           })}
+        </nav>
 
-          {/* Role legend */}
-          <div style={{
-            marginTop: "36px", paddingTop: "24px",
-            borderTop: "1px solid #141726",
-          }}>
-            <div style={{
-              fontSize: "10px", color: GAMA_GREY,
-              letterSpacing: "0.14em", marginBottom: "14px",
-            }}>
-              ROLE INDEX
-            </div>
-            {Object.entries(roleColors)
-              .filter(([k]) => k !== "default")
-              .map(([role, colors]) => (
-                <div key={role} style={{
-                  display: "flex", alignItems: "center",
-                  gap: "10px", marginBottom: "11px",
-                }}>
-                  <span style={{
-                    width: "7px", height: "7px", borderRadius: "50%",
-                    background: colors.dot, flexShrink: 0,
-                    boxShadow: `0 0 6px ${colors.dot}`,
-                  }} />
-                  <span style={{ fontSize: "12px", color: "#9ca3af" }}>{role}</span>
-                </div>
-              ))}
-          </div>
-
-          {/* Faded logo watermark */}
-          <div style={{ marginTop: "40px", textAlign: "center", opacity: 0.18 }}>
-            <img
-              src="/assets/images/gama-logo.png"
-              style={{ width: "100px", objectFit: "contain", filter: "grayscale(1)" }}
-              alt=""
+        {/* ── CONTENT ── */}
+        {activeNav === "Projects" ? (
+          selectedProject ? (
+            <ProjectDetail
+              project={selectedProject}
+              onBack={() => setSelectedProject(null)}
+              allWorkers={workers}
             />
+          ) : (
+            <ProjectsList onSelect={setSelectedProject} />
+          )
+        ) : (
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#9ca3af", fontSize: 14,
+          }}>
+            {activeNav} — coming soon
           </div>
-        </div>
-
-        {/* ── RIGHT PANEL ── */}
-        <div style={{ padding: "30px 40px", display: "flex", flexDirection: "column", gap: "32px" }}>
-
-          {/* Available Workers */}
-          <div>
-            {/* Section header */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: "14px",
-              marginBottom: "18px",
-            }}>
-              <div style={{
-                fontSize: "10px", color: GAMA_GREY, letterSpacing: "0.14em",
-              }}>
-                AVAILABLE WORKERS
-              </div>
-              <div style={{
-                flex: 1, height: "1px",
-                background: "linear-gradient(90deg, #1a1f2e, transparent)",
-              }} />
-              <div style={{
-                fontSize: "11px", color: CYAN,
-                background: CYAN_DIM,
-                border: `1px solid ${CYAN_BORDER}`,
-                padding: "3px 12px", borderRadius: "4px",
-              }}>
-                {workers.length} MEMBERS
-              </div>
-            </div>
-
-            {loading ? (
-              <div style={{ fontSize: "13px", color: GAMA_GREY, letterSpacing: "0.1em" }}>
-                FETCHING ROSTER...
-              </div>
-            ) : workers.length === 0 ? (
-              <div style={{ fontSize: "13px", color: "#374151", letterSpacing: "0.1em" }}>
-                NO WORKERS FOUND
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {workers.map((worker) => {
-                  const colors = getRoleColor(worker.role)
-                  return (
-                    <div
-                      key={worker.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "16px 22px",
-                        borderRadius: "8px",
-                        border: "1px solid #1a1f2e",
-                        background: "#0c0f1a",
-                        transition: "border-color 0.15s, box-shadow 0.15s",
-                        cursor: "default",
-                      }}
-                      onMouseEnter={(e) => {
-                        const el = e.currentTarget as HTMLElement
-                        el.style.borderColor = CYAN_BORDER
-                        el.style.boxShadow = `0 0 18px rgba(0,174,239,0.07)`
-                      }}
-                      onMouseLeave={(e) => {
-                        const el = e.currentTarget as HTMLElement
-                        el.style.borderColor = "#1a1f2e"
-                        el.style.boxShadow = "none"
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                        {/* Avatar circle */}
-                        <div style={{
-                          width: "40px", height: "40px", borderRadius: "50%",
-                          border: `1px solid ${colors.dot}`,
-                          background: colors.tag,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "15px", fontWeight: 700, color: colors.dot,
-                          flexShrink: 0,
-                        }}>
-                          {worker.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{
-                            fontSize: "16px", color: "#f1f5f9",
-                            fontWeight: 600, marginBottom: "5px",
-                          }}>
-                            {worker.name}
-                          </div>
-                          <div style={{
-                            fontSize: "11px", color: colors.text,
-                            background: colors.tag,
-                            display: "inline-block",
-                            padding: "2px 10px", borderRadius: "3px",
-                            letterSpacing: "0.05em",
-                          }}>
-                            {worker.role.toUpperCase()}
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleAssign(worker)}
-                        disabled={loadingId === worker.id}
-                        style={{
-                          fontSize: "12px",
-                          padding: "10px 24px",
-                          borderRadius: "6px",
-                          border: `1px solid ${CYAN_BORDER}`,
-                          background: CYAN_DIM,
-                          color: CYAN,
-                          cursor: loadingId === worker.id ? "wait" : "pointer",
-                          letterSpacing: "0.1em",
-                          fontFamily: "inherit",
-                          fontWeight: 700,
-                          transition: "all 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          const el = e.currentTarget as HTMLElement
-                          el.style.background = "rgba(0,174,239,0.26)"
-                          el.style.boxShadow = `0 0 14px rgba(0,174,239,0.2)`
-                        }}
-                        onMouseLeave={(e) => {
-                          const el = e.currentTarget as HTMLElement
-                          el.style.background = CYAN_DIM
-                          el.style.boxShadow = "none"
-                        }}
-                      >
-                        {loadingId === worker.id ? "ROUTING..." : "ASSIGN →"}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Assigned Roster */}
-          <div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: "14px",
-              marginBottom: "18px",
-            }}>
-              <div style={{
-                fontSize: "10px", color: GAMA_GREY, letterSpacing: "0.14em",
-              }}>
-                ASSIGNED ROSTER
-                {selectedProject ? ` // ${selectedProject.toUpperCase()}` : " // ALL PROJECTS"}
-              </div>
-              <div style={{
-                flex: 1, height: "1px",
-                background: "linear-gradient(90deg, #1a1f2e, transparent)",
-              }} />
-            </div>
-
-            {assignedWorkers.length === 0 ? (
-              <div style={{
-                fontSize: "13px", color: "#2d3748",
-                letterSpacing: "0.08em", padding: "28px 0",
-                borderTop: "1px dashed #141726",
-              }}>
-                NO ASSIGNMENTS YET — SELECT A PROJECT AND ASSIGN A WORKER
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {assignedWorkers.map((w, i) => {
-                  const colors = getRoleColor(w.role)
-                  return (
-                    <div key={i} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "13px 22px",
-                      borderRadius: "7px",
-                      border: "1px solid #141726",
-                      background: "#090c15",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                        <div style={{
-                          width: "34px", height: "34px", borderRadius: "50%",
-                          border: `1px solid ${colors.dot}`,
-                          background: colors.tag,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "13px", fontWeight: 700, color: colors.dot,
-                          flexShrink: 0,
-                        }}>
-                          {w.name?.charAt(0)}
-                        </div>
-                        <span style={{ fontSize: "15px", color: "#d1d5db", fontWeight: 600 }}>
-                          {w.name}
-                        </span>
-                        <span style={{
-                          fontSize: "11px", color: colors.text,
-                          background: colors.tag,
-                          padding: "2px 9px", borderRadius: "3px",
-                        }}>
-                          {w.role?.toUpperCase()}
-                        </span>
-                      </div>
-                      <div style={{
-                        fontSize: "11px", color: "#5b8dee",
-                        background: "rgba(91,141,238,0.1)",
-                        border: "1px solid rgba(91,141,238,0.25)",
-                        padding: "4px 14px", borderRadius: "4px",
-                        letterSpacing: "0.06em",
-                      }}>
-                        {w.project.toUpperCase()}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
+        )}
       </div>
-
-      <style>{`
-        @keyframes gcPulse {
-          0%, 100% { opacity: 1; box-shadow: 0 0 10px #00AEEF; }
-          50%       { opacity: 0.25; box-shadow: none; }
-        }
-      `}</style>
     </div>
   )
 }
