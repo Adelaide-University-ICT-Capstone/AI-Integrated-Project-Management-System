@@ -50,16 +50,124 @@ const getDueDateLabel = (dueDate: string | undefined, status: string) => {
   return null
 }
 
+
+
+
+
+/* const _projectsData = [
+  {
+    id: '1',
+    jobNumber: 'PRJ-2024-001',
+    name: 'High-Rise Commercial Tower',
+    client: 'Metropolis Development Corp',
+    agent: 'Sarah Chen',
+    contact: '+1 (555) 123-4567',
+    location: 'Downtown District, Metro City',
+    suburb: 'Downtown',
+    lotNo: 'Lot 45, 123 Main St',
+    dateReceived: '2024-01-15',
+    status: 'In Progress',
+    feeEstimate: '$450,000',
+    progress: 65,
+    daysElapsed: 80,
+  },
+  {
+    id: '2',
+    jobNumber: 'PRJ-2024-002',
+    name: 'Residential Complex Phase 2',
+    client: 'GreenHaven Properties',
+    agent: 'James Liu',
+    contact: '+1 (555) 234-5678',
+    location: 'Westside, Metro City',
+    suburb: 'Westside',
+    lotNo: 'Lot 12-15, 456 Oak Ave',
+    dateReceived: '2024-02-01',
+    status: 'In Progress',
+    feeEstimate: '$320,000',
+    progress: 42,
+    daysElapsed: 64,
+  },
+  {
+    id: '3',
+    jobNumber: 'PRJ-2024-003',
+    name: 'Bridge Renovation Project',
+    client: 'City Infrastructure Department',
+    agent: 'Robert Johnson',
+    contact: '+1 (555) 345-6789',
+    location: 'River District',
+    suburb: 'River District',
+    lotNo: 'N/A',
+    dateReceived: '2023-11-01',
+    status: 'Done',
+    feeEstimate: '$280,000',
+    progress: 100,
+    daysElapsed: 156,
+  },
+  {
+    id: '4',
+    jobNumber: 'PRJ-2024-004',
+    name: 'Shopping Mall Expansion',
+    client: 'Retail Ventures Inc',
+    agent: 'Emily Watson',
+    contact: '+1 (555) 456-7890',
+    location: 'North Plaza',
+    suburb: 'North District',
+    lotNo: 'Lot 88, 789 Commerce Blvd',
+    dateReceived: '2024-03-20',
+    status: 'To Be Started',
+    feeEstimate: '$580,000',
+    progress: 0,
+    daysElapsed: 16,
+  },
+  {
+    id: '5',
+    jobNumber: 'PRJ-2024-005',
+    name: 'University Science Building',
+    client: 'State University',
+    agent: 'Michael Torres',
+    contact: '+1 (555) 567-8901',
+    location: 'University Campus',
+    suburb: 'Campus District',
+    lotNo: 'Building Site 4',
+    dateReceived: '2024-03-15',
+    status: 'To Be Started',
+    feeEstimate: '$720,000',
+    progress: 0,
+    daysElapsed: 21,
+  },
+  {
+    id: '6',
+    jobNumber: 'PRJ-2023-012',
+    name: 'Parking Structure Downtown',
+    client: 'City Development Authority',
+    agent: 'Anna Rodriguez',
+    contact: '+1 (555) 678-9012',
+    location: 'Central Business District',
+    suburb: 'Downtown',
+    lotNo: 'Lot 22, 321 Park St',
+    dateReceived: '2023-09-10',
+    status: 'Done',
+    feeEstimate: '$380,000',
+    progress: 100,
+    daysElapsed: 208,
+  },
+] */
+
+
+const IN_PROGRESS_STATUSES = ['prelim', 'proposal', 'design & doc', 'amendment', 'hold']
+const TO_BE_INVOICED_STATUSES = ['to be invoiced']
+const COMPLETED_STATUSES = ['completed & invoiced', 'Eng/QA Review', 'construction']
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'prelim':
     case 'proposal':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
     case 'design & doc':
     case 'amendment':
     case 'hold':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'      
     case 'to be invoiced':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
     case 'completed & invoiced':
     case 'Eng/QA Review':
     case 'construction':
@@ -161,10 +269,10 @@ function Projects() {
     queryKey: ['projects'],
     queryFn: projectsApi.getAllProjects,
   });
-
-  const toBeStarted = projectsData?.data.filter((p) => p.status === 'prelim' || p.status === 'proposal') || []
-  const inProgress = projectsData?.data.filter((p) => p.status !== 'prelim' && p.status !== 'completed & invoiced' && p.status !== 'to be invoiced' && p.status !== 'proposal') || []
-  const done = projectsData?.data.filter((p) => p.status === 'completed & invoiced' || p.status === 'to be invoiced') || []
+    
+  const inProgress = projectsData?.data.filter((p) => IN_PROGRESS_STATUSES.includes(p.status)) || []
+  const toBeInvoiced = projectsData?.data.filter((p) => TO_BE_INVOICED_STATUSES.includes(p.status)) || []
+  const completed = projectsData?.data.filter((p) => COMPLETED_STATUSES.includes(p.status)) || []
 
   return (
     <div className="space-y-6">
@@ -187,28 +295,28 @@ function Projects() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border-2 border-yellow-200 dark:border-yellow-800 p-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-yellow-900 dark:text-yellow-400">To Be Started</h3>
+            <h3 className="font-semibold text-yellow-900 dark:text-yellow-400">In Progress</h3>
             <Circle className="text-yellow-600 dark:text-yellow-400" size={24} />
           </div>
-          <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-400">{toBeStarted.length}</p>
+          <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-400">{inProgress.length}</p>
           <p className="text-sm text-yellow-700 dark:text-yellow-500 mt-1">projects pending</p>
         </div>
 
         <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl border-2 border-blue-200 dark:border-blue-800 p-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-400">In Progress</h3>
+            <h3 className="font-semibold text-blue-900 dark:text-blue-400">To Be Invoiced</h3>
             <TrendingUp className="text-blue-600 dark:text-blue-400" size={24} />
           </div>
-          <p className="text-3xl font-bold text-blue-900 dark:text-blue-400">{inProgress.length}</p>
-          <p className="text-sm text-blue-700 dark:text-blue-500 mt-1">active projects</p>
+          <p className="text-3xl font-bold text-blue-900 dark:text-blue-400">{toBeInvoiced.length}</p>
+          <p className="text-sm text-blue-700 dark:text-blue-500 mt-1">projects to be invoiced</p>
         </div>
 
         <div className="bg-green-50 dark:bg-green-900/10 rounded-xl border-2 border-green-200 dark:border-green-800 p-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-green-900 dark:text-green-400">Done</h3>
+            <h3 className="font-semibold text-green-900 dark:text-green-400">Completed</h3>
             <CheckCircle2 className="text-green-600 dark:text-green-400" size={24} />
           </div>
-          <p className="text-3xl font-bold text-green-900 dark:text-green-400">{done.length}</p>
+          <p className="text-3xl font-bold text-green-900 dark:text-green-400">{completed.length}</p>
           <p className="text-sm text-green-700 dark:text-green-500 mt-1">completed projects</p>
         </div>
       </div>
@@ -217,12 +325,12 @@ function Projects() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">To Be Started</h2>
-            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({toBeStarted.length})</span>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">In Progress</h2>
+            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({inProgress.length})</span>
           </div>
           <div className="space-y-4">
-            {toBeStarted.length > 0 ? (
-              toBeStarted.map((project) => <ProjectCard key={project.job_number} project={project} />)
+            {inProgress.length > 0 ? (
+              inProgress.map((project) => <ProjectCard key={project.job_number} project={project} />)
             ) : (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <Circle size={48} className="mx-auto mb-4 text-gray-300" />
@@ -235,12 +343,12 @@ function Projects() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-3 h-3 bg-blue-500 rounded-full" />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">In Progress</h2>
-            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({inProgress.length})</span>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">To be Invoiced</h2>
+            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({toBeInvoiced.length})</span>
           </div>
           <div className="space-y-4">
-            {inProgress.length > 0 ? (
-              inProgress.map((project) => <ProjectCard key={project.project_id} project={project} />)
+            {toBeInvoiced.length > 0 ? (
+              toBeInvoiced.map((project) => <ProjectCard key={project.project_id} project={project} />)
             ) : (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <TrendingUp size={48} className="mx-auto mb-4 text-gray-300" />
@@ -253,12 +361,12 @@ function Projects() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-3 h-3 bg-green-500 rounded-full" />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Done</h2>
-            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({done.length})</span>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Completed</h2>
+            <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">({completed.length})</span>
           </div>
           <div className="space-y-4">
-            {done.length > 0 ? (
-              done.map((project) => <ProjectCard key={project.project_id} project={project} />)
+            {completed.length > 0 ? (
+              completed.map((project) => <ProjectCard key={project.project_id} project={project} />)
             ) : (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <CheckCircle2 size={48} className="mx-auto mb-4 text-gray-300" />

@@ -168,6 +168,7 @@ def upgrade():
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('employee_id', sa.Uuid(), nullable=True),
     sa.Column('subcontractor_id', sa.Uuid(), nullable=True),
+    sa.Column('role_id', sa.Uuid(), nullable=True),
     sa.Column('allocation_notes', sa.Text(), nullable=True),
     sa.Column('actual_hours', sa.Numeric(precision=8, scale=2), nullable=True),
     sa.Column('start_date', sa.Date(), nullable=True),
@@ -178,6 +179,7 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
     sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
     sa.ForeignKeyConstraint(['subcontractor_id'], ['subcontractors.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
