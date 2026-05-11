@@ -43,6 +43,7 @@ const useAuth = () => {
       formData: data,
     })
     localStorage.setItem("access_token", response.access_token)
+    console.log("Login successful, access token stored in localStorage")
   }
 
   const loginMutation = useMutation({

@@ -149,9 +149,13 @@ function ProjectDetails() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
+        const token = localStorage.getItem('access_token')
         const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
         })
         const result = await response.json()
         if (!response.ok) {
@@ -196,7 +200,12 @@ function ProjectDetails() {
     if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
       setProject(null)
       try {
-        fetch(`${baseUrl}/api/v1/projects/${projectId}`, { method: 'DELETE' })
+        fetch(`${baseUrl}/api/v1/projects/${projectId}`, { 
+          method: 'DELETE', 
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}` 
+          }
+        })
         toast.success('Project deleted successfully')
         navigate({ to: '/projects/' })
       } catch (error) {
@@ -210,8 +219,12 @@ function ProjectDetails() {
     try {
       const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
         body: JSON.stringify({ status: newStatus }),
+        credentials: 'include',
       })
       const result = await response.json()
       if (!response.ok) {

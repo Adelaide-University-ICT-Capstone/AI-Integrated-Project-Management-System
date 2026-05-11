@@ -290,10 +290,19 @@ function NewProject() {
       // TODO: send to backend once API supports them
     }
 
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('You must be logged in to create a project')
+      return
+    }
+
     try {
       const response = await fetch(`${baseUrl}/api/v1/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify(payload),
       })
       const result = await response.json()
