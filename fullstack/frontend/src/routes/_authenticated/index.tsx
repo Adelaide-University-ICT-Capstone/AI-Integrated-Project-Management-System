@@ -29,7 +29,7 @@ import { projectsApi } from "../../api/project"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
-export const Route = createFileRoute('/_layout/')({
+export const Route = createFileRoute('/_authenticated/')({
   component: Dashboard,
 })
 
@@ -49,7 +49,7 @@ const taskStatusData = [
   { name: 'Overdue', value: 5, color: '#ef4444' },
 ]
 
-const recentProjects = [
+/* const _recentProjects = [
   {
     id: '1',
     name: 'Downtown Office Complex',
@@ -74,7 +74,7 @@ const recentProjects = [
     dueDate: '2026-07-20',
     client: 'Skyline Properties',
   },
-]
+] */
 
 const aiAlerts = [
   {
@@ -294,7 +294,7 @@ function Dashboard() {
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent Projects</h2>
-            <Link to="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            <Link to="/projects/" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
               View All <ArrowRight size={16} />
             </Link>
           </div>

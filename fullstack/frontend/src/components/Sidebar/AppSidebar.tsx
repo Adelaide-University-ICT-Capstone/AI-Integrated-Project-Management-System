@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router"
 import {
   Home,
   FolderKanban,
@@ -5,9 +6,9 @@ import {
   Bot,
   Settings,
   Users,
-  PlusCircle,
   BarChart2,
   Wrench,
+  Briefcase
 } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
@@ -31,12 +32,18 @@ const baseItems: Item[] = [
   { icon: Settings, title: "Settings", path: "/settings" },
 ]
 
+const adminItems: Item[] = [
+  { icon: Briefcase, title: "Projects", path: "/admin" },
+  { icon: Users, title: "People", path: "/admin/people" },
+  { icon: Settings, title: "Setting", path: "/admin/settings" },
+
+]
+
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
-
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
-    : baseItems
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isAdminSection = pathname.startsWith("/admin")
+  const items = isAdminSection ? adminItems : baseItems
 
   return (
     <Sidebar collapsible="icon">

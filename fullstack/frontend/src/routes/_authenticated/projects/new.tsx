@@ -16,13 +16,13 @@ const baseUrl = import.meta.env.VITE_API_URL;
 import { toast } from "react-toastify";
 
 
-export const Route = createFileRoute('/_layout/projects/new')({
+export const Route = createFileRoute('/_authenticated/projects/new')({
   component: NewProject,
 })
 
 function NewProject() {
   const navigate = useNavigate()
-  const [submissionError, setSubmissionError] = useState('')
+  const [, setSubmissionError] = useState('')
   const [formData, setFormData] = useState({
     jobNumber: '',
     client: '',
@@ -109,7 +109,7 @@ function NewProject() {
       }
 
       toast.success("Project created successfully");
-      navigate({ to: '/projects' })
+      navigate({ to: '/projects/' })
     } catch (error) {
       setSubmissionError('Unable to reach the backend. Please try again later.')
     }
@@ -120,7 +120,7 @@ function NewProject() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate({ to: '/projects' })}
+          onClick={() => navigate({ to: '/projects/' })}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />
@@ -402,7 +402,7 @@ function NewProject() {
           <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
-              onClick={() => navigate({ to: '/projects' })}
+              onClick={() => navigate({ to: '/projects/' })}
               className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel

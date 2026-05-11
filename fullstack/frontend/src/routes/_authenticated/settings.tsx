@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import useAuth from '@/hooks/useAuth'
 
-export const Route = createFileRoute('/_layout/settings')({
+export const Route = createFileRoute('/_authenticated/settings')({
   component: Settings,
 })
 

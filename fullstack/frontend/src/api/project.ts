@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { get } from 'node:http';
 
 const baseUrl = import.meta.env.VITE_API_URL;
 

@@ -79,6 +79,17 @@ export type UserPublic = {
     created_at?: (string | null);
 };
 
+export type UserProfile = {
+    id: string;
+    email: string;
+    is_superuser: boolean;
+    is_active: boolean;
+    first_name?: (string | null);
+    last_name?: (string | null);
+    full_name?: (string | null);
+    role_name?: (string | null);
+};
+
 export type UserRegister = {
     email: string;
     password: string;
@@ -190,7 +201,7 @@ export type UsersCreateUserData = {
 
 export type UsersCreateUserResponse = (UserPublic);
 
-export type UsersReadUserMeResponse = (UserPublic);
+export type UsersReadUserMeResponse = (UserProfile);
 
 export type UsersDeleteUserMeResponse = (Message);
 

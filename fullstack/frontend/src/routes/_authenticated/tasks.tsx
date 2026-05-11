@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export const Route = createFileRoute('/_layout/tasks')({
+export const Route = createFileRoute('/_authenticated/tasks')({
   component: TaskBoard,
 })
 

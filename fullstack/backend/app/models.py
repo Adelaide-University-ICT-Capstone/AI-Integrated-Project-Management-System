@@ -45,6 +45,7 @@ class Role(RoleBase, table=True):
     )
     employees: list["Employee"] = Relationship(back_populates="role")
     subcontractors: list["Subcontractor"] = Relationship(back_populates="role")
+    project_assignments: list["ProjectAssignment"] = Relationship(back_populates="role")
 
 
 class RolePublic(RoleBase):
@@ -304,8 +305,9 @@ class UserCreate(UserBase):
 
 class AdminUserCreate(SQLModel):
     email: EmailStr = Field(max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
     password: str = Field(min_length=8, max_length=128)
-    role_name: str | None = Field(default=None, max_length=100)
+    is_superuser: bool = False
 
 
 class UserRegister(SQLModel):
@@ -625,6 +627,7 @@ class ProjectAssignmentBase(SQLModel):
     project_id: uuid.UUID = Field(foreign_key="projects.id")
     employee_id: uuid.UUID | None = Field(default=None, foreign_key="employees.id")
     subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
+    role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
     allocation_notes: str | None = Field(default=None, sa_type=Text)
     actual_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
     start_date: date | None = None
@@ -640,6 +643,7 @@ class ProjectAssignmentCreate(ProjectAssignmentBase):
 class ProjectAssignmentUpdate(SQLModel):
     employee_id: uuid.UUID | None = None
     subcontractor_id: uuid.UUID | None = None
+    role_id: uuid.UUID | None = None
     allocation_notes: str | None = None
     actual_hours: Decimal | None = None
     start_date: date | None = None
@@ -659,11 +663,13 @@ class ProjectAssignment(ProjectAssignmentBase, table=True):
     project: Project | None = Relationship(back_populates="assignments")
     employee: Employee | None = Relationship(back_populates="project_assignments")
     subcontractor: Subcontractor | None = Relationship(back_populates="project_assignments")
+    role: Role | None = Relationship(back_populates="project_assignments")
 
 
 class ProjectAssignmentPublic(ProjectAssignmentBase):
     id: uuid.UUID
     created_at: datetime | None = None
+    role_name: str | None = None
 
 
 class ProjectAssignmentsPublic(SQLModel):

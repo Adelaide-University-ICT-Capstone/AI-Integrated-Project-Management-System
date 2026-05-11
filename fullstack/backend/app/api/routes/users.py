@@ -2,7 +2,6 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
@@ -11,7 +10,6 @@ from app.core.security import get_password_hash, verify_password
 from app.models import (
     AdminUserCreate,
     Message,
-    Role,
     UpdatePassword,
     User,
     UserDetail,
@@ -63,17 +61,7 @@ def create_user(*, session: SessionDep, user_in: AdminUserCreate) -> Any:
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
-    role_id = None
-    if user_in.role_name:
-        role = session.exec(select(Role).where(Role.role_name == user_in.role_name)).first()
-        if not role:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Role '{user_in.role_name}' not found.",
-            )
-        role_id = role.id
-
-    user = crud.create_user_with_employee(session=session, user_in=user_in, role_id=role_id)
+    user = crud.create_user_with_employee(session=session, user_in=user_in)
 
     if settings.emails_enabled and user_in.email:
         email_data = generate_new_account_email(

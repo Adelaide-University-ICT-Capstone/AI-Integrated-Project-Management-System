@@ -2,24 +2,24 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
+import { Toaster } from "@/components/ui/sonner"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { isLoggedIn } from "@/hooks/useAuth"
-import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 
-export const Route = createFileRoute("/_layout")({
+export const Route = createFileRoute("/_authenticated")({
   component: Layout,
   beforeLoad: async () => {
-    //if (!isLoggedIn()) {
-    //  throw redirect({
-    //    to: "/login",
-    //  })
-  //  }
+    if (!isLoggedIn()) {
+     throw redirect({
+       to: "/login",
+     })
+   }
   },
 })
 
@@ -28,7 +28,7 @@ function Layout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <ToastContainer position="top-right" />
+        <Toaster />
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
         </header>

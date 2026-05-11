@@ -22,13 +22,13 @@ import { projectsApi } from "../../../api/project";
 import { useQuery } from '@tanstack/react-query';
 
 
-export const Route = createFileRoute('/_layout/projects/$projectId')({
+export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
 })
 
 
 
-const PROJECT_STATUSES = [
+/* const _PROJECT_STATUSES = [
   'Proposal',
   'Prelim',
   'Design & Doc',
@@ -38,9 +38,9 @@ const PROJECT_STATUSES = [
   'Completed & Invoiced',
   'Eng/QA Review',
   'Construction',
-]
+] */
 
-const projectsData = {
+/* const projectsData = {
   '1': {
     job_number: 'PRJ-2024-001',
     project_name: 'High-Rise Commercial Tower',
@@ -237,7 +237,7 @@ const projectsData = {
     { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'completed', color: 'bg-blue-500' },
   ],
 },
-}
+} */
 
 type Project = {
   job_number: string
@@ -282,14 +282,14 @@ const taskProjectFields = {
 }
 
 
-const getStatusBadgeColor = (status: string) => {
+/* const getStatusBadgeColor = (status: string) => {
   switch (status.toLowerCase()) {
     case 'on track': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
     case 'at risk': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
     case 'completed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
     default: return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
   }
-}
+} */
 
 const getMaterialStatusColor = (status: string) => {
   switch (status) {
@@ -366,7 +366,7 @@ function ProjectDetails() {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Project Not Found</h2>
         <button
-          onClick={() => navigate({ to: '/projects' })}
+          onClick={() => navigate({ to: '/projects/' })}
           className="text-blue-600 dark:text-blue-400 hover:underline"
         >
           Return to Projects
@@ -387,7 +387,7 @@ function ProjectDetails() {
           method: 'DELETE',
         });
         toast.success('Project deleted successfully');
-        navigate({ to: '/projects' });
+        navigate({ to: '/projects/' });
       } catch (error) {
         console.error('Error deleting project:', error);
         toast.error('Network error');
@@ -429,7 +429,7 @@ function ProjectDetails() {
       {/* Header Bar */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate({ to: '/projects' })}
+          onClick={() => navigate({ to: '/projects/' })}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />

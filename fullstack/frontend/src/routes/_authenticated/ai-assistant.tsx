@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Send, Bot, User, Sparkles, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
 
-export const Route = createFileRoute('/_layout/ai-assistant')({
+export const Route = createFileRoute('/_authenticated/ai-assistant')({
   component: AIChatbot,
 })
 

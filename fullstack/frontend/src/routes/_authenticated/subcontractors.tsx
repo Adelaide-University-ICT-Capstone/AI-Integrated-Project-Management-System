@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export const Route = createFileRoute('/_layout/subcontractors')({
+export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
 })
 
