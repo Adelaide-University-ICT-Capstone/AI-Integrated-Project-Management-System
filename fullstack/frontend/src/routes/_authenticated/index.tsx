@@ -30,6 +30,7 @@ import {
 import { useQuery } from "@tanstack/react-query"
 import { projectsApi } from "../../api/project"
 import { invoicesApi } from "../../api/invoices"
+import { usersApi } from "../../api/users"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -178,6 +179,32 @@ function Dashboard() {
   const [dueToggle, setDueToggle] = useState<DueToggle>('this_month')
   const [toggleOpen, setToggleOpen] = useState(false)
 
+  type HoursFilter = 'all_time' | 'this_week' | 'this_month'
+  const [hoursFilter, setHoursFilter] = useState<HoursFilter>('this_month')
+
+  const HOURS_FILTER_LABELS: Record<HoursFilter, string> = {
+    all_time: 'All Time',
+    this_week: 'This Week',
+    this_month: 'This Month',
+  }
+
+  // ── computed since-date for hours filter ────────────────────────────────────
+  const hoursSinceStr = useMemo(() => {
+    const now = new Date()
+    if (hoursFilter === 'this_month') {
+      return formatDateForApi(new Date(now.getFullYear(), now.getMonth(), 1))
+    }
+    if (hoursFilter === 'this_week') {
+      const day = now.getDay() // 0 = Sun
+      const monday = new Date(now)
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+      monday.setHours(0, 0, 0, 0)
+      return formatDateForApi(monday)
+    }
+    // all_time — far enough back to catch everything
+    return '01-01-2000'
+  }, [hoursFilter])
+
   // ── computed dates (memoised so they don't shift on every render) ──────────
   const { rangeStart, rangeEnd, apiDateStr } = useMemo(() => {
     const { rangeStart, rangeEnd } = getToggleRange(dueToggle)
@@ -220,6 +247,11 @@ function Dashboard() {
   const { data: activeData } = useQuery({
     queryKey: ['activeCount'],
     queryFn: projectsApi.getCurrentProjectCount,
+  })
+
+  const { data: employeeHoursData, isLoading: hoursLoading } = useQuery({
+    queryKey: ['employeeHours', hoursSinceStr],
+    queryFn: () => usersApi.getEmployeeHours(hoursSinceStr),
   })
 
   // ── derived values ──────────────────────────────────────────────────────────
@@ -427,6 +459,91 @@ function Dashboard() {
                 <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
               </Link>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Employee Working Hours ────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+              <Users className="text-blue-600" size={18} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Employee Working Hours</h2>
+            {employeeHoursData && (
+              <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                {employeeHoursData.count}
+              </span>
+            )}
+          </div>
+          {/* Filter pills */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            {(Object.keys(HOURS_FILTER_LABELS) as HoursFilter[]).map(key => (
+              <button
+                key={key}
+                onClick={() => setHoursFilter(key)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  hoursFilter === key
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                {HOURS_FILTER_LABELS[key]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hoursLoading ? (
+          <div className="px-6 pb-6 text-sm text-gray-500">Loading…</div>
+        ) : !employeeHoursData?.data?.length ? (
+          <div className="px-6 pb-6 text-sm text-gray-400">No time logs recorded for this period.</div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {[...employeeHoursData.data]
+              .sort((a, b) => parseFloat(b.working_hours) - parseFloat(a.working_hours))
+              .map(emp => (
+                <div key={emp.employee_id} className="flex items-center gap-4 px-6 py-3">
+                  {/* Avatar initials */}
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                      {(emp.name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Name + role */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {emp.name ?? 'Unknown'}
+                    </p>
+                    {emp.role && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{emp.role}</p>
+                    )}
+                  </div>
+
+                  {/* Hours bar */}
+                  <div className="flex-1 hidden sm:block">
+                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full"
+                        style={{
+                          width: `${Math.min(100, (parseFloat(emp.working_hours) /
+                            Math.max(...employeeHoursData.data.map(e => parseFloat(e.working_hours)))) * 100)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Hours value */}
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {parseFloat(emp.working_hours).toFixed(1)}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">hrs</span>
+                  </div>
+                </div>
+              ))}
           </div>
         )}
       </div>
