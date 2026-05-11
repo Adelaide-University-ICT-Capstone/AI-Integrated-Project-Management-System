@@ -253,6 +253,10 @@ def update_material(*, session: Session, material: Material, updates: dict) -> M
     session.refresh(material)
     return material
 
+def delete_material(*, session: Session, material: Material) -> None:
+    session.delete(material)
+    session.commit()
+
 def get_material(*, session: Session, material_id: uuid.UUID) -> Material | None:
     return session.get(Material, material_id)
 

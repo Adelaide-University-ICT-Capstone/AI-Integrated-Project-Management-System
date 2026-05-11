@@ -432,6 +432,17 @@ def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, m
     return MaterialPublic.model_validate(updated)
 
 
+@router.delete("/{project_id}/materials/{material_id}", response_model=Message)
+def delete_material_from_project(project_id: uuid.UUID, material_id: uuid.UUID, session: SessionDep) -> Message:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found") 
+    material = crud.get_material(session=session, material_id=material_id)
+    if not material or material.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Material not found")
+    crud.delete_material(session=session, material=material)
+    return Message(message="Material deleted successfully")
+
 # --------------------------------
 
 

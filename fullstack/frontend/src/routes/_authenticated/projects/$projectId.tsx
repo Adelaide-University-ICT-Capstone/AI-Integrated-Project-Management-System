@@ -23,6 +23,7 @@ const baseUrl = import.meta.env.VITE_API_URL
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
 import { error } from 'node:console'
+import { set } from 'zod'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
@@ -92,7 +93,7 @@ const SUBCONTRACTORS = [
 ]
 
 
-const mapStatus = (backendStatus: string) => { 
+const mapStatusToFrontend = (backendStatus: string) => { 
   switch (backendStatus) {
     case 'ordered':
       return 'Ordered'
@@ -100,6 +101,19 @@ const mapStatus = (backendStatus: string) => {
       return 'Received'
     case 'by_client':
       return 'By Client'
+    default:
+      return 'N/A'
+  }
+}
+
+const mapStatusToBackend = (frontendStatus: MaterialStatus) => {
+  switch (frontendStatus) {
+    case 'Ordered':
+      return 'ordered'
+    case 'Received':
+      return 'received'
+    case 'By Client':
+      return 'by_client'
     default:
       return 'N/A'
   }
@@ -222,7 +236,7 @@ function ProjectDetails() {
           const apiMaterials: Material[] = result.map((m: any) => ({
             id: m.id,
             name: m.name || '',
-            status: mapStatus(m.status),
+            status: mapStatusToFrontend(m.status),
             orderedDate: m.ordered_date || '',
             subcontractor: m.supplier_name || '',
           }))
@@ -268,12 +282,13 @@ function ProjectDetails() {
     if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
       setProject(null)
       try {
-        fetch(`${baseUrl}/api/v1/projects/${projectId}`, { 
-          method: 'DELETE', 
-          headers: { 
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}` 
-          }
-        })
+        const token = localStorage.getItem('access_token');
+        fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         toast.success('Project deleted successfully')
         navigate({ to: '/projects/' })
       } catch (error) {
@@ -331,15 +346,52 @@ function ProjectDetails() {
   }
 
   // Material handlers
-  const addMaterial = () => {
+  const addMaterial = async () => {
     if (!newMaterial.name.trim()) {
       toast.error('Please enter material name')
       return
     }
-    setMaterials([...materials, { ...newMaterial }])
-    setNewMaterial({ name: '', status: 'N/A', subcontractor: '', orderedDate: '' })
-    setShowAddMaterial(false)
-    toast.success('Material added')
+    
+    // add material to backend
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}/materials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          name: newMaterial.name,
+          status: mapStatusToFrontend(newMaterial.status),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || 'Failed to add material');
+      } 
+
+      // Add the response data (with id) to the materials array
+      const newMaterialFromBackend: Material = {
+        id: result.id,
+        name: result.name,
+        status: mapStatusToFrontend(result.status),
+        subcontractor: result.supplier_name || result.subcontractor || '',
+        orderedDate: result.ordered_date || '',
+        isDefault: false,
+      };
+
+      setMaterials([...materials, newMaterialFromBackend]);
+      setNewMaterial({ name: '', status: 'N/A', subcontractor: '', orderedDate: '' })
+      setShowAddMaterial(false);
+      toast.success('Material added');
+
+    } catch (error) {
+      console.error('Error adding material:', error);
+      toast.error('Failed to add material');
+    } 
   }
 
   const removeMaterial = (index: number) => {
@@ -348,7 +400,23 @@ function ProjectDetails() {
       return
     }
     setMaterials(materials.filter((_, i) => i !== index))
-    toast.success('Material removed')
+    
+    // delete material from backend
+    try {
+      const token = localStorage.getItem('access_token');
+      console.log(`Deleting material with ID ${materials[index].id} from backend`)
+      fetch(`${baseUrl}/api/v1/projects/${projectId}/materials/${materials[index].id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      toast.success('Material removed');
+
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      toast.error('Failed to delete material');
+    } 
   }
 
   const updateMaterialField = async <K extends keyof Material>(
