@@ -379,7 +379,7 @@ function Dashboard() {
       </div>
 
       {/* ── Company Overall Statistics Dropdown ───────────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <button
           onClick={() => setShowCompanyStats(!showCompanyStats)}
           className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -446,8 +446,8 @@ function Dashboard() {
             </div>
           </div>
         )}
-      </div>
-
+      </div> */}
+      
       {/* ── Overdue Projects List ──────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
