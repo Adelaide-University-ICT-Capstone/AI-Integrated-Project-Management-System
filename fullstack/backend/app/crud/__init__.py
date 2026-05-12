@@ -6,6 +6,9 @@ from app.crud.project_statuses import (
     create_status_type,
     get_all_status_types,
     get_status_type,
+)
+
+
 from app.crud.users import (
     authenticate,
     create_user,
@@ -83,6 +86,7 @@ from app.crud.users import (
     get_users,
     update_employee_role,
     update_user,
+)
 
 from app.crud.project_statuses import (
     get_status_type,
