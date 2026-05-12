@@ -13,7 +13,6 @@ from app.models import (
     ProjectMilestone,
     ProjectStatusType,
     Role,
-    Subcontractor,
 )
 from tests.utils.utils import random_lower_string
 
@@ -148,6 +147,16 @@ def test_create_project_creates_default_task_management_structure(
     assert payload["milestones"][1]["milestone_name"] == "Design & Documentation"
     assert payload["milestones"][1]["due_date"] == "2026-06-01"
     assert [task["task_name"] for task in payload["milestones"][0]["tasks"]] == [
+        "Task 1",
+        "Task 2",
+        "Task 3",
+    ]
+    materials_response = client.get(
+        f"/api/v1/projects/{project_id}/materials",
+        headers=superuser_token_headers,
+    )
+    assert materials_response.status_code == 200
+    assert [material["name"] for material in materials_response.json()] == [
         "Soil Testing",
         "Survey",
         "Timber Framing",
@@ -172,15 +181,6 @@ def test_create_project_subtask_under_main_task(
     db.add(role)
     db.commit()
     db.refresh(role)
-
-    subcontractor = Subcontractor(
-        company_name="Geo Surveys",
-        contact_name="Pat Contractor",
-        is_active=True,
-    )
-    db.add(subcontractor)
-    db.commit()
-    db.refresh(subcontractor)
 
     client_row = Client(
         client_name="Nested Client",
@@ -243,9 +243,6 @@ def test_create_project_subtask_under_main_task(
             "due_date": "2026-05-11",
             "assigned_role_id": str(role.id),
             "allocated_hours": "18.50",
-            "subcontractor_id": str(subcontractor.id),
-            "subcontractor_status": "ordered",
-            "subcontractor_ordered_date": "2026-05-08",
         },
     )
 
@@ -267,8 +264,8 @@ def test_create_project_subtask_under_main_task(
     assert root_task["children"][0]["task_name"] == "Footing Design & Documentation"
     assert root_task["children"][0]["assigned_role_name"] == role_name
     assert root_task["children"][0]["allocated_hours"] == "18.50"
-    assert root_task["children"][0]["subcontractor_name"] == "Geo Surveys"
-    assert root_task["children"][0]["subcontractor_status"] == "ordered"
+    assert "subcontractor_name" not in root_task["children"][0]
+    assert "subcontractor_status" not in root_task["children"][0]
 
 
 def test_project_tabs_are_grouped_by_completion_and_invoice_state(

@@ -1,11 +1,4 @@
-import axios from 'axios';
-
-const baseUrl = import.meta.env.VITE_API_URL;
-
-
-const api = axios.create({
-  baseURL: `${baseUrl}/api/v1`,
-});
+import { api } from './client'
 
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('access_token');
@@ -19,6 +12,8 @@ export type Project = {
   job_number: string
   project_id: string
   project_name: string
+  contract_title?: string | null
+  job_title?: string | null
   company_name: string
   company_address: string
   client_name: string

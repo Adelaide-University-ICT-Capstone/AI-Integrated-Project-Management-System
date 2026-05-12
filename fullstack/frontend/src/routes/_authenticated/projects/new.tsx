@@ -751,7 +751,6 @@ function NewProject() {
                   ) : (
                     <div className="space-y-3">
                       {subtasks.map((subtask) => {
-                        const phase = phases.find((p) => p.id === subtask.phaseId)
                         const isExpanded = expandedSubtaskId === subtask.id
                         const totalHours = subtask.assignments.reduce((sum, a) => sum + a.hours, 0)
                         const availableStaff = STAFF.filter(
