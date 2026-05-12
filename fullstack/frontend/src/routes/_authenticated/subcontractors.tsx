@@ -42,6 +42,20 @@ interface Order {
   status: OrderStatus
 }
 
+
+const mapStringToServiceType = (service: string): ServiceType => {
+  switch (service.toLowerCase()) {
+    case 'survey':
+      return 'Survey'
+    case 'soil testing':
+      return 'Soil Testing'
+    case 'timber framing':
+      return 'Timber Framing'
+    default:
+      return 'Other'
+  }
+}
+
 const mapMaterialStatus = (status: string | null | undefined): OrderStatus => {
   if (!status) return 'N/A'
   switch (status.toLowerCase()) {
@@ -197,6 +211,9 @@ function NewOrderModal({
       orderedDate: formData.orderedDate,
       status: formData.status,
     })
+
+    // send order to backend 
+      
     onClose()
   }
 
@@ -575,7 +592,7 @@ function Subcontractors() {
         matchSearch(o.projectId) ||
         (sc && matchSearch(sc.name)) ||
         matchSearch(o.service)
-      return o.service === service && matches
+      return mapStringToServiceType(o.service) === service && matches
     })
     return acc
   }, {} as Record<ServiceType, Order[]>)
