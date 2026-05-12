@@ -22,7 +22,6 @@ import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectTaskManagementMilestone } from '../../../api/project'
-import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -56,7 +55,7 @@ type Material = {
   id?: string
   name: string
   status: MaterialStatus
-  subcontractorId: string
+  subcontractor: string
   orderedDate: string
   isDefault?: boolean
 }
@@ -80,14 +79,21 @@ const AVATAR_COLORS = [
 ]
 
 // Default subcontractor items pre-loaded for every project (per Harri's spec)
-// const DEFAULT_MATERIALS: Material[] = [
-//   { name: 'Survey', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-//   { name: 'Soil Testing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-//   { name: 'Timber Framing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-// ]
+const DEFAULT_MATERIALS: Material[] = [
+  { name: 'Survey', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+  { name: 'Soil Testing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+  { name: 'Timber Framing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
+]
 
-
-
+// Mock subcontractor list — should match Subcontractors page.
+// TODO: when backend supports it, fetch from API instead
+const SUBCONTRACTORS = [
+  'ABC Surveyors',
+  'GeoCon Labs',
+  'Steel Supply Co',
+  'Premier Concrete',
+  'Reliable Timber Co',
+]
 
 
 const mapStatusToFrontend = (backendStatus: string) => { 
@@ -109,8 +115,8 @@ const mapFrontendFieldToBackend = (field: keyof Material) => {
       return 'name'
     case 'status':
       return 'status'
-    case 'subcontractorId':
-      return 'subcontractor_id'
+    case 'subcontractor':
+      return 'subcontractor'
     case 'orderedDate':
       return 'ordered_date'
     default:
@@ -172,11 +178,10 @@ function ProjectDetails() {
   const [projectStatus, setProjectStatus] = useState('Proposal')
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
-  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
 
   // Workflow phases are backed by project milestones.
   const [workflow, setWorkflow] = useState<WorkflowPhase[]>([])
-  const [materials, setMaterials] = useState<Material[]>([])
+  const [materials, setMaterials] = useState<Material[]>(DEFAULT_MATERIALS)
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([])
 
   // Edit mode for workflow
@@ -189,7 +194,7 @@ function ProjectDetails() {
   const [newMaterial, setNewMaterial] = useState<Omit<Material, 'isDefault'>>({
     name: '',
     status: 'N/A',
-    subcontractorId: '',
+    subcontractor: '',
     orderedDate: '',
   })
   const [newWorker, setNewWorker] = useState({ name: '', role: '', status: 'active' })
@@ -200,17 +205,6 @@ function ProjectDetails() {
   })
 
   useEffect(() => {
-    const fetchSubcontractors = async () => {
-      try {
-        const data = await subcontractorsApi.getSubcontractors()
-        setSubcontractors(data)
-        console.log('Fetched subcontractors:', data)
-      } catch (error) {
-        console.error('Error fetching subcontractors:', error)
-        toast.error('Network error while fetching subcontractors')
-      }
-    }
-
     const fetchProject = async () => {
       try {
         const token = localStorage.getItem('access_token')
@@ -258,7 +252,7 @@ function ProjectDetails() {
             name: m.name || '',
             status: mapStatusToFrontend(m.status),
             orderedDate: m.ordered_date || '',
-            subcontractorId: m.subcontractor_id || '',
+            subcontractor: m.supplier_name || '',
           }))
           setMaterials(apiMaterials)
         } 
@@ -282,7 +276,6 @@ function ProjectDetails() {
 
     fetchProject()
     fetchWorkflow()
-    fetchSubcontractors()
     fetchMaterials() // Fetch materials separately
 
 
@@ -442,13 +435,13 @@ function ProjectDetails() {
         id: result.id,
         name: result.name,
         status: mapStatusToFrontend(result.status),
-        subcontractorId: result.subcontractor_id || '',
+        subcontractor: result.supplier_name || result.subcontractor || '',
         orderedDate: result.ordered_date || '',
         isDefault: false,
       };
 
       setMaterials([...materials, newMaterialFromBackend]);
-      setNewMaterial({ name: '', status: 'N/A', subcontractorId: '', orderedDate: '' })
+      setNewMaterial({ name: '', status: 'N/A', subcontractor: '', orderedDate: '' })
       setShowAddMaterial(false);
       toast.success('Material added');
 
@@ -568,15 +561,13 @@ function ProjectDetails() {
             Subcontractor
           </label>
           <select
-            value={material.subcontractorId}
-            onChange={(e) => updateMaterialField(index, 'subcontractorId', e.target.value)}
+            value={material.subcontractor}
+            onChange={(e) => updateMaterialField(index, 'subcontractor', e.target.value)}
             className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="">Select subcontractor...</option>
-            {subcontractors.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.company_name}
-              </option>
+            {SUBCONTRACTORS.map((s) => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
@@ -973,15 +964,13 @@ function ProjectDetails() {
                         </td>
                         <td className="px-4 py-3">
                           <select
-                            value={material.subcontractorId}
-                            onChange={(e) => updateMaterialField(index, 'subcontractorId', e.target.value)}
+                            value={material.subcontractor}
+                            onChange={(e) => updateMaterialField(index, 'subcontractor', e.target.value)}
                             className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                           >
                             <option value="">Select...</option>
-                            {subcontractors.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.company_name}
-                              </option>
+                            {SUBCONTRACTORS.map((s) => (
+                              <option key={s} value={s}>{s}</option>
                             ))}
                           </select>
                         </td>
@@ -1058,15 +1047,13 @@ function ProjectDetails() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcontractor</label>
                 <select
-                  value={newMaterial.subcontractorId}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, subcontractorId: e.target.value })}
+                  value={newMaterial.subcontractor}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, subcontractor: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Select subcontractor...</option>
-                  {subcontractors.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.company_name}
-                    </option>
+                  {SUBCONTRACTORS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </div>

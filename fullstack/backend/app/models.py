@@ -1,7 +1,6 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import datetime, date, timezone
 from decimal import Decimal
-from enum import Enum
 
 from pydantic import EmailStr
 from sqlalchemy import DateTime, Text, Column
@@ -325,7 +324,7 @@ class UserRegister(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     role_name: str | None = Field(default=None, max_length=100)
     role_title: str | None = Field(default=None, max_length=100)
-
+    
 
 
 class UserUpdate(UserBase):
@@ -524,10 +523,7 @@ class ProjectMilestone(ProjectMilestoneBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     project: Project | None = Relationship(back_populates="milestones")
-    tasks: list["ProjectTask"] = Relationship(
-        back_populates="milestone",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True},
-    )
+    tasks: list["ProjectTask"] = Relationship(back_populates="milestone")
 
 
 class ProjectMilestonePublic(ProjectMilestoneBase):
@@ -1326,10 +1322,6 @@ class ProjectCreateResponse(SQLModel):
 class ProjectUpdateRequest(SQLModel):
     project_name: str | None = None
     project_types: str | None = None
-    client_name: str | None = None
-    client_company: str | None = None
-    client_contact: str | None = None
-    client_address: str | None = None
     contract_title: str | None = None
     agent: str | None = None
     job_title: str | None = None

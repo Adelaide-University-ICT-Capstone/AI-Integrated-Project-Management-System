@@ -172,9 +172,6 @@ const getDueDateLabel = (dueDate: string, status: string) => {
 const getProjectName = (project: ProjectTaskManagementProject) =>
   project.project_name || project.contract_title || project.job_title || project.job_number || project.project_id
 
-const getProjectTabLabel = (project: ProjectTaskManagementProject) =>
-  project.job_number || getProjectName(project)
-
 const toNumber = (value?: number | string | null) => {
   const parsed = Number(value ?? 0)
   return Number.isFinite(parsed) ? parsed : 0
@@ -1115,14 +1112,13 @@ function TaskBoard() {
               <button
                 key={project.project_id}
                 onClick={() => setSelectedProject(project.project_id)}
-                title={getProjectName(project)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${
                   isActive
                     ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
-                {getProjectTabLabel(project)}
+                {getProjectName(project)}
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   isActive ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-700'
                 }`}>
