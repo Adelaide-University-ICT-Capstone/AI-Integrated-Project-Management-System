@@ -45,6 +45,7 @@ export type Project = {
   job_title?: string | null
   company_name: string
   company_address: string
+  current_status_id: string
   client_name: string
   status: string
   start_date: string
@@ -86,6 +87,12 @@ export type ProjectMilestonePayload = {
   display_order?: number | null
 }
 
+export type ProjectStatusType = {
+  id: string
+  status_name: string
+}
+
+
 
 
 // src/api/projects.ts
@@ -110,7 +117,7 @@ export const projectsApi = {
   getDelayedProjects: () => api.get<ProjectSummaryResponse>('/projects/delay-project').then(res => res.data),
 
   // @router.get("/statuses")
-  getProjectStatuses: () => api.get<string[]>('/statuses').then(res => res.data),
+  getProjectStatuses: () => api.get<ProjectStatusType[]>('/statuses').then(res => res.data),
 
   // @router.get("/all-project") superuser only
   getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),

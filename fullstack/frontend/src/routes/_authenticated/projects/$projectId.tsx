@@ -21,8 +21,9 @@ import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
-import type { ProjectTaskManagementMilestone } from '../../../api/project'
+import type { ProjectStatusType, ProjectTaskManagementMilestone } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
+import { set } from 'zod'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -173,6 +174,8 @@ function ProjectDetails() {
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [projectStatusMap, setProjectStatusMap] = useState<Record<string, string>>({})
+  const [projectStatusId, setProjectStatusId] = useState<string>('')
 
   // Workflow phases are backed by project milestones.
   const [workflow, setWorkflow] = useState<WorkflowPhase[]>([])
@@ -194,12 +197,26 @@ function ProjectDetails() {
   })
   const [newWorker, setNewWorker] = useState({ name: '', role: '', status: 'active' })
 
-  const { data: statusData } = useQuery({
-    queryKey: ['statuses'],
-    queryFn: projectsApi.getProjectStatuses,
-  })
+
 
   useEffect(() => {
+    const fetchProjectStatuses = async () => {
+      try {
+          const data = await projectsApi.getProjectStatuses()
+
+          setProjectStatusMap(
+            Object.fromEntries(
+              data.map((s: any) => [s.id, s.status_name])
+            )
+          )
+
+        } catch (error) {
+          console.error(error)
+          toast.error('Network error while fetching project statuses')
+        }
+    }
+
+
     const fetchSubcontractors = async () => {
       try {
         const data = await subcontractorsApi.getSubcontractors()
@@ -227,7 +244,7 @@ function ProjectDetails() {
           toast.error(result.detail || 'Failed to fetch project')
           return
         }
-        setProjectStatus(result.status)
+        setProjectStatusId(result.current_status_id) 
         setProject(result)
       } catch (error) {
         console.error('Error fetching project data:', error)
@@ -280,6 +297,7 @@ function ProjectDetails() {
     }
 
 
+    fetchProjectStatuses()
     fetchProject()
     fetchWorkflow()
     fetchSubcontractors()
@@ -330,26 +348,30 @@ function ProjectDetails() {
     }
   }
 
-  const handleUpdateProjectStatus = async (newStatus: string) => {
+  const handleUpdateProjectStatus = async (newStatusId: string) => {
     try {
       const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
         },
-        body: JSON.stringify({ status: newStatus }),
-        credentials: 'include',
+        body: JSON.stringify({
+          current_status_id: newStatusId,
+        }),
       })
+
       const result = await response.json()
+
       if (!response.ok) {
         toast.error(result.detail || 'Failed to update project status')
         return
       }
+
       toast.success('Project status updated successfully')
-      setProjectStatus(newStatus)
+      setProjectStatusId(newStatusId)
     } catch (error) {
-      console.error('Error updating project status:', error)
+      console.error(error)
       toast.error('Network error')
     }
   }
@@ -682,18 +704,20 @@ function ProjectDetails() {
             <div className="mt-4 flex items-center gap-3">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Project Status:</span>
               <select
-                value={projectStatus}
+                value={projectStatusId}
                 onChange={(e) => handleUpdateProjectStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
-                {statusData?.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {Object.entries(projectStatusMap).map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
                   </option>
                 ))}
               </select>
             </div>
           </div>
+
+
 
           {/* Progress Circle */}
           <div className="flex flex-col items-center">

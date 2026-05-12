@@ -541,6 +541,7 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDeta
     return ProjectDetail(
         project_id=project.id,
         job_number=project.job_number,
+        current_status_id=project.current_status_id,
         project_name=project.project_name,
         company_name=project.client.company_name if project.client else None,
         company_address=project.client.billing_address if project.client else None,

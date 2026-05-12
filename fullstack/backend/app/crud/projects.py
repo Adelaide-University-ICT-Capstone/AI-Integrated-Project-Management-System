@@ -256,6 +256,7 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 job_number=p.job_number,
                 project_name=p.project_name,
                 contract_title=p.contract_title,
+                current_status_id=p.current_status_id,
                 agent=p.agent,
                 job_title=p.job_title,
                 address=p.full_address,
