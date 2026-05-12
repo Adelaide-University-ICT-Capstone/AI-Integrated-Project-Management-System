@@ -18,6 +18,7 @@ from app.models import (
     ProjectMilestonePublic,
     ProjectMilestoneTreeCreate,
     ProjectMilestoneUpdate,
+    ProjectPublic,
     ProjectSummary,
     ProjectTaskManagementResponse,
     ProjectTaskPublic,
@@ -383,22 +384,27 @@ def delete_all_projects(session: SessionDep):
     return {"message": f"Successfully deleted {count} projects"}
 
 
-@router.patch("/{project_id}", response_model=Message)
+
+@router.patch("/{project_id}", response_model=ProjectPublic)
 def update_project(
     project_id: uuid.UUID,
     project: ProjectUpdateRequest,
     session: SessionDep,
-) -> Message:
+) -> ProjectPublic:
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    existing = crud.get_project_by_id(session=session, project_id=project_id)  # Assuming you add this
+    updated = crud.update_project(session=session, project=existing, updates=project.model_dump(exclude_unset=True))
+    return ProjectPublic.model_validate(updated)
 
-    try:
-        crud.update_project(session=session, project_id=project_id, project_data=project)
-    except ValueError as exc:
-        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    # try:
+    #     crud.update_project(session=session, project_id=project_id, project_data=project)
+    # except ValueError as exc:
+    #     raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-    return Message(message="Project updated successfully")
+    # return Message(message="Project updated successfully")
 
 
 @router.get("/{project_id}/materials/{material_id}", response_model=MaterialPublic)

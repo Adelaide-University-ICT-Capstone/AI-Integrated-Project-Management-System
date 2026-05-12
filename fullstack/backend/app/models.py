@@ -1166,6 +1166,10 @@ class ProjectCreateResponse(SQLModel):
 class ProjectUpdateRequest(SQLModel):
     project_name: str | None = None
     project_types: str | None = None
+    client_name: str | None = None
+    client_company: str | None = None
+    client_contact: str | None = None
+    client_address: str | None = None
     contract_title: str | None = None
     agent: str | None = None
     job_title: str | None = None

@@ -66,6 +66,12 @@ from app.crud.users import (
     update_user,
 )
 
+
+from app.crud.subcontractors import (
+    get_subcontractors,
+    create_subcontractor
+)
+
 __all__ = [
     # users
     "authenticate",
@@ -131,4 +137,8 @@ __all__ = [
     "get_material_statuses",
     "get_materials_by_project_id",
     "get_materials_by_due_date_and_status"
+
+    # subcontractors
+    "get_subcontractors",
+    "create_subcontractor"
 ]

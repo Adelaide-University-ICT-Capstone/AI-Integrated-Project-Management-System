@@ -311,7 +311,7 @@ function NewProject() {
         return
       }
       toast.success('Project created successfully')
-      navigate({ to: '/projects/' })
+      navigate({ to: '/projects' })
     } catch (error) {
       setSubmissionError('Unable to reach the backend. Please try again later.')
       toast.error('Unable to reach the backend')
@@ -322,7 +322,7 @@ function NewProject() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate({ to: '/projects/' })}
+          onClick={() => navigate({ to: '/projects' })}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />
@@ -921,7 +921,7 @@ function NewProject() {
         {/* Footer Actions */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
           <button
-            onClick={currentStep === 'details' ? () => navigate({ to: '/projects/' }) : handleBack}
+            onClick={currentStep === 'details' ? () => navigate({ to: '/projects' }) : handleBack}
             className="flex items-center gap-2 px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             {currentStep === 'details' ? (
