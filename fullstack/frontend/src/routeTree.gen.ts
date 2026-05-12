@@ -9,7 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkforceRouteImport } from './routes/workforce'
+import { Route as AuthenticatedProjectsWorkforceProjectIdRouteImport } from './routes/_authenticated/projects/workforce/$projectId'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
@@ -28,11 +28,12 @@ import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminPeopleRouteImport } from './routes/_authenticated/admin.people'
 
-const WorkforceRoute = WorkforceRouteImport.update({
-  id: '/workforce',
-  path: '/workforce',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedProjectsWorkforceProjectIdRoute =
+  AuthenticatedProjectsWorkforceProjectIdRouteImport.update({
+    id: '/projects/workforce/$projectId',
+    path: '/projects/workforce/$projectId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -131,7 +132,6 @@ export interface FileRoutesByFullPath {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/workforce': typeof WorkforceRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -141,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
 }
@@ -149,7 +150,6 @@ export interface FileRoutesByTo {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/workforce': typeof WorkforceRoute
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subcontractors': typeof AuthenticatedSubcontractorsRoute
@@ -159,6 +159,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
 }
@@ -169,7 +170,6 @@ export interface FileRoutesById {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/workforce': typeof WorkforceRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -180,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/_authenticated/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
@@ -191,7 +192,6 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
-    | '/workforce'
     | '/admin'
     | '/ai-assistant'
     | '/settings'
@@ -201,6 +201,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/projects/$projectId'
     | '/projects/new'
+    | '/projects/workforce/$projectId'
     | '/admin/'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -209,7 +210,6 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
-    | '/workforce'
     | '/ai-assistant'
     | '/settings'
     | '/subcontractors'
@@ -219,6 +219,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/projects/$projectId'
     | '/projects/new'
+    | '/projects/workforce/$projectId'
     | '/admin'
     | '/projects'
   id:
@@ -228,7 +229,6 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
-    | '/workforce'
     | '/_authenticated/admin'
     | '/_authenticated/ai-assistant'
     | '/_authenticated/settings'
@@ -239,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/projects/new'
+    | '/_authenticated/projects/workforce/$projectId'
     | '/_authenticated/admin/'
     | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
@@ -249,17 +250,16 @@ export interface RootRouteChildren {
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
-  WorkforceRoute: typeof WorkforceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workforce': {
-      id: '/workforce'
-      path: '/workforce'
-      fullPath: '/workforce'
-      preLoaderRoute: typeof WorkforceRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/projects/workforce/$projectId': {
+      id: '/_authenticated/projects/workforce/$projectId'
+      path: '/projects/workforce/$projectId'
+      fullPath: '/projects/workforce/$projectId'
+      preLoaderRoute: typeof AuthenticatedProjectsWorkforceProjectIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/signup': {
       id: '/signup'
@@ -407,6 +407,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
+  AuthenticatedProjectsWorkforceProjectIdRoute: typeof AuthenticatedProjectsWorkforceProjectIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
@@ -419,6 +420,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
+  AuthenticatedProjectsWorkforceProjectIdRoute: AuthenticatedProjectsWorkforceProjectIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
@@ -432,7 +434,6 @@ const rootRouteChildren: RootRouteChildren = {
   RecoverPasswordRoute: RecoverPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
-  WorkforceRoute: WorkforceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

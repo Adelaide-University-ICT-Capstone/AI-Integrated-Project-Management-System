@@ -24,8 +24,27 @@ export type EmployeeHoursResponse = {
   count: number
 }
 
+export type UpdateMeRequest = {
+  full_name?: string
+  email?: string
+  role_name?: string
+}
+
+export type UpdatePasswordRequest = {
+  current_password: string
+  new_password: string
+}
+
 export const usersApi = {
   // GET /users/time_log/{date_str} — hours worked by all employees since date
   getEmployeeHours: (since: string) =>
     api.get<EmployeeHoursResponse>(`/users/time_log/${since}`).then(res => res.data),
+
+  // PATCH /users/me — update name and/or email
+  updateMe: (data: UpdateMeRequest) =>
+    api.patch(`/users/me`, data).then(res => res.data),
+
+  // PATCH /users/me/password — change password
+  updatePassword: (data: UpdatePasswordRequest) =>
+    api.patch(`/users/me/password`, data).then(res => res.data),
 }
