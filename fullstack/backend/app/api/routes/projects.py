@@ -276,8 +276,6 @@ def create_project_task(
             raise HTTPException(status_code=400, detail="Parent task must belong to the same milestone")
     if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
         raise HTTPException(status_code=404, detail="Assigned role not found")
-    if task.subcontractor_id and not session.get(Subcontractor, task.subcontractor_id):
-        raise HTTPException(status_code=404, detail="Subcontractor not found")
 
     created = crud.create_project_task(
         session=session,
@@ -343,8 +341,6 @@ def update_project_task(
             raise HTTPException(status_code=400, detail="Task cannot be its own parent")
     if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
         raise HTTPException(status_code=404, detail="Assigned role not found")
-    if task.subcontractor_id and not session.get(Subcontractor, task.subcontractor_id):
-        raise HTTPException(status_code=404, detail="Subcontractor not found")
 
     updated = crud.update_project_task(
         session=session,
