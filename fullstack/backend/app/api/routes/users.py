@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
@@ -9,6 +10,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     AdminUserCreate,
+    EmployeeHoursResponse,
     Message,
     UpdatePassword,
     User,
@@ -39,7 +41,6 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 
 @router.get(
     "/all-users",
-    dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersDetail,
 )
 def read_all_users(session: SessionDep) -> Any:
@@ -102,7 +103,13 @@ def update_user_me(
         existing_user = crud.get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(status_code=409, detail="User with this email already exists")
-    user_data = user_in.model_dump(exclude_unset=True)
+    if user_in.role_name is not None and current_user.employee_id:
+        role = crud.update_employee_role(
+            session=session, employee_id=current_user.employee_id, role_name=user_in.role_name
+        )
+        if role is None:
+            raise HTTPException(status_code=400, detail=f"Role '{user_in.role_name}' not found")
+    user_data = user_in.model_dump(exclude_unset=True, exclude={"role_name"})
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
     session.commit()
@@ -202,3 +209,17 @@ def delete_user(
         )
     crud.delete_user_and_employee(session=session, user=user)
     return Message(message="User deleted successfully")
+
+
+@router.get("/time_log/{date_str}", response_model=EmployeeHoursResponse)
+def get_employee_time_log(
+    session: SessionDep,
+    date_str: str,
+    user_ids: list[uuid.UUID] | None = Query(default=None),
+) -> Any:
+    try:
+        since = datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use dd-mm-yyyy")
+    data = crud.get_employee_hours_since(session=session, since=since, user_ids=user_ids)
+    return EmployeeHoursResponse(data=data, count=len(data))

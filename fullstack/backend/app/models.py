@@ -4,10 +4,12 @@ from decimal import Decimal
 from enum import Enum
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime, Text
+from sqlalchemy import DateTime, Text, Column
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-
+from sqlalchemy.types import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
+from enum import Enum
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
@@ -335,6 +337,7 @@ class UserUpdate(UserBase):
 class UserUpdateMe(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
+    role_name: str | None = Field(default=None, max_length=100)
 
 
 class UpdatePassword(SQLModel):
@@ -625,6 +628,115 @@ class ProjectTasksPublic(SQLModel):
     data: list[ProjectTaskPublic]
     count: int
 
+# --------------------------------------------------------------------------- Igie
+# Project Subtask Models
+# Stores workforce allocation and estimated hours for subtasks
+
+class ProjectSubtaskBase(SQLModel):
+    # Parent project/task references
+    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    task_id: uuid.UUID = Field(foreign_key="project_tasks.id")
+
+    # Subtask details
+    subtask_name: str = Field(max_length=255)
+    subtask_description: str | None = Field(default=None, sa_type=Text)
+
+    # Assigned project manager + estimated hours
+    project_manager_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    project_manager_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+    # Assigned drafter + estimated hours
+    draft_engineer_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    draft_engineer_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+    # Assigned engineer + estimated hours
+    engineer_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="employees.id"
+    )
+    engineer_hours: Decimal | None = Field(
+        default=None,
+        max_digits=8,
+        decimal_places=2
+    )
+
+
+# Create schema
+class ProjectSubtaskCreate(ProjectSubtaskBase):
+    pass
+
+
+# Update schema
+class ProjectSubtaskUpdate(SQLModel):
+    subtask_name: str | None = Field(default=None, max_length=255)
+    subtask_description: str | None = None
+
+    project_manager_id: uuid.UUID | None = None
+    project_manager_hours: Decimal | None = None
+
+    draft_engineer_id: uuid.UUID | None = None
+    draft_engineer_hours: Decimal | None = None
+
+    engineer_id: uuid.UUID | None = None
+    engineer_hours: Decimal | None = None
+
+
+# PATCH request body for assigning workforce to subtasks
+class ProjectSubtaskAssignmentUpdate(SQLModel):
+    project_manager: uuid.UUID | None = None
+    project_manager_hours: Decimal | None = None
+
+    draft_engineer: uuid.UUID | None = None
+    draft_engineer_hours: Decimal | None = None
+
+    engineer: uuid.UUID | None = None
+    engineer_hours: Decimal | None = None
+
+
+# Database table
+class ProjectSubtask(ProjectSubtaskBase, table=True):
+    __tablename__ = "project_subtasks"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# Public response schema
+class ProjectSubtaskPublic(ProjectSubtaskBase):
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+# Multiple subtasks response schema
+class ProjectSubtasksPublic(SQLModel):
+    data: list[ProjectSubtaskPublic]
+    count: int
+
+# --------------------------------------------------------------------------- Igie
 
 class ProjectTaskTreeCreate(SQLModel):
     task_name: str = Field(max_length=255)
@@ -784,7 +896,39 @@ class ProjectAssignmentsPublic(SQLModel):
     data: list[ProjectAssignmentPublic]
     count: int
 
+#----- Igie -----
+class WorkforceAssignmentRequest(SQLModel):
+    user_id: uuid.UUID
+    role_id: uuid.UUID
 
+
+class WorkforceDeleteRequest(SQLModel):
+    user_ids: list[uuid.UUID]
+
+
+class WorkforceAssignmentResponse(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    employee_id: uuid.UUID | None = None
+    role_id: uuid.UUID | None = None
+    created_at: datetime | None = None
+
+
+class WorkforcePostResponse(SQLModel):
+    assigned: int
+    data: list[WorkforceAssignmentResponse]
+
+
+class WorkforcePatchResponse(SQLModel):
+    updated: int
+    data: list[WorkforceAssignmentResponse]
+
+
+class WorkforceDeleteResponse(SQLModel):
+    removed: int
+    message: str
+#----- Igie -----
+    
 # ---------------------------------------------------------------------------
 # Invoices  (FK -> projects)
 # ---------------------------------------------------------------------------
@@ -1082,6 +1226,22 @@ class TimeLogPublic(TimeLogBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+#--------- Igie ---------
+class WorkHoursCreate(SQLModel):
+    employee_id: uuid.UUID
+    work_hours: Decimal = Field(gt=0, max_digits=6, decimal_places=2)
+    work_date: date
+
+
+class WorkHoursResponse(SQLModel):
+    project_id: uuid.UUID
+    task_id: uuid.UUID
+    employee_id: uuid.UUID
+    work_hours: Decimal
+    work_date: date
+    message: str
+#---------- Igie ---------
+
 
 class TimeLogsPublic(SQLModel):
     data: list[TimeLogPublic]
@@ -1243,6 +1403,34 @@ class MonthlyInvoiceResponse(SQLModel):
     previous_month_total: Decimal
 
 
+class EmployeeHoursDetail(SQLModel):
+    employee_id: uuid.UUID
+    name: str | None = None
+    working_hours: Decimal
+    role: str | None = None
+
+
+class EmployeeHoursResponse(SQLModel):
+    data: list[EmployeeHoursDetail]
+    count: int
+
+
+class InvoiceDetail(SQLModel):
+    invoice_id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str | None = None
+    invoice_number: str
+    invoice_date: date | None = None
+    invoice_amount: Decimal | None = None
+    paid_date: date | None = None
+
+
+class InvoiceListResponse(SQLModel):
+    data: list[InvoiceDetail]
+    count: int
+    total: Decimal
+
+
 # ---------------------------------------------------------------------------
 # Generic / Auth helpers
 # ---------------------------------------------------------------------------
@@ -1263,3 +1451,15 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class AuditLog(SQLModel, table=True):
+    __tablename__ = "audit_logs"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    action: str = Field(max_length=100)
+    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    target_user_ids: list[str] = Field(sa_column=Column(JSONB))
+    performed_by: uuid.UUID = Field(foreign_key="users.id")
+    timestamp: datetime = Field(default_factory=get_datetime_utc)
+    changes: dict = Field(sa_column=Column(JSONB))

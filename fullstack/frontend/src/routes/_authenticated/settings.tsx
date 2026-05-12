@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouterState } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   User,
   Lock,
@@ -11,12 +12,17 @@ import {
   Save,
   Camera,
   Upload,
+  Shield,
+  ArrowRight,
+  LayoutDashboard,
 } from 'lucide-react'
 import useAuth from '@/hooks/useAuth'
+import { usersApi } from '@/api/users'
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: Settings,
 })
+
 
 const AVATAR_COLORS = [
   'bg-blue-500',
@@ -31,12 +37,16 @@ const AVATAR_COLORS = [
   'bg-cyan-500',
 ]
 
-function Settings() {
+export function Settings() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const { location } = useRouterState()
+  const isAdminContext = location.pathname.startsWith('/admin')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [username, setUsername] = useState(user?.full_name || '')
   const [email, setEmail] = useState(user?.email || '')
+  const [role, setRole] = useState(user?.role_name || '')
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [showAvatarOptions, setShowAvatarOptions] = useState(false)
   const [selectedAvatarColor, setSelectedAvatarColor] = useState('bg-blue-500')
@@ -60,13 +70,37 @@ function Settings() {
     invoiceAlerts: true,
   })
 
+  const updateMeMutation = useMutation({
+    mutationFn: usersApi.updateMe,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+      setIsEditingProfile(false)
+      toast.success('Profile updated successfully!')
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail || 'Failed to update profile')
+    },
+  })
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: usersApi.updatePassword,
+    onSuccess: () => {
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setIsEditingPassword(false)
+      toast.success('Password changed successfully!')
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail || 'Failed to change password')
+    },
+  })
+
   const handleProfileUpdate = () => {
-    if (!username.trim()) { toast.error('Username cannot be empty'); return }
+    if (!username.trim()) { toast.error('Name cannot be empty'); return }
     if (!email.trim()) { toast.error('Email cannot be empty'); return }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) { toast.error('Please enter a valid email address'); return }
-    setIsEditingProfile(false)
-    toast.success('Profile updated successfully!')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error('Please enter a valid email address'); return }
+    updateMeMutation.mutate({ full_name: username.trim(), email: email.trim(), role_name: role || undefined })
   }
 
   const handlePasswordChange = () => {
@@ -75,11 +109,7 @@ function Settings() {
     }
     if (newPassword !== confirmPassword) { toast.error('New passwords do not match'); return }
     if (newPassword.length < 8) { toast.error('Password must be at least 8 characters'); return }
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setIsEditingPassword(false)
-    toast.success('Password changed successfully!')
+    updatePasswordMutation.mutate({ current_password: currentPassword, new_password: newPassword })
   }
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
@@ -219,18 +249,34 @@ function Settings() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              disabled={!isEditingProfile}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
+            >
+              <option value="">— No role —</option>
+              <option value="drafter">Drafter</option>
+              <option value="engineer">Engineer</option>
+              <option value="project_manager">Project Manager</option>
+            </select>
+          </div>
+
           <div className="flex gap-3 pt-2">
             {isEditingProfile ? (
               <>
                 <button
                   onClick={handleProfileUpdate}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  disabled={updateMeMutation.isPending}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Save size={18} />
-                  Save Changes
+                  {updateMeMutation.isPending ? 'Saving…' : 'Save Changes'}
                 </button>
                 <button
-                  onClick={() => { setIsEditingProfile(false); setUsername(user?.full_name || ''); setEmail(user?.email || '') }}
+                  onClick={() => { setIsEditingProfile(false); setUsername(user?.full_name || ''); setEmail(user?.email || ''); setRole(user?.role_name || '') }}
                   className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                 >
                   Cancel
@@ -294,8 +340,13 @@ function Settings() {
               </div>
             ))}
             <div className="flex gap-3 pt-2">
-              <button onClick={handlePasswordChange} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                <Save size={18} /> Update Password
+              <button
+                onClick={handlePasswordChange}
+                disabled={updatePasswordMutation.isPending}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Save size={18} />
+                {updatePasswordMutation.isPending ? 'Saving…' : 'Update Password'}
               </button>
               <button
                 onClick={() => { setIsEditingPassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword('') }}
@@ -349,6 +400,43 @@ function Settings() {
           ))}
         </div>
       </div>
+
+      {/* Admin Section — superusers only */}
+      {user?.is_superuser && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+              <Shield className="text-purple-600 dark:text-purple-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Administration</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Access admin tools and system settings</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            You have superuser privileges. The admin dashboard lets you manage users, roles, and system-wide configuration.
+          </p>
+          {isAdminContext ? (
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
+            >
+              <LayoutDashboard size={18} />
+              Switch to User View
+              <ArrowRight size={16} />
+            </Link>
+          ) : (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+            >
+              <Shield size={18} />
+              Go to Admin Dashboard
+              <ArrowRight size={16} />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Email Preferences Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">

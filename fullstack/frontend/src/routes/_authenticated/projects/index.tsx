@@ -51,109 +51,6 @@ const getDueDateLabel = (dueDate: string | undefined, status: string) => {
 }
 
 
-
-
-
-/* const _projectsData = [
-  {
-    id: '1',
-    jobNumber: 'PRJ-2024-001',
-    name: 'High-Rise Commercial Tower',
-    client: 'Metropolis Development Corp',
-    agent: 'Sarah Chen',
-    contact: '+1 (555) 123-4567',
-    location: 'Downtown District, Metro City',
-    suburb: 'Downtown',
-    lotNo: 'Lot 45, 123 Main St',
-    dateReceived: '2024-01-15',
-    status: 'In Progress',
-    feeEstimate: '$450,000',
-    progress: 65,
-    daysElapsed: 80,
-  },
-  {
-    id: '2',
-    jobNumber: 'PRJ-2024-002',
-    name: 'Residential Complex Phase 2',
-    client: 'GreenHaven Properties',
-    agent: 'James Liu',
-    contact: '+1 (555) 234-5678',
-    location: 'Westside, Metro City',
-    suburb: 'Westside',
-    lotNo: 'Lot 12-15, 456 Oak Ave',
-    dateReceived: '2024-02-01',
-    status: 'In Progress',
-    feeEstimate: '$320,000',
-    progress: 42,
-    daysElapsed: 64,
-  },
-  {
-    id: '3',
-    jobNumber: 'PRJ-2024-003',
-    name: 'Bridge Renovation Project',
-    client: 'City Infrastructure Department',
-    agent: 'Robert Johnson',
-    contact: '+1 (555) 345-6789',
-    location: 'River District',
-    suburb: 'River District',
-    lotNo: 'N/A',
-    dateReceived: '2023-11-01',
-    status: 'Done',
-    feeEstimate: '$280,000',
-    progress: 100,
-    daysElapsed: 156,
-  },
-  {
-    id: '4',
-    jobNumber: 'PRJ-2024-004',
-    name: 'Shopping Mall Expansion',
-    client: 'Retail Ventures Inc',
-    agent: 'Emily Watson',
-    contact: '+1 (555) 456-7890',
-    location: 'North Plaza',
-    suburb: 'North District',
-    lotNo: 'Lot 88, 789 Commerce Blvd',
-    dateReceived: '2024-03-20',
-    status: 'To Be Started',
-    feeEstimate: '$580,000',
-    progress: 0,
-    daysElapsed: 16,
-  },
-  {
-    id: '5',
-    jobNumber: 'PRJ-2024-005',
-    name: 'University Science Building',
-    client: 'State University',
-    agent: 'Michael Torres',
-    contact: '+1 (555) 567-8901',
-    location: 'University Campus',
-    suburb: 'Campus District',
-    lotNo: 'Building Site 4',
-    dateReceived: '2024-03-15',
-    status: 'To Be Started',
-    feeEstimate: '$720,000',
-    progress: 0,
-    daysElapsed: 21,
-  },
-  {
-    id: '6',
-    jobNumber: 'PRJ-2023-012',
-    name: 'Parking Structure Downtown',
-    client: 'City Development Authority',
-    agent: 'Anna Rodriguez',
-    contact: '+1 (555) 678-9012',
-    location: 'Central Business District',
-    suburb: 'Downtown',
-    lotNo: 'Lot 22, 321 Park St',
-    dateReceived: '2023-09-10',
-    status: 'Done',
-    feeEstimate: '$380,000',
-    progress: 100,
-    daysElapsed: 208,
-  },
-] */
-
-
 const IN_PROGRESS_STATUSES = ['prelim', 'proposal', 'design & doc', 'amendment', 'hold']
 const TO_BE_INVOICED_STATUSES = ['to be invoiced']
 const COMPLETED_STATUSES = ['completed & invoiced', 'Eng/QA Review', 'construction']
@@ -269,7 +166,7 @@ function Projects() {
     queryKey: ['projects'],
     queryFn: projectsApi.getAllProjects,
   });
-    
+  console.log('Fetched projects:', projectsData)
   const inProgress = projectsData?.data.filter((p) => IN_PROGRESS_STATUSES.includes(p.status)) || []
   const toBeInvoiced = projectsData?.data.filter((p) => TO_BE_INVOICED_STATUSES.includes(p.status)) || []
   const completed = projectsData?.data.filter((p) => COMPLETED_STATUSES.includes(p.status)) || []

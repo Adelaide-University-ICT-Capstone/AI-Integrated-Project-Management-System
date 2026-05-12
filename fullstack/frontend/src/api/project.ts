@@ -8,6 +8,35 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+export type ProjectSummary = {
+  project_id: string
+  project_name: string | null
+  client_name: string | null
+  project_manager_name: string | null
+  days_since_started: number | null
+}
+
+export type ProjectSummaryResponse = {
+  data: ProjectSummary[]
+  count: number
+}
+
+export type MonthlyCountResponse = {
+  current_month: number
+  previous_month: number
+}
+
+export type MonthlyInvoiceResponse = {
+  current_month_total: string
+  previous_month_total: string
+}
+
 export type Project = {
   job_number: string
   project_id: string
@@ -62,7 +91,7 @@ export type ProjectMilestonePayload = {
 // src/api/projects.ts
 export const projectsApi = {
   //  @router.get("/current-project-num")
-  getCurrentProjectCount: () => api.get('/projects/current-project-num').then(res => res.data),
+  getCurrentProjectCount: () => api.get<MonthlyCountResponse>('/projects/current-project-num').then(res => res.data),
 
   //  @router.get("") 
   getAllProjects: () => api.get<ProjectsResponse>('/projects').then(res => res.data),
@@ -75,13 +104,16 @@ export const projectsApi = {
   getProjectById: (projectId: string) => api.get<Project>(`/projects/${projectId}`).then(res => res.data),
   
   // @router.get("/completed-project")
-  getCompletedProjectCount: () => api.get('/projects/completed-project').then(res => res.data),
+  getCompletedProjectCount: () => api.get<MonthlyCountResponse>('/projects/completed-project').then(res => res.data),
 
   //  @router.get("/delay-project")
-  getDelayedProjects: () => api.get('/projects/delay-project').then(res => res.data),
+  getDelayedProjects: () => api.get<ProjectSummaryResponse>('/projects/delay-project').then(res => res.data),
 
   // @router.get("/statuses")
   getProjectStatuses: () => api.get<string[]>('/statuses').then(res => res.data),
+
+  // @router.get("/all-project") superuser only
+  getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),
 
   getProjectTaskManagement: (projectId: string) =>
     api.get<ProjectTaskManagementResponse>(`/projects/${projectId}/task-management`).then(res => res.data),
@@ -95,6 +127,13 @@ export const projectsApi = {
   deleteProjectMilestone: (projectId: string, milestoneId: string) =>
     api.delete(`/projects/${projectId}/milestones/${milestoneId}`).then(res => res.data),
 
+  // @router.get("/invoice-bill") superuser only
+  getInvoiceBill: () => api.get<MonthlyInvoiceResponse>('/projects/invoice-bill').then(res => res.data),
 
+  // @router.get("/overdue")
+  getOverdueProjects: () => api.get<ProjectsResponse>('/projects/overdue').then(res => res.data),
 
+  // @router.get("/expected-to-finish/{date}")
+  getProjectsExpectedByDate: (date: string) =>
+    api.get<ProjectsResponse>(`/projects/expected-to-finish/${date}`).then(res => res.data),
 };

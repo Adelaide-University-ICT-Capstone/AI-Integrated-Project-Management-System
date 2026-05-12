@@ -20,8 +20,9 @@ import {
   Users,
   ChevronDown,
 } from 'lucide-react'
-const baseUrl = import.meta.env.VITE_API_URL
 import { toast } from 'react-toastify'
+
+const baseUrl = import.meta.env.VITE_API_URL
 
 export const Route = createFileRoute('/_authenticated/projects/new')({
   component: NewProject,
@@ -310,7 +311,8 @@ function NewProject() {
         toast.error(result.detail || 'Failed to create project')
         return
       }
-      toast.success('Project created successfully')
+
+      toast.success("Project created successfully");
       navigate({ to: '/projects' })
     } catch (error) {
       setSubmissionError('Unable to reach the backend. Please try again later.')
@@ -934,13 +936,23 @@ function NewProject() {
           </button>
 
           {currentStep === 'subtasks' ? (
-            <button
-              onClick={handleSubmit}
-              className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              <Save size={20} />
-              Save Project
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => navigate({ to: '/projects' })}
+                className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <Save size={20} />
+                Save Project
+              </button>
+            </>
           ) : (
             <button
               onClick={handleNext}

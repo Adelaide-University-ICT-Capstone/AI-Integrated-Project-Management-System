@@ -6,6 +6,19 @@ from app.crud.project_statuses import (
     create_status_type,
     get_all_status_types,
     get_status_type,
+from app.crud.users import (
+    authenticate,
+    create_user,
+    create_user_with_employee,
+    delete_user_and_employee,
+    get_all_users_with_roles,
+    get_employee_hours_since,
+    get_user_by_email,
+    get_user_profile,
+    get_users,
+    update_employee_role,
+    update_user,
+    DUMMY_HASH,
 )
 from app.crud.projects import (
     PROJECT_TAB_COMPLETED,
@@ -31,6 +44,12 @@ from app.crud.projects import (
     get_delayed_projects,
     get_material,
     get_materials_by_project_id,
+    get_overdue_projects,
+    get_projects_expected_by_date,
+    get_project_manager,
+    month_bounds,
+    prev_month,
+    sum_invoices,
     get_or_create_client,
     get_project_by_id,
     get_project_by_job_number,
@@ -64,6 +83,16 @@ from app.crud.users import (
     get_users,
     update_employee_role,
     update_user,
+
+from app.crud.project_statuses import (
+    get_status_type,
+    create_status_type,
+    get_all_status_types,
+)
+
+from app.crud.invoices import (
+    get_finished_invoices_since,
+    get_expected_invoices_before,
 )
 
 
@@ -79,6 +108,7 @@ __all__ = [
     "create_user_with_employee",
     "delete_user_and_employee",
     "get_all_users_with_roles",
+    "get_employee_hours_since",
     "get_user_by_email",
     "get_user_profile",
     "get_users",
@@ -91,6 +121,8 @@ __all__ = [
     "count_completed_projects",
     "get_all_active_projects",
     "get_delayed_projects",
+    "get_overdue_projects",
+    "get_projects_expected_by_date",
     "get_project_manager",
     "month_bounds",
     "prev_month",
@@ -126,6 +158,9 @@ __all__ = [
     "get_status_type",
     "create_status_type",
     "get_all_status_types",
+    # invoices
+    "get_finished_invoices_since",
+    "get_expected_invoices_before",
     #tasks
     "get_tasks",
     "delete_project_task",

@@ -608,6 +608,31 @@ def get_delayed_projects(*, session: Session) -> list[Project]:
     )
 
 
+def get_overdue_projects(*, session: Session) -> list[Project]:
+    today = date.today()
+    return list(
+        session.exec(
+            select(Project)
+            .where(Project.is_active == True)
+            .where(Project.due_date < today)
+            .where(Project.completion_date == None)
+            .order_by(col(Project.due_date).asc())
+        ).all()
+    )
+
+
+def get_projects_expected_by_date(*, session: Session, due_by: date) -> list[Project]:
+    return list(
+        session.exec(
+            select(Project)
+            .where(Project.is_active == True)
+            .where(Project.due_date <= due_by)
+            .where(Project.completion_date == None)
+            .order_by(col(Project.due_date).asc())
+        ).all()
+    )
+
+
 def count_active_projects(*, session: Session, start: date, end: date) -> int:
     return session.exec(
         select(func.count())

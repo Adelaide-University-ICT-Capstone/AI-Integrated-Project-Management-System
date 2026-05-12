@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
   Calendar,
@@ -19,11 +19,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
-const baseUrl = import.meta.env.VITE_API_URL
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectTaskManagementMilestone } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
+
+const baseUrl = import.meta.env.VITE_API_URL
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
@@ -215,11 +216,12 @@ function ProjectDetails() {
         const token = localStorage.getItem('access_token')
         const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
           method: 'GET',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         })
+
         const result = await response.json()
         if (!response.ok) {
           toast.error(result.detail || 'Failed to fetch project')
@@ -319,8 +321,8 @@ function ProjectDetails() {
             'Authorization': `Bearer ${token}`,
           },
         });
-        toast.success('Project deleted successfully')
-        navigate({ to: '/projects' })
+        toast.success('Project deleted successfully');
+        navigate({ to: '/projects' });
       } catch (error) {
         console.error('Error deleting project:', error)
         toast.error('Network error')
@@ -890,14 +892,14 @@ function ProjectDetails() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Users size={20} /> Workforce Allocation
                   </h3>
-                  <button
-                    onClick={() => setShowAddWorker(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  <Link
+                    to="/projects/workforce/$projectId"
+                    params={{ projectId }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    <Plus size={16} /> Add Member
-                  </button>
+                    + Add
+                  </Link>
                 </div>
-
                 {workforce.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
                     <Users size={40} className="mx-auto text-gray-300 mb-2" />
