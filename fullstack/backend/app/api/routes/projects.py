@@ -251,6 +251,27 @@ def update_project_milestone(
     return ProjectMilestonePublic.model_validate(updated)
 
 
+@router.delete(
+    "/{project_id}/milestones/{milestone_id}",
+    response_model=Message,
+)
+def delete_project_milestone(
+    project_id: uuid.UUID,
+    milestone_id: uuid.UUID,
+    session: SessionDep,
+) -> Message:
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    existing = crud.get_project_milestone(session=session, milestone_id=milestone_id)
+    if not existing or existing.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+    crud.delete_project_milestone(session=session, milestone=existing)
+    return Message(message="Milestone deleted successfully")
+
+
 @router.post(
     "/{project_id}/milestones/{milestone_id}/tasks",
     response_model=ProjectTaskPublic,

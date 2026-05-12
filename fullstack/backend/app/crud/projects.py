@@ -326,6 +326,11 @@ def update_project_milestone(
     return milestone
 
 
+def delete_project_milestone(*, session: Session, milestone: ProjectMilestone) -> None:
+    session.delete(milestone)
+    session.commit()
+
+
 def create_project_task(
     *,
     session: Session,
@@ -447,6 +452,7 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
             due_date=milestone.due_date,
             completion_date=milestone.completion_date,
             is_complete=milestone.is_complete,
+            progress=milestone.progress,
             display_order=milestone.display_order,
             tasks=build_task_tree(tasks=tasks_by_milestone.get(milestone.id, [])),
         )

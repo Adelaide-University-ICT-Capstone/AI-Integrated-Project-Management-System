@@ -22,8 +22,7 @@ import { toast } from 'react-toastify'
 const baseUrl = import.meta.env.VITE_API_URL
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
-import { error } from 'node:console'
-import { set } from 'zod'
+import type { ProjectTaskManagementMilestone } from '../../../api/project'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
@@ -41,9 +40,12 @@ type Project = {
 }
 
 type WorkflowPhase = {
+  id: string
   phase: string
   status: 'pending' | 'in-progress' | 'completed'
   progress: number
+  dueDate?: string | null
+  displayOrder?: number | null
 }
 
 type MaterialStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
@@ -106,19 +108,6 @@ const mapStatusToFrontend = (backendStatus: string) => {
   }
 }
 
-const mapStatusToBackend = (frontendStatus: MaterialStatus) => {
-  switch (frontendStatus) {
-    case 'Ordered':
-      return 'ordered'
-    case 'Received':
-      return 'received'
-    case 'By Client':
-      return 'by_client'
-    default:
-      return 'N/A'
-  }
-}
-
 const mapFrontendFieldToBackend = (field: keyof Material) => {
   switch (field) {
     case 'name':
@@ -158,6 +147,29 @@ const getWorkforceStatusColor = (status: string) => {
   }
 }
 
+const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
+  if (progress >= 100) return 'completed'
+  if (progress > 0) return 'in-progress'
+  return 'pending'
+}
+
+const mapMilestoneToWorkflowPhase = (milestone: ProjectTaskManagementMilestone): WorkflowPhase => {
+  const progress = Number.isFinite(milestone.progress)
+    ? milestone.progress
+    : milestone.is_complete
+      ? 100
+      : 0
+
+  return {
+    id: milestone.id,
+    phase: milestone.milestone_name,
+    progress,
+    status: getWorkflowPhaseStatus(progress),
+    dueDate: milestone.due_date,
+    displayOrder: milestone.display_order,
+  }
+}
+
 function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
@@ -166,7 +178,7 @@ function ProjectDetails() {
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
 
-  // Editable workflow, materials, workforce (frontend state until backend supports it)
+  // Workflow phases are backed by project milestones.
   const [workflow, setWorkflow] = useState<WorkflowPhase[]>([])
   const [materials, setMaterials] = useState<Material[]>(DEFAULT_MATERIALS)
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([])
@@ -249,8 +261,19 @@ function ProjectDetails() {
       }
     }
 
+    const fetchWorkflow = async () => {
+      try {
+        const taskManagement = await projectsApi.getProjectTaskManagement(projectId)
+        setWorkflow(taskManagement.milestones.map(mapMilestoneToWorkflowPhase))
+      } catch (error) {
+        console.error('Error fetching workflow phases:', error)
+        toast.error('Network error while fetching workflow phases')
+      }
+    }
+
 
     fetchProject()
+    fetchWorkflow()
     fetchMaterials() // Fetch materials separately
 
 
@@ -323,26 +346,58 @@ function ProjectDetails() {
   }
 
   // Workflow handlers
-  const addWorkflowPhase = () => {
+  const addWorkflowPhase = async () => {
     if (!newPhaseName.trim()) {
       toast.error('Please enter a phase name')
       return
     }
-    setWorkflow([...workflow, { phase: newPhaseName, status: 'pending', progress: 0 }])
-    setNewPhaseName('')
-    toast.success(`Added "${newPhaseName}" phase`)
+    try {
+      const created = await projectsApi.createProjectMilestone(projectId, {
+        milestone_name: newPhaseName.trim(),
+        display_order: workflow.length + 1,
+        progress: 0,
+        is_complete: false,
+      })
+      setWorkflow([...workflow, mapMilestoneToWorkflowPhase(created)])
+      setNewPhaseName('')
+      toast.success(`Added "${newPhaseName}" phase`)
+    } catch (error) {
+      console.error('Error adding workflow phase:', error)
+      toast.error('Failed to add workflow phase')
+    }
   }
 
-  const removeWorkflowPhase = (index: number) => {
-    setWorkflow(workflow.filter((_, i) => i !== index))
-    toast.success('Phase removed')
+  const removeWorkflowPhase = async (index: number) => {
+    const phase = workflow[index]
+    if (!phase) return
+    try {
+      await projectsApi.deleteProjectMilestone(projectId, phase.id)
+      setWorkflow(workflow.filter((_, i) => i !== index))
+      toast.success('Phase removed')
+    } catch (error) {
+      console.error('Error removing workflow phase:', error)
+      toast.error('Failed to remove workflow phase')
+    }
   }
 
-  const updatePhaseProgress = (index: number, progress: number) => {
+  const updatePhaseProgress = async (index: number, progress: number) => {
+    const phase = workflow[index]
+    if (!phase) return
     const updated = [...workflow]
     updated[index].progress = progress
-    updated[index].status = progress === 100 ? 'completed' : progress > 0 ? 'in-progress' : 'pending'
+    updated[index].status = getWorkflowPhaseStatus(progress)
     setWorkflow(updated)
+    try {
+      await projectsApi.updateProjectMilestone(projectId, phase.id, {
+        progress,
+        is_complete: progress === 100,
+        completion_date: progress === 100 ? new Date().toISOString().slice(0, 10) : null,
+      })
+    } catch (error) {
+      console.error('Error updating workflow phase progress:', error)
+      setWorkflow(workflow)
+      toast.error('Failed to update workflow phase progress')
+    }
   }
 
   // Material handlers
@@ -717,10 +772,16 @@ function ProjectDetails() {
                         onChange={(e) => setNewPhaseName(e.target.value)}
                         placeholder="New phase name (e.g., Excavation)"
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm placeholder:text-gray-400"
-                        onKeyDown={(e) => e.key === 'Enter' && addWorkflowPhase()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            addWorkflowPhase().catch(() => undefined)
+                          }
+                        }}
                       />
                       <button
-                        onClick={addWorkflowPhase}
+                        onClick={() => {
+                          addWorkflowPhase().catch(() => undefined)
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                       >
                         <Plus size={16} /> Add Phase
@@ -766,7 +827,9 @@ function ProjectDetails() {
                             </span>
                             {editingWorkflow && (
                               <button
-                                onClick={() => removeWorkflowPhase(index)}
+                                onClick={() => {
+                                  removeWorkflowPhase(index).catch(() => undefined)
+                                }}
                                 className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                               >
                                 <Trash2 size={16} />
@@ -781,7 +844,9 @@ function ProjectDetails() {
                             max="100"
                             step="5"
                             value={phase.progress}
-                            onChange={(e) => updatePhaseProgress(index, parseInt(e.target.value))}
+                            onChange={(e) => {
+                              updatePhaseProgress(index, parseInt(e.target.value)).catch(() => undefined)
+                            }}
                             className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-600"
                           />
                         </div>

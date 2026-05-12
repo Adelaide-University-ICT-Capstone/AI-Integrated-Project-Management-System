@@ -495,6 +495,7 @@ class ProjectMilestoneBase(SQLModel):
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool = False
+    progress: int = Field(default=0, ge=0, le=100)
     display_order: int | None = None
 
 
@@ -508,6 +509,7 @@ class ProjectMilestoneUpdate(SQLModel):
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
     display_order: int | None = None
 
 
@@ -539,6 +541,7 @@ class ProjectMilestoneTreeCreate(SQLModel):
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool = False
+    progress: int = Field(default=0, ge=0, le=100)
     display_order: int | None = None
 
 
@@ -676,6 +679,7 @@ class ProjectMilestoneNode(SQLModel):
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool = False
+    progress: int = 0
     display_order: int | None = None
     tasks: list[ProjectTaskNode] = Field(default_factory=list)
 
