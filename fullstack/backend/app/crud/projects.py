@@ -3,10 +3,9 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from app.crud.project_statuses import get_status_type
-
 from sqlmodel import Session, col, func, or_, select
 
+from app.crud.project_statuses import get_status_type
 from app.models import (
     Client,
     Employee,
@@ -26,18 +25,11 @@ from app.models import (
     ProjectTaskNode,
     ProjectTaskTreeCreate,
     ProjectUpdateRequest,
-    SubcontractorStatus
 )
 
 DEFAULT_MAIN_TASKS = (
     "Preliminary Design & Documentation",
     "Design & Documentation",
-)
-
-DEFAULT_SUBTASKS = (
-    "Task 1",
-    "Task 2",
-    "Task 3",
 )
 
 DEFAULT_MATERIALS = (
@@ -58,7 +50,7 @@ def get_or_create_client(
     client = session.exec(select(Client).where(Client.client_name == client_name and Client.company_name == company_name)).first()
     if client:
         return client
-    
+
     client = Client(
         client_name=client_name,
         contact_email=contact_email,
@@ -143,7 +135,7 @@ def calculate_project_completion_percent(*, session: Session, project: Project) 
             select(ProjectTask)
             .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
             .where(ProjectMilestone.project_id == project.id)
-            .where(ProjectTask.is_excluded == False)
+            .where(ProjectTask.is_excluded.is_(False))
         ).all()
     )
     if tasks:
@@ -216,17 +208,6 @@ def create_default_project_task_structure(
             display_order=display_order,
         )
         session.add(milestone)
-        session.flush()
-
-        for task_name in DEFAULT_SUBTASKS:
-            session.add(
-                ProjectTask(
-                    milestone_id=milestone.id,
-                    task_name=task_name,
-                    due_date=due_date_value,
-                    core_phase_name=milestone_name,
-                )
-            )
 
     for material_name in DEFAULT_MATERIALS:
         session.add(
@@ -496,43 +477,60 @@ def delete_all_projects(*, session: Session) -> int:
     session.commit()
     return count
 
-def update_project(*, session: Session, project_id: uuid.UUID, project_data: ProjectUpdateRequest) -> Project | None:
-    project = session.get(Project, project_id)
-    if not project:
-        return None
 
-    if project_data.status is not None:
-        status_type = get_status_type(session=session, status_name=project_data.status)
+# def update_material(*, session: Session, material: Material, updates: dict) -> Material:
+#     material.sqlmodel_update(updates)
+#     session.add(material)
+#     session.commit()
+#     session.refresh(material)
+#     return material
 
-        if not status_type:
-            raise ValueError(f"Status type '{project_data.status}' does not exist.")
-        project.current_status_id = status_type.id
 
-    if project_data.project_name is not None:
-        project.project_name = project_data.project_name
-    if project_data.contract_title is not None:
-        project.contract_title = project_data.contract_title
-    if project_data.agent is not None:
-        project.agent = project_data.agent
-    if project_data.job_title is not None:
-        project.job_title = project_data.job_title
-    if project_data.address is not None:
-        project.full_address = project_data.address
-    if project_data.project_types is not None:
-        project.project_type = project_data.project_types
-    if project_data.date_received is not None:
-        project.date_received = project_data.date_received
-    if project_data.start_date is not None:
-        project.start_date = project_data.start_date
-    if project_data.due_date is not None:
-        project.due_date = project_data.due_date
-    if project_data.fee_estimate is not None:
-        project.fee_final = project_data.fee_estimate
-
+def update_project(*, session: Session, project: Project, updates: dict) -> Project:
+    project.sqlmodel_update(updates)
     session.add(project)
     session.commit()
     session.refresh(project)
     return project
+
+
+# def update_project_new(*, session: Session, project_id: uuid.UUID, project_data: ProjectUpdateRequest) -> Project | None:
+#     project = session.get(Project, project_id)
+#     if not project:
+#         return None
+
+#     if project_data.status is not None:
+#         status_type = get_status_type(session=session, status_name=project_data.status)
+
+#         if not status_type:
+#             raise ValueError(f"Status type '{project_data.status}' does not exist.")
+#         project.current_status_id = status_type.id
+
+#     if project_data.project_name is not None:
+#         project.project_name = project_data.project_name
+#     if project_data.contract_title is not None:
+#         project.contract_title = project_data.contract_title
+#     if project_data.agent is not None:
+#         project.agent = project_data.agent
+#     if project_data.job_title is not None:
+#         project.job_title = project_data.job_title
+#     if project_data.address is not None:
+#         project.full_address = project_data.address
+#     if project_data.project_types is not None:
+#         project.project_type = project_data.project_types
+#     if project_data.date_received is not None:
+#         project.date_received = project_data.date_received
+#     if project_data.start_date is not None:
+#         project.start_date = project_data.start_date
+#     if project_data.due_date is not None:
+#         project.due_date = project_data.due_date
+#     if project_data.fee_estimate is not None:
+#         project.fee_final = project_data.fee_estimate
+
+#     session.add(project)
+#     session.commit()
+#     session.refresh(project)
+#     return project
 
 # --------------------------------
 
@@ -584,7 +582,7 @@ def get_all_active_projects(*, session: Session) -> list[Project]:
     return list(
         session.exec(
             select(Project)
-            .where(Project.is_active == True)
+            .where(Project.is_active.is_(True))
             .order_by(col(Project.created_at).desc())
         ).all()
     )
@@ -595,7 +593,7 @@ def get_delayed_projects(*, session: Session) -> list[Project]:
     delayed_ids = session.exec(
         select(ProjectMilestone.project_id)
         .where(ProjectMilestone.due_date < today)
-        .where(ProjectMilestone.is_complete == False)
+        .where(ProjectMilestone.is_complete.is_(False))
         .distinct()
     ).all()
     if not delayed_ids:
@@ -604,7 +602,7 @@ def get_delayed_projects(*, session: Session) -> list[Project]:
         session.exec(
             select(Project)
             .where(col(Project.id).in_(delayed_ids))
-            .where(Project.is_active == True)
+            .where(Project.is_active.is_(True))
             .order_by(col(Project.created_at).desc())
         ).all()
     )
@@ -639,9 +637,9 @@ def count_active_projects(*, session: Session, start: date, end: date) -> int:
     return session.exec(
         select(func.count())
         .select_from(Project)
-        .where(Project.is_active == True)
+        .where(Project.is_active.is_(True))
         .where(Project.start_date <= end)
-        .where(or_(Project.completion_date == None, Project.completion_date >= start))
+        .where(or_(Project.completion_date.is_(None), Project.completion_date >= start))
     ).one()
 
 

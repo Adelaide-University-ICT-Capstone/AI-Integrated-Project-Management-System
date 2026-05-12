@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Plus,
   Search,
@@ -12,6 +12,8 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { subcontractorsApi } from '@/api/subcontractors'
+import { materialsApi } from '@/api/materials'
 
 export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
@@ -40,6 +42,26 @@ interface Order {
   status: OrderStatus
 }
 
+const mapMaterialStatus = (status: string | null | undefined): OrderStatus => {
+  if (!status) return 'N/A'
+  switch (status.toLowerCase()) {
+    case 'ordered':
+      return 'Ordered'
+    case 'received':
+      return 'Received'
+    case 'by client':
+    case 'by_client':
+      return 'By Client'
+    default:
+      return 'N/A'
+  }
+}
+
+const getServicePillClass = (service: string) =>
+  SERVICE_TYPES.includes(service as ServiceType)
+    ? servicePillClass[service as ServiceType]
+    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+
 // ----- Mock data -----
 
 const initialSubcontractors: Subcontractor[] = [
@@ -57,15 +79,15 @@ const daysAgo = (n: number) => {
   return d.toISOString().split('T')[0]
 }
 
-const initialOrders: Order[] = [
-  { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
-  { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
-  { id: 'o3', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2023-012', projectName: 'Residential Tower Foundation', orderedDate: daysAgo(28), status: 'Ordered' },
-  { id: 'o4', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(2), status: 'Received' },
-  { id: 'o5', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(35), status: 'Ordered' },
-  { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
-  { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
-]
+// const initialOrders: Order[] = [
+//   { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
+//   { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
+//   { id: 'o3', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2023-012', projectName: 'Residential Tower Foundation', orderedDate: daysAgo(28), status: 'Ordered' },
+//   { id: 'o4', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(2), status: 'Received' },
+//   { id: 'o5', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(35), status: 'Ordered' },
+//   { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
+//   { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
+// ]
 
 const PROJECT_OPTIONS = [
   { id: 'PRJ-2024-001', name: 'Downtown Office Complex' },
@@ -112,6 +134,8 @@ const statusPillClass: Record<OrderStatus, string> = {
   'Received': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   'By Client': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 }
+
+
 
 const servicePillClass: Record<ServiceType, string> = {
   'Survey': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
@@ -384,27 +408,39 @@ function OrderRow({
   subcontractorName?: string
   onDelete: () => void
 }) {
+  const navigate = useNavigate();
   const alert = getOrderAlert(order)
   const cols = showSubcontractor ? ROW_COLS_BY_SVC : ROW_COLS_BY_SC
 
+  const handleRowClick = () => {
+    navigate({ to: `/projects/${order.projectId}` });
+  }
+
+
   return (
-    <div className={`grid ${cols} gap-2 px-4 py-2 items-center text-xs border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/30`}>
+    <div 
+      onClick={handleRowClick}
+      className={`grid ${cols} gap-2 px-4 py-2 items-center text-xs border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors`}
+    >
       {showSubcontractor && (
         <span className="font-medium text-gray-900 dark:text-white truncate text-xs">{subcontractorName}</span>
       )}
       <span className="font-mono text-blue-700 dark:text-blue-400 text-[11px] truncate">{order.projectId}</span>
-      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${servicePillClass[order.service]}`}>
+      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${getServicePillClass(order.service)}`}>
         {order.service}
       </span>
       <span className="justify-self-center text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatDaysAgo(order.orderedDate)}</span>
-      <span className={`justify-self-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusPillClass[order.status]}`}>
+      <span className={`justify-self-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusPillClass[mapMaterialStatus(order.status)]}`}>
         {order.status}
       </span>
       <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${alertToneClass[alert.tone]}`}>
         {alert.label}
       </span>
       <button
-        onClick={onDelete}
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
         className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-center"
       >
         <Trash2 size={14} />
@@ -416,22 +452,97 @@ function OrderRow({
 // ----- Main Component -----
 
 function Subcontractors() {
-  const [subcontractors, setSubcontractors] = useState(initialSubcontractors)
-  const [orders, setOrders] = useState(initialOrders)
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [view, setView] = useState<'subcontractor' | 'service'>('subcontractor')
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddSubcontractor, setShowAddSubcontractor] = useState(false)
   const [newOrderForSc, setNewOrderForSc] = useState<Subcontractor | null>(null)
-
+  const [isLoading, setIsLoading] = useState(false)
   const totalActiveOrders = orders.length
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
 
+
+  // Fetch subcontractors on mount
+  useEffect(() => {
+    const fetchSubcontractors = async () => {
+      try {
+        setIsLoading(true)
+        const data = await subcontractorsApi.getSubcontractors()
+        // console.log('Raw subcontractors data:', data)
+
+        const subcontractorsResult: Subcontractor[] = data.map((m: any) => ({
+            id: m.id,
+            name: m.company_name || '',
+            email: m.contact_email || '',
+            phone: m.phone || '',
+            services: (m.specialty || '').split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s)) || [],
+          }))
+        setSubcontractors(subcontractorsResult);
+        // console.log('Fetched subcontractors:', subcontractorsResult)
+
+      } catch (error) {
+        toast.error('Failed to load subcontractors')
+        console.error(error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    const fetchOrders = async () => {
+      try {
+        setIsLoading(true)
+        const data = await materialsApi.getUnreceivedOrders()
+        const ordersResult: Order[] = data.map((m: any) => ({
+          id: m.id,
+          projectName: m.project_name || '',
+          projectId: m.project_id || '',
+          subcontractorId: m.subcontractor_id || '',
+          service: m.name || '',
+          orderedDate: m.ordered_date || null,
+          status: m.status || '',
+        }))
+        setOrders(ordersResult);
+
+        console.log('Fetched orders:', ordersResult)
+      } catch (error) {
+        toast.error('Failed to load orders')
+        console.error(error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchSubcontractors()
+    fetchOrders()
+  }, [])
+
+  
   const matchSearch = (text: string) => text.toLowerCase().includes(searchTerm.toLowerCase())
 
-  const handleAddSubcontractor = (sc: Omit<Subcontractor, 'id'>) => {
-    setSubcontractors([...subcontractors, { ...sc, id: `sc${Date.now()}` }])
-    toast.success(`${sc.name} added`)
+  const handleAddSubcontractor = async (sc: Omit<Subcontractor, 'id'>) => {
+    try {
+      const apiPayload = {
+        company_name: sc.name,
+        contact_email: sc.email,
+        phone: sc.phone,
+        specialty: sc.services.join(', '),
+      }
+      const newSc = await subcontractorsApi.createSubcontractor(apiPayload)
+      const frontendSc: Subcontractor = {
+        id: newSc.id,
+        name: newSc.company_name || '',
+        email: newSc.contact_email || '',
+        phone: newSc.phone || '',
+        services: (newSc.specialty || '').split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s)),
+      }
+      setSubcontractors([...subcontractors, frontendSc])
+      toast.success(`${frontendSc.name} added`)
+    } catch (error) {
+      toast.error('Failed to add subcontractor')
+      console.error(error)
+    }
   }
 
   const handleAddOrder = (order: Omit<Order, 'id'>) => {

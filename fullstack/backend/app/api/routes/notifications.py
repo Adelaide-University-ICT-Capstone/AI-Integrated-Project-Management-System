@@ -93,26 +93,26 @@ def trigger_due_reminders(
                 })
 
         # 2. Milestones
-        ms_stmt = select(ProjectMilestone).where(
-            ProjectMilestone.due_date.in_(target_dates),
-            ProjectMilestone.is_complete == False
-        )
-        for m in db.exec(ms_stmt).all():
-            reminder_list.append({
-                "name": m.milestone_name, "category": "Milestone",
-                "date": str(m.due_date), "days_left": (m.due_date - today).days
-            })
+        #ms_stmt = select(ProjectMilestone).where(
+        #    ProjectMilestone.due_date.in_(target_dates),
+        #    ProjectMilestone.is_complete == False
+        #)
+        #for m in db.exec(ms_stmt).all():
+        #    reminder_list.append({
+        #        "name": m.milestone_name, "category": "Milestone",
+        #        "date": str(m.due_date), "days_left": (m.due_date - today).days
+        #    })
 
         # 3. Tasks
-        task_stmt = select(ProjectTask).where(
-            ProjectTask.due_date.in_(target_dates),
-            ProjectTask.completion_date == None
-        )
-        for t in db.exec(task_stmt).all():
-            reminder_list.append({
-                "name": t.task_name, "category": "Task",
-                "date": str(t.due_date), "days_left": (t.due_date - today).days
-            })
+        #task_stmt = select(ProjectTask).where(
+        #    ProjectTask.due_date.in_(target_dates),
+        #    ProjectTask.completion_date == None
+        #)
+        #for t in db.exec(task_stmt).all():
+        #    reminder_list.append({
+        #        "name": t.task_name, "category": "Task",
+        #        "date": str(t.due_date), "days_left": (t.due_date - today).days
+        #    })
 
         if not reminder_list:
             return Message(message="No items matching the scheduled intervals for today.")

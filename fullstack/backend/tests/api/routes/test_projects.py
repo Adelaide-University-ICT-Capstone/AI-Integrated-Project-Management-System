@@ -12,6 +12,7 @@ from app.models import (
     ProjectAssignment,
     ProjectMilestone,
     ProjectStatusType,
+    ProjectTask,
     Role,
 )
 from tests.utils.utils import random_lower_string
@@ -103,7 +104,7 @@ def test_get_project_with_roles(
     assert payload["assignments"][0]["role_in_project"] == "Project Manager"
 
 
-def test_create_project_creates_default_task_management_structure(
+def test_create_project_creates_default_milestones_without_tasks(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     job_number = f"JOB-TASK-{random_lower_string()[:8]}"
@@ -145,11 +146,8 @@ def test_create_project_creates_default_task_management_structure(
     assert payload["milestones"][0]["due_date"] == "2026-05-15"
     assert payload["milestones"][1]["milestone_name"] == "Design & Documentation"
     assert payload["milestones"][1]["due_date"] == "2026-06-01"
-    assert [task["task_name"] for task in payload["milestones"][0]["tasks"]] == [
-        "Task 1",
-        "Task 2",
-        "Task 3",
-    ]
+    assert payload["milestones"][0]["tasks"] == []
+    assert payload["milestones"][1]["tasks"] == []
     materials_response = client.get(
         f"/api/v1/projects/{project_id}/materials",
         headers=superuser_token_headers,
@@ -258,6 +256,65 @@ def test_create_project_subtask_under_main_task(
     assert root_task["children"][0]["allocated_hours"] == "18.50"
     assert "subcontractor_name" not in root_task["children"][0]
     assert "subcontractor_status" not in root_task["children"][0]
+
+
+def test_delete_project_milestone_removes_tasks(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    status = get_prelim_status(db)
+
+    client_row = Client(
+        client_name=f"Delete Milestone Client {random_lower_string()[:8]}",
+        company_name="Delete Milestone Company",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    project = Project(
+        job_number=f"JOB-DEL-MILESTONE-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=status.id,
+        project_name="Delete Milestone Project",
+        start_date=date(2026, 5, 1),
+        due_date=date(2026, 6, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    milestone = ProjectMilestone(
+        project_id=project.id,
+        milestone_name="Design & Documentation",
+        due_date=date(2026, 5, 12),
+        display_order=1,
+    )
+    db.add(milestone)
+    db.commit()
+    db.refresh(milestone)
+    milestone_id = milestone.id
+
+    task = ProjectTask(
+        milestone_id=milestone_id,
+        task_name="Documentation task",
+        due_date=date(2026, 5, 11),
+    )
+    db.add(task)
+    db.commit()
+
+    response = client.delete(
+        f"/api/v1/projects/{project.id}/milestones/{milestone_id}",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Milestone deleted successfully"}
+    db.expire_all()
+    assert db.get(ProjectMilestone, milestone_id) is None
+    assert db.exec(
+        select(ProjectTask).where(ProjectTask.milestone_id == milestone_id)
+    ).all() == []
 
 
 def test_project_tabs_are_grouped_by_completion_and_invoice_state(
