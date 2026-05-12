@@ -44,6 +44,7 @@ class Role(RoleBase, table=True):
     )
     employees: list["Employee"] = Relationship(back_populates="role")
     subcontractors: list["Subcontractor"] = Relationship(back_populates="role")
+    project_tasks: list["ProjectTask"] = Relationship(back_populates="assigned_role")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="role")
 
 
@@ -62,7 +63,7 @@ class RolesPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class ProjectStatusTypeBase(SQLModel):
-    status_name: str = Field(max_length=100)
+    status_name: str = Field(unique=True, max_length=100)
     description: str | None = Field(default=None, sa_type=Text)
     is_active: bool = True
 
@@ -78,6 +79,13 @@ class ProjectStatus(str, Enum):
     eng_qa = "Eng/QA Review"
     construction = "construction"
     blank = "-"
+
+
+class SubcontractorStatus(str, Enum):
+    not_applicable = "N/A"
+    ordered = "ordered"
+    received = "received"
+    by_client = "by client"
 
 
 class ProjectStatusTypeCreate(ProjectStatusTypeBase):
@@ -273,6 +281,7 @@ class Subcontractor(SubcontractorBase, table=True):
     )
     role: Role | None = Relationship(back_populates="subcontractors")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="subcontractor")
+    materials: list["Material"] = Relationship(back_populates="subcontractor")
     time_logs: list["TimeLog"] = Relationship(back_populates="subcontractor")
 
 
@@ -394,6 +403,9 @@ class ProjectBase(SQLModel):
     client_id: uuid.UUID = Field(foreign_key="clients.id")
     current_status_id: uuid.UUID | None = Field(default=None, foreign_key="project_status_types.id")
     project_name: str | None = Field(default=None, max_length=255)
+    contract_title: str | None = Field(default=None, max_length=255)
+    agent: str | None = Field(default=None, max_length=255)
+    job_title: str | None = Field(default=None, max_length=255)
     sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
@@ -417,6 +429,9 @@ class ProjectUpdate(SQLModel):
     client_id: uuid.UUID | None = None
     current_status_id: uuid.UUID | None = None
     project_name: str | None = Field(default=None, max_length=255)
+    contract_title: str | None = Field(default=None, max_length=255)
+    agent: str | None = Field(default=None, max_length=255)
+    job_title: str | None = Field(default=None, max_length=255)
     sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
@@ -445,12 +460,18 @@ class Project(ProjectBase, table=True):
     )
     client: Client | None = Relationship(back_populates="projects")
     current_status: ProjectStatusType | None = Relationship(back_populates="projects")
-    milestones: list["ProjectMilestone"] = Relationship(back_populates="project")
-    assignments: list["ProjectAssignment"] = Relationship(back_populates="project")
-    invoices: list["Invoice"] = Relationship(back_populates="project")
-    order_types: list["OrderType"] = Relationship(back_populates="project")
-    materials: list["Material"] = Relationship(back_populates="project")
-    time_logs: list["TimeLog"] = Relationship(back_populates="project")
+    milestones: list["ProjectMilestone"] = Relationship(back_populates="project",sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True},)
+    assignments: list["ProjectAssignment"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True})
+    invoices: list["Invoice"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True})
+    order_types: list["OrderType"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True})
+    materials: list["Material"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": True,
+        },
+    )
+    time_logs: list["TimeLog"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True})
 
 
 class ProjectPublic(ProjectBase):
@@ -469,12 +490,13 @@ class ProjectsPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class ProjectMilestoneBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     milestone_name: str = Field(max_length=255)
     description_type: str | None = Field(default=None, max_length=100)
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool = False
+    progress: int = Field(default=0, ge=0, le=100)
     display_order: int | None = None
 
 
@@ -488,6 +510,7 @@ class ProjectMilestoneUpdate(SQLModel):
     due_date: date | None = None
     completion_date: date | None = None
     is_complete: bool | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
     display_order: int | None = None
 
 
@@ -513,16 +536,30 @@ class ProjectMilestonesPublic(SQLModel):
     count: int
 
 
+class ProjectMilestoneTreeCreate(SQLModel):
+    milestone_name: str = Field(max_length=255)
+    description_type: str | None = Field(default=None, max_length=100)
+    due_date: date | None = None
+    completion_date: date | None = None
+    is_complete: bool = False
+    progress: int = Field(default=0, ge=0, le=100)
+    display_order: int | None = None
+
+
 # ---------------------------------------------------------------------------
 # Project Tasks  (FK -> project_milestones)
 # ---------------------------------------------------------------------------
 
 class ProjectTaskBase(SQLModel):
-    milestone_id: uuid.UUID = Field(foreign_key="project_milestones.id")
+    milestone_id: uuid.UUID = Field(foreign_key="project_milestones.id", ondelete="CASCADE")
     task_name: str = Field(max_length=255)
     task_description: str | None = Field(default=None, sa_type=Text)
+    parent_task_id: uuid.UUID | None = Field(default=None, foreign_key="project_tasks.id", ondelete="CASCADE")
+    due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
+    assigned_role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
+    allocated_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
     completion_date: date | None = None
     invoice_amount: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
     fee_final: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -537,8 +574,12 @@ class ProjectTaskCreate(ProjectTaskBase):
 class ProjectTaskUpdate(SQLModel):
     task_name: str | None = Field(default=None, max_length=255)
     task_description: str | None = None
+    parent_task_id: uuid.UUID | None = None
+    due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
     fee_final: Decimal | None = None
@@ -559,6 +600,7 @@ class ProjectTask(ProjectTaskBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     milestone: ProjectMilestone | None = Relationship(back_populates="tasks")
+    assigned_role: Role | None = Relationship(back_populates="project_tasks")
 
     # Two FKs from project_task_orders point to project_tasks (task_id + depends_on_task_id).
     # Use raw SA relationship with explicit foreign_keys to disambiguate.
@@ -692,6 +734,71 @@ class ProjectSubtasksPublic(SQLModel):
 
 # --------------------------------------------------------------------------- Igie
 
+class ProjectTaskTreeCreate(SQLModel):
+    task_name: str = Field(max_length=255)
+    task_description: str | None = None
+    due_date: date | None = None
+    parent_task_id: uuid.UUID | None = None
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+
+
+class ProjectTaskTreeUpdate(SQLModel):
+    task_name: str | None = None
+    task_description: str | None = None
+    due_date: date | None = None
+    parent_task_id: uuid.UUID | None = None
+    assigned_role_id: uuid.UUID | None = None
+    allocated_hours: Decimal | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+    completion_date: date | None = None
+    invoice_amount: Decimal | None = None
+    fee_final: Decimal | None = None
+    is_excluded: bool | None = None
+    paid_date: date | None = None
+
+
+class ProjectTaskNode(SQLModel):
+    id: uuid.UUID
+    milestone_id: uuid.UUID
+    parent_task_id: uuid.UUID | None = None
+    task_name: str
+    task_description: str | None = None
+    due_date: date | None = None
+    milestone_status: str | None = None
+    core_phase_name: str | None = None
+    assigned_role_id: uuid.UUID | None = None
+    assigned_role_name: str | None = None
+    allocated_hours: Decimal | None = None
+    completion_date: date | None = None
+    invoice_amount: Decimal | None = None
+    fee_final: Decimal | None = None
+    is_excluded: bool = False
+    paid_date: date | None = None
+    children: list["ProjectTaskNode"] = Field(default_factory=list)
+
+
+class ProjectMilestoneNode(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    milestone_name: str
+    description_type: str | None = None
+    due_date: date | None = None
+    completion_date: date | None = None
+    is_complete: bool = False
+    progress: int = 0
+    display_order: int | None = None
+    tasks: list[ProjectTaskNode] = Field(default_factory=list)
+
+
+class ProjectTaskManagementResponse(SQLModel):
+    project_id: uuid.UUID
+    milestones: list[ProjectMilestoneNode]
+
+
 # ---------------------------------------------------------------------------
 # Project Task Orders  (two FKs -> project_tasks)
 # ---------------------------------------------------------------------------
@@ -733,7 +840,7 @@ class ProjectTaskOrderPublic(ProjectTaskOrderBase):
 # ---------------------------------------------------------------------------
 
 class ProjectAssignmentBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     employee_id: uuid.UUID | None = Field(default=None, foreign_key="employees.id")
     subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
     role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
@@ -823,7 +930,7 @@ class WorkforceDeleteResponse(SQLModel):
 # ---------------------------------------------------------------------------
 
 class InvoiceBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     invoice_number: str = Field(max_length=100)
     invoice_date: date | None = None
     invoice_amount: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -874,7 +981,7 @@ class InvoicesPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class OrderTypeBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     supplier_name: str | None = Field(default=None, max_length=255)
     employee_name: str | None = Field(default=None, max_length=255)
     ordered_date: date | None = None
@@ -977,7 +1084,7 @@ class CustomersPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class MaterialBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     name: str = Field(max_length=255)
     description: str | None = Field(default=None, sa_type=Text)
     unit: str | None = Field(default=None, max_length=50)
@@ -988,7 +1095,8 @@ class MaterialBase(SQLModel):
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
     received_date: date | None = None
-    status: str | None = Field(default=None, max_length=100)
+    subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
+    status: str = Field(default=SubcontractorStatus.not_applicable.value, max_length=50)
     notes: str | None = Field(default=None, sa_type=Text)
 
 
@@ -1007,6 +1115,7 @@ class MaterialUpdate(SQLModel):
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
     received_date: date | None = None
+    subcontractor_id: uuid.UUID | None = None
     status: str | None = Field(default=None, max_length=100)
     notes: str | None = None
 
@@ -1024,6 +1133,7 @@ class Material(MaterialBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     project: Project | None = Relationship(back_populates="materials")
+    subcontractor: Subcontractor | None = Relationship(back_populates="materials")
 
 
 class MaterialPublic(MaterialBase):
@@ -1042,7 +1152,7 @@ class MaterialsPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class TimeLogBase(SQLModel):
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     employee_id: uuid.UUID | None = Field(default=None, foreign_key="employees.id")
     subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
     task_id: uuid.UUID | None = Field(default=None, foreign_key="project_tasks.id")
@@ -1193,10 +1303,16 @@ class ProjectCreateRequest(SQLModel):
     client_company: str | None = None
     client_contact: str | None = None
     client_address: str | None = None
+    address: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
     fee_estimate: Decimal | None = None
     date_received: date
     start_date: date
     due_date: date
+    preliminary_due_date: date | None = None
+    design_due_date: date | None = None
 
 class ProjectCreateResponse(SQLModel):
     project_id: uuid.UUID
@@ -1206,6 +1322,10 @@ class ProjectCreateResponse(SQLModel):
 class ProjectUpdateRequest(SQLModel):
     project_name: str | None = None
     project_types: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
+    address: str | None = None
     status: str | None = None
     date_received: date | None = None
     start_date: date | None = None
@@ -1221,6 +1341,10 @@ class ProjectDetail(SQLModel):
     project_id: uuid.UUID
     job_number: str
     project_name: str | None = None
+    contract_title: str | None = None
+    agent: str | None = None
+    job_title: str | None = None
+    address: str | None = None
     company_name: str | None = None
     company_address: str | None = None
     client_name: str | None = None
@@ -1228,7 +1352,21 @@ class ProjectDetail(SQLModel):
     start_date: date | None = None
     due_date: date | None = None
     days_elapsed: int | None = None
+    completion_percent: Decimal | None = None
+    is_invoiced: bool = False
+    project_tab: str | None = None
     fee_estimate: Decimal | None = None
+
+
+class AssignmentWithRole(SQLModel):
+    employee_name: str | None = None
+    role_name: str | None = None
+    role_in_project: str | None = None
+
+
+class ProjectDetailWithRoles(ProjectDetail):
+    assignments: list[AssignmentWithRole] = Field(default_factory=list)
+
 
 class ProjectDetailsResponse(SQLModel):
     data: list[ProjectDetail]
@@ -1307,7 +1445,6 @@ class NewPassword(SQLModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
-# ----- Igie ------
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_logs"
 
@@ -1318,4 +1455,3 @@ class AuditLog(SQLModel, table=True):
     performed_by: uuid.UUID = Field(foreign_key="users.id")
     timestamp: datetime = Field(default_factory=get_datetime_utc)
     changes: dict = Field(sa_column=Column(JSONB))
-# ----- Igie ------

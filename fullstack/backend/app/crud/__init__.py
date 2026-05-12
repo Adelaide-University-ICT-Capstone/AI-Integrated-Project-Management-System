@@ -26,14 +26,37 @@ from app.crud.projects import (
     sum_invoices,
     get_or_create_client,
     create_project,
+    PROJECT_TAB_IN_PROGRESS,
+    PROJECT_TAB_TO_BE_INVOICED,
+    PROJECT_TAB_COMPLETED,
     get_project_by_job_number,
     get_project_by_id,
     get_all_projects,
     build_project_details,
+    create_default_project_task_structure,
     get_projects_by_status,
+    get_project_milestone,
+    create_project_milestone,
+    update_project_milestone,
+    get_project_task,
+    create_project_task,
+    update_project_task,
+    get_project_task_management,
+    get_projects_by_tab,
+    calculate_project_completion_percent,
+    is_project_invoiced,
+    get_project_tab,
     delete_project,
     delete_all_projects,
     update_project,
+    get_projects_by_due_date,
+    get_tasks,
+    update_material,
+    create_material,
+    get_material,
+    get_materials_by_project_id,
+    delete_project_task,
+    delete_material
 )
 
 from app.crud.project_statuses import (
@@ -45,6 +68,11 @@ from app.crud.project_statuses import (
 from app.crud.invoices import (
     get_finished_invoices_since,
     get_expected_invoices_before,
+)
+
+from app.crud.materials import (
+    get_material_statuses,
+    get_materials_by_due_date_and_status,
 )
 
 __all__ = [
@@ -75,14 +103,30 @@ __all__ = [
     "sum_invoices",
     "get_or_create_client",
     "create_project",
+    "PROJECT_TAB_IN_PROGRESS",
+    "PROJECT_TAB_TO_BE_INVOICED",
+    "PROJECT_TAB_COMPLETED",
     "get_project_by_job_number",
     "get_project_by_id",
     "get_all_projects",
     "build_project_details",
+    "create_default_project_task_structure",
     "get_projects_by_status",
+    "get_project_milestone",
+    "create_project_milestone",
+    "update_project_milestone",
+    "get_project_task",
+    "create_project_task",
+    "update_project_task",
+    "get_project_task_management",
+    "get_projects_by_tab",
+    "calculate_project_completion_percent",
+    "is_project_invoiced",
+    "get_project_tab",
     "delete_project",
     "delete_all_projects",
     "update_project",
+    "get_projects_by_due_date",
     # project statuses
     "get_status_type",
     "create_status_type",
@@ -90,4 +134,15 @@ __all__ = [
     # invoices
     "get_finished_invoices_since",
     "get_expected_invoices_before",
+    #tasks
+    "get_tasks",
+    "delete_project_task",
+    #materials,
+    "update_material",
+    "create_material",
+    "get_material",
+    "delete_material",
+    "get_material_statuses",
+    "get_materials_by_project_id",
+    "get_materials_by_due_date_and_status"
 ]

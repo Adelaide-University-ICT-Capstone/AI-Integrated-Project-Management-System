@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedProjectsWorkforceProjectIdRouteImport } from './routes/_authenticated/projects/workforce/$projectId'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
@@ -19,6 +18,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSubcontractorsRouteImport } from './routes/_authenticated/subcontractors'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
@@ -27,13 +27,8 @@ import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminPeopleRouteImport } from './routes/_authenticated/admin.people'
+import { Route as AuthenticatedProjectsWorkforceProjectIdRouteImport } from './routes/_authenticated/projects/workforce/$projectId'
 
-const AuthenticatedProjectsWorkforceProjectIdRoute =
-  AuthenticatedProjectsWorkforceProjectIdRouteImport.update({
-    id: '/projects/workforce/$projectId',
-    path: '/projects/workforce/$projectId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -77,6 +72,11 @@ const AuthenticatedSubcontractorsRoute =
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAiAssistantRoute =
@@ -125,6 +125,12 @@ const AuthenticatedAdminPeopleRoute =
     path: '/people',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedProjectsWorkforceProjectIdRoute =
+  AuthenticatedProjectsWorkforceProjectIdRouteImport.update({
+    id: '/projects/workforce/$projectId',
+    path: '/projects/workforce/$projectId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subcontractors': typeof AuthenticatedSubcontractorsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -141,9 +148,9 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
-  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subcontractors': typeof AuthenticatedSubcontractorsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -159,9 +167,9 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
-  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/ai-assistant': typeof AuthenticatedAiAssistantRoute
+  '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/subcontractors': typeof AuthenticatedSubcontractorsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -180,9 +189,9 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
-  '/_authenticated/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/_authenticated/projects/workforce/$projectId': typeof AuthenticatedProjectsWorkforceProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/ai-assistant'
+    | '/people'
     | '/settings'
     | '/subcontractors'
     | '/tasks'
@@ -201,9 +211,9 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/projects/$projectId'
     | '/projects/new'
-    | '/projects/workforce/$projectId'
     | '/admin/'
     | '/projects/'
+    | '/projects/workforce/$projectId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/ai-assistant'
+    | '/people'
     | '/settings'
     | '/subcontractors'
     | '/tasks'
@@ -219,9 +230,9 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/projects/$projectId'
     | '/projects/new'
-    | '/projects/workforce/$projectId'
     | '/admin'
     | '/projects'
+    | '/projects/workforce/$projectId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/admin'
     | '/_authenticated/ai-assistant'
+    | '/_authenticated/people'
     | '/_authenticated/settings'
     | '/_authenticated/subcontractors'
     | '/_authenticated/tasks'
@@ -239,9 +251,9 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/projects/new'
-    | '/_authenticated/projects/workforce/$projectId'
     | '/_authenticated/admin/'
     | '/_authenticated/projects/'
+    | '/_authenticated/projects/workforce/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -254,13 +266,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authenticated/projects/workforce/$projectId': {
-      id: '/_authenticated/projects/workforce/$projectId'
-      path: '/projects/workforce/$projectId'
-      fullPath: '/projects/workforce/$projectId'
-      preLoaderRoute: typeof AuthenticatedProjectsWorkforceProjectIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -324,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/people': {
+      id: '/_authenticated/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof AuthenticatedPeopleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ai-assistant': {
       id: '/_authenticated/ai-assistant'
       path: '/ai-assistant'
@@ -380,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPeopleRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/projects/workforce/$projectId': {
+      id: '/_authenticated/projects/workforce/$projectId'
+      path: '/projects/workforce/$projectId'
+      fullPath: '/projects/workforce/$projectId'
+      preLoaderRoute: typeof AuthenticatedProjectsWorkforceProjectIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -401,27 +420,30 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
+  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSubcontractorsRoute: typeof AuthenticatedSubcontractorsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
-  AuthenticatedProjectsWorkforceProjectIdRoute: typeof AuthenticatedProjectsWorkforceProjectIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedProjectsWorkforceProjectIdRoute: typeof AuthenticatedProjectsWorkforceProjectIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAiAssistantRoute: AuthenticatedAiAssistantRoute,
+  AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSubcontractorsRoute: AuthenticatedSubcontractorsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
-  AuthenticatedProjectsWorkforceProjectIdRoute: AuthenticatedProjectsWorkforceProjectIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedProjectsWorkforceProjectIdRoute:
+    AuthenticatedProjectsWorkforceProjectIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

@@ -1,10 +1,11 @@
-import axios from 'axios';
+import { api } from './client'
 
-const baseUrl = import.meta.env.VITE_API_URL;
-
-
-const api = axios.create({
-  baseURL: `${baseUrl}/api/v1`,
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 api.interceptors.request.use((config) => {
@@ -40,6 +41,8 @@ export type Project = {
   job_number: string
   project_id: string
   project_name: string
+  contract_title?: string | null
+  job_title?: string | null
   company_name: string
   company_address: string
   client_name: string
@@ -55,6 +58,33 @@ export type ProjectsResponse = {
   data: Project[];
   count: number;
 };
+
+export type ProjectTaskManagementMilestone = {
+  id: string
+  project_id: string
+  milestone_name: string
+  description_type?: string | null
+  due_date?: string | null
+  completion_date?: string | null
+  is_complete: boolean
+  progress: number
+  display_order?: number | null
+}
+
+export type ProjectTaskManagementResponse = {
+  project_id: string
+  milestones: ProjectTaskManagementMilestone[]
+}
+
+export type ProjectMilestonePayload = {
+  milestone_name?: string
+  description_type?: string | null
+  due_date?: string | null
+  completion_date?: string | null
+  is_complete?: boolean
+  progress?: number
+  display_order?: number | null
+}
 
 
 
@@ -84,6 +114,18 @@ export const projectsApi = {
 
   // @router.get("/all-project") superuser only
   getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),
+
+  getProjectTaskManagement: (projectId: string) =>
+    api.get<ProjectTaskManagementResponse>(`/projects/${projectId}/task-management`).then(res => res.data),
+
+  createProjectMilestone: (projectId: string, payload: ProjectMilestonePayload) =>
+    api.post<ProjectTaskManagementMilestone>(`/projects/${projectId}/milestones`, payload).then(res => res.data),
+
+  updateProjectMilestone: (projectId: string, milestoneId: string, payload: ProjectMilestonePayload) =>
+    api.patch<ProjectTaskManagementMilestone>(`/projects/${projectId}/milestones/${milestoneId}`, payload).then(res => res.data),
+
+  deleteProjectMilestone: (projectId: string, milestoneId: string) =>
+    api.delete(`/projects/${projectId}/milestones/${milestoneId}`).then(res => res.data),
 
   // @router.get("/invoice-bill") superuser only
   getInvoiceBill: () => api.get<MonthlyInvoiceResponse>('/projects/invoice-bill').then(res => res.data),
