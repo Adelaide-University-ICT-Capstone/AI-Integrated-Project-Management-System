@@ -1,13 +1,12 @@
 import uuid
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
+from enum import Enum
 
 from pydantic import EmailStr
 from sqlalchemy import DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from enum import Enum
-
 
 
 def get_datetime_utc() -> datetime:
@@ -324,7 +323,7 @@ class UserRegister(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     role_name: str | None = Field(default=None, max_length=100)
     role_title: str | None = Field(default=None, max_length=100)
-    
+
 
 
 class UserUpdate(UserBase):
@@ -522,7 +521,10 @@ class ProjectMilestone(ProjectMilestoneBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     project: Project | None = Relationship(back_populates="milestones")
-    tasks: list["ProjectTask"] = Relationship(back_populates="milestone")
+    tasks: list["ProjectTask"] = Relationship(
+        back_populates="milestone",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True},
+    )
 
 
 class ProjectMilestonePublic(ProjectMilestoneBase):
