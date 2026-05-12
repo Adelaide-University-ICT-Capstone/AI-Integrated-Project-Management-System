@@ -3,10 +3,9 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from app.crud.project_statuses import get_status_type
-
 from sqlmodel import Session, col, func, or_, select
 
+from app.crud.project_statuses import get_status_type
 from app.models import (
     Client,
     Employee,
@@ -26,18 +25,11 @@ from app.models import (
     ProjectTaskNode,
     ProjectTaskTreeCreate,
     ProjectUpdateRequest,
-    SubcontractorStatus
 )
 
 DEFAULT_MAIN_TASKS = (
     "Preliminary Design & Documentation",
     "Design & Documentation",
-)
-
-DEFAULT_SUBTASKS = (
-    "Task 1",
-    "Task 2",
-    "Task 3",
 )
 
 DEFAULT_MATERIALS = (
@@ -58,7 +50,7 @@ def get_or_create_client(
     client = session.exec(select(Client).where(Client.client_name == client_name and Client.company_name == company_name)).first()
     if client:
         return client
-    
+
     client = Client(
         client_name=client_name,
         contact_email=contact_email,
@@ -143,7 +135,7 @@ def calculate_project_completion_percent(*, session: Session, project: Project) 
             select(ProjectTask)
             .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
             .where(ProjectMilestone.project_id == project.id)
-            .where(ProjectTask.is_excluded == False)
+            .where(ProjectTask.is_excluded.is_(False))
         ).all()
     )
     if tasks:
@@ -216,17 +208,6 @@ def create_default_project_task_structure(
             display_order=display_order,
         )
         session.add(milestone)
-        session.flush()
-
-        for task_name in DEFAULT_SUBTASKS:
-            session.add(
-                ProjectTask(
-                    milestone_id=milestone.id,
-                    task_name=task_name,
-                    due_date=due_date_value,
-                    core_phase_name=milestone_name,
-                )
-            )
 
     for material_name in DEFAULT_MATERIALS:
         session.add(
@@ -584,7 +565,7 @@ def get_all_active_projects(*, session: Session) -> list[Project]:
     return list(
         session.exec(
             select(Project)
-            .where(Project.is_active == True)
+            .where(Project.is_active.is_(True))
             .order_by(col(Project.created_at).desc())
         ).all()
     )
@@ -595,7 +576,7 @@ def get_delayed_projects(*, session: Session) -> list[Project]:
     delayed_ids = session.exec(
         select(ProjectMilestone.project_id)
         .where(ProjectMilestone.due_date < today)
-        .where(ProjectMilestone.is_complete == False)
+        .where(ProjectMilestone.is_complete.is_(False))
         .distinct()
     ).all()
     if not delayed_ids:
@@ -604,7 +585,7 @@ def get_delayed_projects(*, session: Session) -> list[Project]:
         session.exec(
             select(Project)
             .where(col(Project.id).in_(delayed_ids))
-            .where(Project.is_active == True)
+            .where(Project.is_active.is_(True))
             .order_by(col(Project.created_at).desc())
         ).all()
     )
@@ -614,9 +595,9 @@ def count_active_projects(*, session: Session, start: date, end: date) -> int:
     return session.exec(
         select(func.count())
         .select_from(Project)
-        .where(Project.is_active == True)
+        .where(Project.is_active.is_(True))
         .where(Project.start_date <= end)
-        .where(or_(Project.completion_date == None, Project.completion_date >= start))
+        .where(or_(Project.completion_date.is_(None), Project.completion_date >= start))
     ).one()
 
 

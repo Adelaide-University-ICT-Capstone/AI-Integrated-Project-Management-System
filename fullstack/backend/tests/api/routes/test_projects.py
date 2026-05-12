@@ -104,7 +104,7 @@ def test_get_project_with_roles(
     assert payload["assignments"][0]["role_in_project"] == "Project Manager"
 
 
-def test_create_project_creates_default_task_management_structure(
+def test_create_project_creates_default_milestones_without_tasks(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     job_number = f"JOB-TASK-{random_lower_string()[:8]}"
@@ -146,11 +146,8 @@ def test_create_project_creates_default_task_management_structure(
     assert payload["milestones"][0]["due_date"] == "2026-05-15"
     assert payload["milestones"][1]["milestone_name"] == "Design & Documentation"
     assert payload["milestones"][1]["due_date"] == "2026-06-01"
-    assert [task["task_name"] for task in payload["milestones"][0]["tasks"]] == [
-        "Task 1",
-        "Task 2",
-        "Task 3",
-    ]
+    assert payload["milestones"][0]["tasks"] == []
+    assert payload["milestones"][1]["tasks"] == []
     materials_response = client.get(
         f"/api/v1/projects/{project_id}/materials",
         headers=superuser_token_headers,
