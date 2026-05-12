@@ -63,7 +63,7 @@ class RolesPublic(SQLModel):
 # ---------------------------------------------------------------------------
 
 class ProjectStatusTypeBase(SQLModel):
-    status_name: str = Field(max_length=100)
+    status_name: str = Field(unique=True, max_length=100)
     description: str | None = Field(default=None, sa_type=Text)
     is_active: bool = True
 

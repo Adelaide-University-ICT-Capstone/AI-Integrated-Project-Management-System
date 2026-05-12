@@ -23,6 +23,14 @@ def test_projects_require_authentication(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def get_prelim_status(db: Session) -> ProjectStatusType:
+    status = db.exec(
+        select(ProjectStatusType).where(ProjectStatusType.status_name == "prelim")
+    ).first()
+    assert status is not None
+    return status
+
+
 def test_get_project_with_roles(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
@@ -53,10 +61,7 @@ def test_get_project_with_roles(
     db.commit()
     db.refresh(client_row)
 
-    status = ProjectStatusType(status_name="prelim", description="Preliminary", is_active=True)
-    db.add(status)
-    db.commit()
-    db.refresh(status)
+    status = get_prelim_status(db)
 
     project = Project(
         job_number=job_number,
@@ -102,13 +107,7 @@ def test_create_project_creates_default_task_management_structure(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     job_number = f"JOB-TASK-{random_lower_string()[:8]}"
-    status = db.exec(
-        select(ProjectStatusType).where(ProjectStatusType.status_name == "prelim")
-    ).first()
-    if not status:
-        status = ProjectStatusType(status_name="prelim", description="Preliminary", is_active=True)
-        db.add(status)
-        db.commit()
+    get_prelim_status(db)
 
     response = client.post(
         "/api/v1/projects",
@@ -191,14 +190,7 @@ def test_create_project_subtask_under_main_task(
     db.commit()
     db.refresh(client_row)
 
-    status = db.exec(
-        select(ProjectStatusType).where(ProjectStatusType.status_name == "prelim")
-    ).first()
-    if not status:
-        status = ProjectStatusType(status_name="prelim", description="Preliminary", is_active=True)
-        db.add(status)
-        db.commit()
-        db.refresh(status)
+    status = get_prelim_status(db)
 
     project = Project(
         job_number=job_number,
@@ -271,14 +263,7 @@ def test_create_project_subtask_under_main_task(
 def test_project_tabs_are_grouped_by_completion_and_invoice_state(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    status = db.exec(
-        select(ProjectStatusType).where(ProjectStatusType.status_name == "prelim")
-    ).first()
-    if not status:
-        status = ProjectStatusType(status_name="prelim", description="Preliminary", is_active=True)
-        db.add(status)
-        db.commit()
-        db.refresh(status)
+    status = get_prelim_status(db)
 
     client_row = Client(
         client_name=f"Tabs Client {random_lower_string()[:8]}",
