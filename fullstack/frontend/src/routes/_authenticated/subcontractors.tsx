@@ -14,6 +14,8 @@ import {
 import { toast } from 'sonner'
 import { subcontractorsApi } from '@/api/subcontractors'
 import { materialsApi } from '@/api/materials'
+import { Project, projectsApi } from '@/api/project'
+import { set } from 'zod'
 
 export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
@@ -37,7 +39,6 @@ interface Order {
   subcontractorId: string
   service: ServiceType
   projectId: string
-  projectName: string
   orderedDate: string
   status: OrderStatus
 }
@@ -70,6 +71,20 @@ const mapMaterialStatus = (status: string | null | undefined): OrderStatus => {
       return 'N/A'
   }
 }
+
+const mapStatus = (status: OrderStatus) => {
+  switch (status) {
+    case 'Ordered':
+      return 'ordered'
+    case 'Received':
+      return 'received'
+    case 'By Client':
+      return 'by_client'
+    default:
+      return 'N/A'
+  }
+}
+
 
 const getServicePillClass = (service: string) =>
   SERVICE_TYPES.includes(service as ServiceType)
@@ -184,30 +199,30 @@ const ROW_COLS_BY_SVC = 'grid-cols-[1.2fr_1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
 // ----- New Order Modal -----
 
 function NewOrderModal({
+  projects,
   subcontractor,
   onClose,
   onSave,
 }: {
+  projects: Project[]
   subcontractor: Subcontractor
   onClose: () => void
-  onSave: (order: Omit<Order, 'id'>) => void
+  onSave: (order: Omit<Order, 'projectName'>) => void
 }) {
   const [formData, setFormData] = useState({
     service: subcontractor.services[0] as ServiceType,
-    projectId: PROJECT_OPTIONS[0].id,
+    projectId: projects?.[0]?.project_id,
     orderedDate: new Date().toISOString().split('T')[0],
     status: 'Ordered' as OrderStatus,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const project = PROJECT_OPTIONS.find((p) => p.id === formData.projectId)
-    if (!project) return
     onSave({
+      id: formData.projectId,
       subcontractorId: subcontractor.id,
       service: formData.service,
       projectId: formData.projectId,
-      projectName: project.name,
       orderedDate: formData.orderedDate,
       status: formData.status,
     })
@@ -249,8 +264,8 @@ function NewOrderModal({
               onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             >
-              {PROJECT_OPTIONS.map((p) => (
-                <option key={p.id} value={p.id}>{p.id} — {p.name}</option>
+              {projects.map((p) => (
+                <option key={p.project_id} value={p.project_id}>{p.job_number} — {p.project_name}</option>
               ))}
             </select>
           </div>
@@ -479,14 +494,26 @@ function Subcontractors() {
   const totalActiveOrders = orders.length
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
+  const [projects, setProjects] = useState<Project[]>([])
 
 
   // Fetch subcontractors on mount
   useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectsApi.getAllProjects();
+        setProjects(data.data);
+        // console.log('Raw projects data:', data)
+      } catch (error) {
+        toast.error('Failed to load projects')
+        console.error(error)
+      }
+    }
+
     const fetchSubcontractors = async () => {
       try {
         setIsLoading(true)
-        const data = await subcontractorsApi.getSubcontractors()
+        const data = await subcontractorsApi.getSubcontractors();
         // console.log('Raw subcontractors data:', data)
 
         const subcontractorsResult: Subcontractor[] = data.map((m: any) => ({
@@ -522,7 +549,7 @@ function Subcontractors() {
         }))
         setOrders(ordersResult);
 
-        console.log('Fetched orders:', ordersResult)
+        // console.log('Fetched orders:', ordersResult)
       } catch (error) {
         toast.error('Failed to load orders')
         console.error(error)
@@ -531,6 +558,7 @@ function Subcontractors() {
       }
     }
 
+    fetchProjects()
     fetchSubcontractors()
     fetchOrders()
   }, [])
@@ -562,9 +590,36 @@ function Subcontractors() {
     }
   }
 
-  const handleAddOrder = (order: Omit<Order, 'id'>) => {
-    setOrders([...orders, { ...order, id: `o${Date.now()}` }])
-    toast.success('Order created')
+  const handleAddOrder = async (order: Omit<Order, 'id'>) => {
+    try {
+      setIsLoading(true)
+      const material = await materialsApi.createOrder(order.projectId, {
+        project_id: order.projectId,
+        name: order.service,
+        status: mapStatus(order.status),
+        subcontractor_id: order.subcontractorId,
+        ordered_date: order.orderedDate,
+      })
+
+      const newOrder: Order = {
+        id: material.id,
+        subcontractorId: material.subcontractor_id ?? '',
+        service: material.name as ServiceType,
+        projectId: material.project_id,
+        orderedDate: material.ordered_date ?? '',
+        status: mapMaterialStatus(material.status),
+      }
+
+      // console.log('Created material:', material)
+
+      setOrders((prev) => [...prev, newOrder])
+      toast.success('Order created')
+    } catch (error) {
+      console.error('Error creating order:', error)
+      toast.error('Failed to create order')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleDeleteOrder = (id: string) => {
@@ -588,7 +643,6 @@ function Subcontractors() {
     acc[service] = orders.filter((o) => {
       const sc = subcontractors.find((s) => s.id === o.subcontractorId)
       const matches =
-        matchSearch(o.projectName) ||
         matchSearch(o.projectId) ||
         (sc && matchSearch(sc.name)) ||
         matchSearch(o.service)
@@ -861,6 +915,7 @@ function Subcontractors() {
       )}
       {newOrderForSc && (
         <NewOrderModal
+          projects={projects}
           subcontractor={newOrderForSc}
           onClose={() => setNewOrderForSc(null)}
           onSave={handleAddOrder}
