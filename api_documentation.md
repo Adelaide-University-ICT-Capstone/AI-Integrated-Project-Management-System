@@ -765,7 +765,7 @@ Retrieve all users including their name, email, and role. **No superuser privile
 
 ---
 
-## Workforce Allocation
+## Workforce Allocation - Igie , post, patch, delete while markus on users
 
 All three endpoints below operate on the `project_assignments` table and are restricted to the **project owner or a superuser**. Every successful mutation is written to an audit log table recording who made the change, when, and what was modified.
 

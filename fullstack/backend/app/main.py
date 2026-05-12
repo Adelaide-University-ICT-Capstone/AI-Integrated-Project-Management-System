@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 from app.db.session import get_session
-from app.db.initial_data import ensure_project_status_types
+from app.db.initial_data import ensure_project_status_types, ensure_roles
 
 
 
@@ -27,6 +27,7 @@ app = FastAPI(
 def startup_event():
     with get_session() as session:
         ensure_project_status_types(session)
+        ensure_roles(session)
         
 
 # Set all CORS enabled origins
