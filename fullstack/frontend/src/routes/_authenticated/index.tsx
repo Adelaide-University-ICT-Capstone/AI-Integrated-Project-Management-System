@@ -294,7 +294,7 @@ function Dashboard() {
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent Projects</h2>
-            <Link to="/projects/" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            <Link to="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
               View All <ArrowRight size={16} />
             </Link>
           </div>

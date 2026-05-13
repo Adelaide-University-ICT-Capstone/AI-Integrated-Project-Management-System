@@ -1,7 +1,5 @@
-import { assignWorker } from "@/api/workforce"
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
-import { getWorkforce } from "@/client/workforce"
+import { useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/workforce")({
@@ -395,11 +393,9 @@ function AllocationModal({
 function ProjectDetail({
   project,
   onBack,
-  allWorkers,
 }: {
   project: Project
   onBack: () => void
-  allWorkers: Worker[]
 }) {
   const [showModal, setShowModal] = useState(false)
   const [workforce, setWorkforce] = useState<ProjectWorker[]>(project.workforce)
@@ -797,21 +793,8 @@ function ProjectsList({ onSelect }: { onSelect: (p: Project) => void }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 function WorkforcePage() {
-  const [workers, setWorkers] = useState<Worker[]>([])
   const [activeNav, setActiveNav] = useState("Projects")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-
-  useEffect(() => {
-    getWorkforce()
-      .then(setWorkers)
-      .catch(() =>
-        setWorkers([
-          { id: 1, name: "Alice Martin", role: "Frontend Developer" },
-          { id: 2, name: "Bob Chen", role: "Backend Developer" },
-          { id: 3, name: "Charlie Davis", role: "Security Engineer" },
-        ]),
-      )
-  }, [])
 
   return (
     <div style={{
@@ -943,7 +926,6 @@ function WorkforcePage() {
             <ProjectDetail
               project={selectedProject}
               onBack={() => setSelectedProject(null)}
-              allWorkers={workers}
             />
           ) : (
             <ProjectsList onSelect={setSelectedProject} />

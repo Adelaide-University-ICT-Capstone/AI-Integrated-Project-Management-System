@@ -20,6 +20,7 @@ import { toast } from 'react-toastify';
 const baseUrl = import.meta.env.VITE_API_URL;
 import { projectsApi } from "../../../api/project";
 import { useQuery } from '@tanstack/react-query';
+import { readUsersWithDetails } from '@/client/adminApi';
 
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
@@ -40,204 +41,7 @@ export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   'Construction',
 ] */
 
-/* const projectsData = {
-  '1': {
-    job_number: 'PRJ-2024-001',
-    project_name: 'High-Rise Commercial Tower',
-    status: 'Design & Doc',
-    progress: 65,
-    company_name: 'Metropolis Development Corp',
-    company_address: 'Downtown District, Metro City',
-    start_date: 'Jan 15, 2024',
-    due_date: 'Dec 20, 2024',
-    aiInsight: {
-      type: 'warning',
-      title: 'Potential Delay Risk Detected',
-      description: 'Foundation phase running 5% behind schedule. Recommend adding 2 additional structural engineers to critical path tasks.',
-      confidence: 87,
-    },
-    workflow: [
-      { phase: 'Planning', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Foundation', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Structural', status: 'in-progress', progress: 65, color: 'blue' },
-      { phase: 'MEP', status: 'pending', progress: 0, color: 'gray' },
-      { phase: 'Finishing', status: 'pending', progress: 0, color: 'gray' },
-    ],
-    materials: [
-      { name: 'Steel Beams', status: 'delivered', quantity: '450 tons' },
-      { name: 'Concrete Mix', status: 'in-transit', quantity: '2,500 m³' },
-      { name: 'Reinforcement Bars', status: 'ordered', quantity: '180 tons' },
-    ],
-    workforce: [
-      { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'active', color: 'bg-blue-500' },
-      { name: 'Sarah Chen', role: 'Project Manager', avatar: 'SC', status: 'active', color: 'bg-purple-500' },
-      { name: 'Michael Torres', role: 'Site Supervisor', avatar: 'MT', status: 'active', color: 'bg-green-500' },
-      { name: 'Emily Watson', role: 'MEP Engineer', avatar: 'EW', status: 'available', color: 'bg-orange-500' },
-      { name: 'David Kim', role: 'Safety Officer', avatar: 'DK', status: 'active', color: 'bg-teal-500' },
-    ],
-  },
-  '2': {
-    job_number: 'PRJ-2024-002',
-    project_name: 'Residential Complex Phase 2',
-    status: 'At Risk',
-    progress: 42,
-    company_name: 'GreenHaven Properties',
-    company_address: 'Westside, Metro City',
-    start_date: 'Feb 1, 2024',
-    due_date: 'Nov 30, 2024',
-    aiInsight: {
-      type: 'critical',
-      title: 'Critical Deadline Risk',
-      description: 'Structural phase significantly delayed. Immediate action required: approve overtime and expedite material delivery.',
-      confidence: 94,
-    },
-    workflow: [
-      { phase: 'Planning', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Foundation', status: 'in-progress', progress: 42, color: 'blue' },
-      { phase: 'Structural', status: 'pending', progress: 0, color: 'gray' },
-      { phase: 'MEP', status: 'pending', progress: 0, color: 'gray' },
-      { phase: 'Finishing', status: 'pending', progress: 0, color: 'gray' },
-    ],
-    materials: [
-      { name: 'Steel Beams', status: 'ordered', quantity: '280 tons' },
-      { name: 'Concrete Mix', status: 'delivered', quantity: '1,800 m³' },
-      { name: 'Reinforcement Bars', status: 'in-transit', quantity: '120 tons' },
-    ],
-    workforce: [
-      { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'active', color: 'bg-blue-500' },
-      { name: 'James Liu', role: 'Project Manager', avatar: 'JL', status: 'active', color: 'bg-purple-500' },
-      { name: 'Anna Rodriguez', role: 'Site Supervisor', avatar: 'AR', status: 'active', color: 'bg-green-500' },
-    ],
-  },
-  '3': {
-    id: 'PRJ-2024-003',
-    name: 'Bridge Renovation Project',
-    status: 'Completed & Invoiced',
-    progress: 100,
-    company_name: 'City Infrastructure Department',
-    company_address: 'River District',
-    start_date: 'Nov 1, 2023',
-    due_date: 'Mar 15, 2024',
-    aiInsight: {
-      type: 'success',
-      title: 'Project Successfully Completed',
-      description: 'All phases completed on time and within budget. Excellent team performance throughout the project lifecycle.',
-      confidence: 100,
-    },
-    workflow: [
-      { phase: 'Planning', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Foundation', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Structural', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'MEP', status: 'completed', progress: 100, color: 'green' },
-      { phase: 'Finishing', status: 'completed', progress: 100, color: 'green' },
-    ],
-    materials: [
-      { name: 'Steel Beams', status: 'delivered', quantity: '180 tons' },
-      { name: 'Concrete Mix', status: 'delivered', quantity: '900 m³' },
-      { name: 'Reinforcement Bars', status: 'delivered', quantity: '75 tons' },
-    ],
-    workforce: [
-      { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'completed', color: 'bg-blue-500' },
-      { name: 'Robert Johnson', role: 'Project Manager', avatar: 'RJ', status: 'completed', color: 'bg-purple-500' },
-    ],
-  },
-  '4': {
-  id: 'PRJ-2024-004',
-  name: 'Shopping Mall Expansion',
-  status: 'Proposal',
-  progress: 0,
-  client: 'Retail Ventures Inc',
-  location: 'North Plaza',
-  startDate: 'Mar 20, 2024',
-  deliveryDate: 'Dec 15, 2024',
-  aiInsight: {
-    type: 'warning',
-    title: 'Project Not Yet Started',
-    description: 'This project is awaiting kickoff. Ensure all preliminary documents are in order before starting.',
-    confidence: 90,
-  },
-  workflow: [
-    { phase: 'Planning', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Foundation', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Structural', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'MEP', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Finishing', status: 'pending', progress: 0, color: 'gray' },
-  ],
-  materials: [
-    { name: 'Steel Beams', status: 'ordered', quantity: '320 tons' },
-    { name: 'Concrete Mix', status: 'ordered', quantity: '2,100 m³' },
-    { name: 'Reinforcement Bars', status: 'ordered', quantity: '140 tons' },
-  ],
-  workforce: [
-    { name: 'Emily Watson', role: 'Project Manager', avatar: 'EW', status: 'available', color: 'bg-orange-500' },
-    { name: 'David Kim', role: 'Site Supervisor', avatar: 'DK', status: 'available', color: 'bg-teal-500' },
-  ],
-},
-'5': {
-  id: 'PRJ-2024-005',
-  name: 'University Science Building',
-  status: 'Proposal',
-  progress: 0,
-  client: 'State University',
-  location: 'University Campus',
-  startDate: 'Mar 15, 2024',
-  deliveryDate: 'Jan 20, 2025',
-  aiInsight: {
-    type: 'warning',
-    title: 'Project Not Yet Started',
-    description: 'Awaiting final approval from university board. Recommend following up within 48 hours.',
-    confidence: 85,
-  },
-  workflow: [
-    { phase: 'Planning', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Foundation', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Structural', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'MEP', status: 'pending', progress: 0, color: 'gray' },
-    { phase: 'Finishing', status: 'pending', progress: 0, color: 'gray' },
-  ],
-  materials: [
-    { name: 'Steel Beams', status: 'ordered', quantity: '410 tons' },
-    { name: 'Concrete Mix', status: 'ordered', quantity: '2,800 m³' },
-    { name: 'Reinforcement Bars', status: 'ordered', quantity: '200 tons' },
-  ],
-  workforce: [
-    { name: 'Michael Torres', role: 'Project Manager', avatar: 'MT', status: 'available', color: 'bg-green-500' },
-    { name: 'Sarah Chen', role: 'Structural Engineer', avatar: 'SC', status: 'available', color: 'bg-purple-500' },
-  ],
-},
-'6': {
-  id: 'PRJ-2023-012',
-  name: 'Parking Structure Downtown',
-  status: 'Completed & Invoiced',
-  progress: 100,
-  client: 'City Development Authority',
-  location: 'Central Business District',
-  startDate: 'Sep 10, 2023',
-  deliveryDate: 'Apr 5, 2024',
-  aiInsight: {
-    type: 'success',
-    title: 'Project Successfully Completed',
-    description: 'All phases completed on time and within budget.',
-    confidence: 100,
-  },
-  workflow: [
-    { phase: 'Planning', status: 'completed', progress: 100, color: 'green' },
-    { phase: 'Foundation', status: 'completed', progress: 100, color: 'green' },
-    { phase: 'Structural', status: 'completed', progress: 100, color: 'green' },
-    { phase: 'MEP', status: 'completed', progress: 100, color: 'green' },
-    { phase: 'Finishing', status: 'completed', progress: 100, color: 'green' },
-  ],
-  materials: [
-    { name: 'Steel Beams', status: 'delivered', quantity: '220 tons' },
-    { name: 'Concrete Mix', status: 'delivered', quantity: '1,500 m³' },
-    { name: 'Reinforcement Bars', status: 'delivered', quantity: '95 tons' },
-  ],
-  workforce: [
-    { name: 'Anna Rodriguez', role: 'Project Manager', avatar: 'AR', status: 'completed', color: 'bg-green-500' },
-    { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'completed', color: 'bg-blue-500' },
-  ],
-},
-} */
+
 
 type Project = {
   job_number: string
@@ -272,13 +76,7 @@ const taskProjectFields = {
     { name: 'Concrete Mix', status: 'in-transit', quantity: '2,500 m³' },
     { name: 'Reinforcement Bars', status: 'ordered', quantity: '180 tons' },
   ],
-  workforce: [
-    { name: 'Harri Rassias', role: 'Structural Engineer', avatar: 'HR', status: 'active', color: 'bg-blue-500' },
-    { name: 'Sarah Chen', role: 'Project Manager', avatar: 'SC', status: 'active', color: 'bg-purple-500' },
-    { name: 'Michael Torres', role: 'Site Supervisor', avatar: 'MT', status: 'active', color: 'bg-green-500' },
-    { name: 'Emily Watson', role: 'MEP Engineer', avatar: 'EW', status: 'available', color: 'bg-orange-500' },
-    { name: 'David Kim', role: 'Safety Officer', avatar: 'DK', status: 'active', color: 'bg-teal-500' },
-  ],
+  workforce: [],
 }
 
 
@@ -316,6 +114,9 @@ function ProjectDetails() {
   // const project = projectsData[projectId as keyof typeof projectsData]
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
+  const [workforceMembers, setWorkforceMembers] = useState<
+    { name: string; role: string; avatar: string; status: string; color: string }[]
+  >([])
 
 
   const { data: statusData } = useQuery({
@@ -326,26 +127,48 @@ function ProjectDetails() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`,
+        const [projectResponse, users] = await Promise.all([
+          fetch(`${baseUrl}/api/v1/projects/${projectId}`,
           {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
           }
-        )
+        ),
+          readUsersWithDetails().catch(() => []),
+        ])
 
-        const result = await response.json()
+        const result = await projectResponse.json()
 
-        if (!response.ok) {
+        if (!projectResponse.ok) {
           toast.error(result.detail || 'Failed to fetch project')
           return
         }
 
         console.log('Fetched project data:', result)
         setProjectStatus(result.status);
-
         setProject(result);
+        const palette = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-teal-500']
+        const mappedMembers = users.slice(0, 6).map((user: any, index: number) => {
+          const name = user.full_name || user.email?.split('@')[0] || 'Unknown User'
+          const avatar = name
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part: string) => part[0]?.toUpperCase())
+            .join('')
+            .slice(0, 2) || 'NA'
+
+          return {
+            name,
+            role: user.role_name || 'Team Member',
+            avatar,
+            status: user.is_active ? 'active' : 'available',
+            color: palette[index % palette.length],
+          }
+        })
+        setWorkforceMembers(mappedMembers)
       } catch (error) {
         console.error('Error fetching project data:', error)
         toast.error('Network error')
@@ -366,7 +189,7 @@ function ProjectDetails() {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Project Not Found</h2>
         <button
-          onClick={() => navigate({ to: '/projects/' })}
+          onClick={() => navigate({ to: '/projects' })}
           className="text-blue-600 dark:text-blue-400 hover:underline"
         >
           Return to Projects
@@ -387,7 +210,7 @@ function ProjectDetails() {
           method: 'DELETE',
         });
         toast.success('Project deleted successfully');
-        navigate({ to: '/projects/' });
+        navigate({ to: '/projects' });
       } catch (error) {
         console.error('Error deleting project:', error);
         toast.error('Network error');
@@ -429,7 +252,7 @@ function ProjectDetails() {
       {/* Header Bar */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate({ to: '/projects/' })}
+          onClick={() => navigate({ to: '/projects' })}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />
@@ -661,8 +484,13 @@ function ProjectDetails() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <Users size={20} /> Workforce Allocation
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {taskProjectFields.workforce.map((member, index) => (
+                {workforceMembers.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-6 text-sm text-gray-500 dark:text-gray-400">
+                    No workforce data available yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {workforceMembers.map((member, index) => (
                     <div key={index} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                       <div className={`w-12 h-12 ${member.color} rounded-full flex items-center justify-center text-white font-bold`}>
                         {member.avatar}
@@ -677,6 +505,7 @@ function ProjectDetails() {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             </div>
           )}
@@ -699,3 +528,4 @@ function ProjectDetails() {
     </div>
   )
 }
+
