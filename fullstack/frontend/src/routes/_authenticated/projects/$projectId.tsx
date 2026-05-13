@@ -23,6 +23,7 @@ import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectTaskManagementMilestone } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
+import { readUsersWithDetails } from '@/client/adminApi'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -214,13 +215,16 @@ function ProjectDetails() {
     const fetchProject = async () => {
       try {
         const token = localStorage.getItem('access_token')
-        const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        })
+        const [response, users] = await Promise.all([
+          fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }),
+          readUsersWithDetails().catch(() => []),
+        ])
 
         const result = await response.json()
         if (!response.ok) {
@@ -229,6 +233,27 @@ function ProjectDetails() {
         }
         setProjectStatus(result.status)
         setProject(result)
+
+        const mappedMembers: WorkforceMember[] = users.slice(0, 6).map((user: any, index: number) => {
+          const name = user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`
+          const avatar = name
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part: string) => part[0]?.toUpperCase())
+            .join('')
+            .slice(0, 2) || 'NA'
+
+          return {
+            name,
+            role: user.role_name || 'Team Member',
+            avatar,
+            status: user.is_active ? 'active' : 'available',
+            color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+          }
+        })
+
+        setWorkforce(mappedMembers)
       } catch (error) {
         console.error('Error fetching project data:', error)
         toast.error('Network error')
@@ -903,7 +928,7 @@ function ProjectDetails() {
                 {workforce.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
                     <Users size={40} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No team members added yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No workforce data available yet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1122,7 +1147,7 @@ function ProjectDetails() {
                   type="text"
                   value={newWorker.name}
                   onChange={(e) => setNewWorker({ ...newWorker, name: e.target.value })}
-                  placeholder="e.g., Sarah Chen"
+                  placeholder="e.g., Team Member"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 />
               </div>
