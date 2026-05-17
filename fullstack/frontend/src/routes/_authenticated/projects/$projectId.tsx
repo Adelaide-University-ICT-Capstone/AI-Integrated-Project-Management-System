@@ -15,7 +15,6 @@ import {
   Edit2,
   Plus,
   X,
-  Minus,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
@@ -23,6 +22,7 @@ import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectTaskManagementMilestone } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
+import { workforceAllocationApi } from '@/api/workforceAllocation'
 import { readUsersWithDetails } from '@/client/adminApi'
 
 const baseUrl = import.meta.env.VITE_API_URL
@@ -143,6 +143,16 @@ const getWorkforceStatusColor = (status: string) => {
   }
 }
 
+const formatRoleLabel = (roleName?: string | null) => {
+  if (!roleName) return 'Team Member'
+  return roleName
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ')
+}
+
 const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
   if (progress >= 100) return 'completed'
   if (progress > 0) return 'in-progress'
@@ -215,7 +225,7 @@ function ProjectDetails() {
     const fetchProject = async () => {
       try {
         const token = localStorage.getItem('access_token')
-        const [response, users] = await Promise.all([
+        const [response, projectWithRoles, users] = await Promise.all([
           fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
             method: 'GET',
             headers: {
@@ -223,6 +233,7 @@ function ProjectDetails() {
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
           }),
+          workforceAllocationApi.getProjectWithRoles(projectId).catch(() => null),
           readUsersWithDetails().catch(() => []),
         ])
 
@@ -234,24 +245,37 @@ function ProjectDetails() {
         setProjectStatus(result.status)
         setProject(result)
 
-        const mappedMembers: WorkforceMember[] = users.slice(0, 6).map((user: any, index: number) => {
-          const name = user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`
-          const avatar = name
-            .split(' ')
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part: string) => part[0]?.toUpperCase())
-            .join('')
-            .slice(0, 2) || 'NA'
+        const userDirectory = new Map(
+          users.map((user: any, index: number) => {
+            const name = user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`
+            return [name.trim().toLowerCase(), user]
+          }),
+        )
 
-          return {
-            name,
-            role: user.role_name || 'Team Member',
-            avatar,
-            status: user.is_active ? 'active' : 'available',
-            color: AVATAR_COLORS[index % AVATAR_COLORS.length],
-          }
-        })
+        const mappedMembers: WorkforceMember[] = (projectWithRoles?.assignments || []).map(
+          (assignment: any, index: number) => {
+            const name =
+              assignment.employee_name?.trim() ||
+              `User ${index + 1}`
+            const matchedUser = userDirectory.get(name.toLowerCase())
+            const avatar =
+              name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part: string) => part[0]?.toUpperCase())
+                .join('')
+                .slice(0, 2) || 'NA'
+
+            return {
+              name,
+              role: formatRoleLabel(assignment.role_name || matchedUser?.role_name),
+              avatar,
+              status: matchedUser?.is_active ? 'active' : 'available',
+              color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+            }
+          },
+        )
 
         setWorkforce(mappedMembers)
       } catch (error) {
@@ -944,12 +968,6 @@ function ProjectDetails() {
                             {member.status}
                           </span>
                         </div>
-                        <button
-                          onClick={() => removeWorker(index)}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-opacity"
-                        >
-                          <Minus size={12} />
-                        </button>
                       </div>
                     ))}
                   </div>
