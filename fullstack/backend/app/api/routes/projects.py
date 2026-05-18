@@ -141,7 +141,7 @@ def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> Projec
             assignments.append(
                 AssignmentWithRole(
                     employee_name=full_name,
-                    role_name=assignment.employee.role.role_name if assignment.employee.role else None,
+                    role_name=assignment.role.role_name if assignment.role else None,
                     role_in_project=assignment.allocation_notes,
                 )
             )

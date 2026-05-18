@@ -251,40 +251,36 @@ function WorkforcePage() {
   const loadWorkforce = useCallback(async () => {
     setLoading(true)
     try {
-      const [projectDetail, users, rolesResponse] = await Promise.all([
-        workforceAllocationApi.getProjectWithRoles(projectId),
+      const [workforceData, users, rolesResponse] = await Promise.all([
+        workforceAllocationApi.getWorkforceAllocations(projectId),
         readUsersWithDetails(),
         taskManagementApi.getRoles(),
       ])
 
       const nextRoles = rolesResponse.data.filter((role) => role.is_active)
-      const roleByName = new Map(nextRoles.map((role) => [normalizeValue(role.role_name), role]))
 
       const directory = users.map((user: any, index: number) => {
         const name = user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`
-        const defaultRole = roleByName.get(normalizeValue(user.role_name))
-
         return {
           userId: user.id,
           name,
-          defaultRoleName: user.role_name || 'team_member',
-          defaultRoleId: defaultRole?.id ?? null,
+          defaultRoleName: 'team_member',
+          defaultRoleId: null,
           status: user.is_active ? 'active' : 'available',
         } satisfies DirectoryWorker
       })
 
       const directoryByName = new Map(directory.map((entry) => [normalizeValue(entry.name), entry]))
 
-      const assignedWorkers = projectDetail.assignments.map((assignment, index) => {
+      const assignedWorkers = workforceData.assignments.map((assignment, index) => {
         const matchedUser = directoryByName.get(normalizeValue(assignment.employee_name))
-        const matchedRole = roleByName.get(normalizeValue(assignment.role_name))
 
         return {
           key: matchedUser?.userId ?? `assignment-${index}`,
           userId: matchedUser?.userId ?? null,
           name: assignment.employee_name?.trim() || matchedUser?.name || `User ${index + 1}`,
-          assignedRole: formatRoleLabel(assignment.role_name || matchedUser?.defaultRoleName),
-          roleId: matchedRole?.id ?? matchedUser?.defaultRoleId ?? null,
+          assignedRole: formatRoleLabel(assignment.role_name),
+          roleId: assignment.role_id,
           status: matchedUser?.status ?? 'active',
         } satisfies ProjectWorker
       })
