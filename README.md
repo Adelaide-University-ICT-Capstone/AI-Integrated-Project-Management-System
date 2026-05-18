@@ -57,7 +57,7 @@ docker compose version  # Docker Compose version v2.24 or higher
 ### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Adelaide-University-ICT-Capstone/AI-Integrated-Project-Management-System.git
 cd AI-Integrated-Project-Management-System
 ```
 
