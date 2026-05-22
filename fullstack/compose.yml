@@ -70,11 +70,6 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
       - SQLALCHEMY_URI=${SQLALCHEMY_URI}
-      # - POSTGRES_SERVER=${POSTGRES_SERVER?Variable not set}
-      # - POSTGRES_PORT=${POSTGRES_PORT}
-      # - POSTGRES_DB=${POSTGRES_DB}
-      # - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      # - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
 
   backend:
@@ -104,11 +99,6 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
       - SQLALCHEMY_URI=${SQLALCHEMY_URI}
-        # - POSTGRES_SERVER=${POSTGRES_SERVER?Variable not set}
-        # - POSTGRES_PORT=${POSTGRES_PORT}
-        # - POSTGRES_DB=${POSTGRES_DB}
-        # - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-        # - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
 
     healthcheck:
