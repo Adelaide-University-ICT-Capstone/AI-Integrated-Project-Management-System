@@ -323,6 +323,30 @@ export const UserCreateSchema = {
             maxLength: 128,
             minLength: 8,
             title: 'Password'
+        },
+        role_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Role Name'
+        },
+        role: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Role'
         }
     },
     type: 'object',

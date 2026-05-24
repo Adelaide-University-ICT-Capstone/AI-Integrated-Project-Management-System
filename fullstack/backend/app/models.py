@@ -4,12 +4,11 @@ from decimal import Decimal
 from enum import Enum
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime, Text, Column
+from sqlalchemy import Column, DateTime, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.types import Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import JSONB
-from enum import Enum
+
 
 def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
@@ -317,6 +316,9 @@ class AdminUserCreate(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     is_superuser: bool = False
+    is_active: bool = True
+    role_name: str | None = Field(default=None, max_length=100)
+    role: str | None = Field(default=None, max_length=100)
 
 
 class UserRegister(SQLModel):
@@ -928,7 +930,7 @@ class WorkforceDeleteResponse(SQLModel):
     removed: int
     message: str
 #----- Igie -----
-    
+
 # ---------------------------------------------------------------------------
 # Invoices  (FK -> projects)
 # ---------------------------------------------------------------------------

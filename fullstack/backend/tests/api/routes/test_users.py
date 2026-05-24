@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
-from app.models import User, UserCreate
+from app.models import Employee, Role, User, UserCreate
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_email, random_lower_string
 
@@ -55,6 +55,40 @@ def test_create_user_new_email(
         user = crud.get_user_by_email(session=db, email=username)
         assert user
         assert user.email == created_user["email"]
+
+
+def test_create_user_accepts_role_alias_case_insensitively(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    role = db.exec(select(Role).where(Role.role_name == "engineer")).first()
+    if role is None:
+        role = Role(role_name="engineer", is_active=True)
+        db.add(role)
+        db.commit()
+        db.refresh(role)
+
+    username = random_email()
+    password = random_lower_string()
+    r = client.post(
+        f"{settings.API_V1_STR}/users/",
+        headers=superuser_token_headers,
+        json={
+            "email": username,
+            "password": password,
+            "full_name": "Test Engineer",
+            "role": "Engineer",
+            "is_superuser": False,
+        },
+    )
+
+    assert 200 <= r.status_code < 300
+    user = crud.get_user_by_email(session=db, email=username)
+    assert user is not None
+    assert user.is_active is True
+    assert user.employee_id is not None
+    employee = db.get(Employee, user.employee_id)
+    assert employee is not None
+    assert employee.role_id == role.id
 
 
 def test_get_existing_user_as_superuser(

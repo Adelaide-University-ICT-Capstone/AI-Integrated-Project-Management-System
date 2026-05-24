@@ -18,7 +18,6 @@ from app.models import (
     UserUpdate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Original auth CRUD (previously in crud.py)
 # ---------------------------------------------------------------------------
@@ -93,12 +92,15 @@ def get_all_users_with_roles(*, session: Session) -> list[tuple[User, str | None
 def create_user_with_employee(
     *, session: Session, user_in: AdminUserCreate
 ) -> User:
+    role_name = user_in.role_name or user_in.role
+    role = get_role_by_name(session=session, role_name=role_name) if role_name else None
     employee = Employee(
         first_name="",
         last_name="",
         full_name=user_in.full_name,
         email=user_in.email,
-        is_active=True,
+        is_active=user_in.is_active,
+        role_id=role.id if role else None,
     )
     session.add(employee)
     session.commit()
@@ -110,6 +112,7 @@ def create_user_with_employee(
             password=user_in.password,
             full_name=user_in.full_name,
             is_superuser=user_in.is_superuser,
+            is_active=user_in.is_active,
         ),
         update={
             "hashed_password": get_password_hash(user_in.password),
@@ -146,13 +149,26 @@ def update_employee_role(
     employee = session.get(Employee, employee_id)
     if not employee:
         return None
-    role = session.exec(select(Role).where(Role.role_name == role_name)).first()
+    role = get_role_by_name(session=session, role_name=role_name)
     if not role:
         return None
     employee.role_id = role.id
     session.add(employee)
     session.commit()
     return role
+
+
+def get_role_by_name(*, session: Session, role_name: str) -> Role | None:
+    normalized = role_name.strip()
+    if not normalized:
+        return None
+    candidates = {
+        normalized.casefold(),
+        normalized.replace(" ", "_").casefold(),
+    }
+    return session.exec(
+        select(Role).where(func.lower(Role.role_name).in_(candidates))
+    ).first()
 
 
 def delete_user_and_employee(*, session: Session, user: User) -> None:
@@ -181,7 +197,7 @@ def get_employee_hours_since(
         employee_ids = session.exec(
             select(User.employee_id)
             .where(col(User.id).in_(user_ids))
-            .where(User.employee_id != None)
+            .where(User.employee_id.is_not(None))
         ).all()
         if not employee_ids:
             return []

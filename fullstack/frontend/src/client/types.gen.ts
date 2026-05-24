@@ -68,6 +68,8 @@ export type UserCreate = {
     is_superuser?: boolean;
     full_name?: (string | null);
     password: string;
+    role_name?: (string | null);
+    role?: (string | null);
 };
 
 export type UserPublic = {
