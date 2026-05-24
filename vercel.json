@@ -1,0 +1,6 @@
+{
+  "installCommand": "cd fullstack && npm ci",
+  "buildCommand": "cd fullstack/frontend && npm run build",
+  "outputDirectory": "fullstack/frontend/dist",
+  "framework": "vite"
+}

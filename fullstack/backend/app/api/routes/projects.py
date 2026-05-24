@@ -1,39 +1,46 @@
+import uuid
 from datetime import date, datetime
 from typing import Any
-import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import status as http_status
+from sqlmodel import select
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser, get_current_user
+from app.api.deps import (
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+    get_current_user,
+)
 from app.models import (
     AssignmentWithRole,
-    MaterialPublic,
+    Employee,
     MaterialCreate,
+    MaterialPublic,
     MaterialUpdate,
+    Message,
     MonthlyCountResponse,
     MonthlyInvoiceResponse,
+    ProjectAssignment,
+    ProjectCreateRequest,
+    ProjectCreateResponse,
+    ProjectDetail,
     ProjectDetailsResponse,
     ProjectDetailWithRoles,
     ProjectMilestonePublic,
     ProjectMilestoneTreeCreate,
     ProjectMilestoneUpdate,
     ProjectPublic,
-    ProjectSummary,
+    ProjectsListResponse,
     ProjectTaskManagementResponse,
     ProjectTaskPublic,
+    ProjectTasksPublic,
     ProjectTaskTreeCreate,
     ProjectTaskTreeUpdate,
-    ProjectTasksPublic,
     ProjectUpdateRequest,
-    ProjectsListResponse,
-    ProjectCreateRequest,
-    ProjectCreateResponse,
-    ProjectDetail,
-    Message,
     Role,
     Subcontractor,
-    SubcontractorStatus
 )
 
 router = APIRouter(
@@ -41,6 +48,92 @@ router = APIRouter(
     tags=["projects"],
     dependencies=[Depends(get_current_user)],
 )
+
+ADMIN_ROLE_NAME = "admin"
+
+
+def _get_employee_for_user(session: SessionDep, current_user: CurrentUser) -> Employee | None:
+    if not current_user.employee_id:
+        return None
+    return session.get(Employee, current_user.employee_id)
+
+
+def _role_is_admin(role: Role | None) -> bool:
+    return role is not None and role.role_name == ADMIN_ROLE_NAME
+
+
+def _get_project_visible_role_ids(
+    session: SessionDep,
+    current_user: CurrentUser,
+    project_id: uuid.UUID,
+) -> set[uuid.UUID] | None:
+    if current_user.is_superuser:
+        return None
+
+    employee = _get_employee_for_user(session=session, current_user=current_user)
+    if not employee:
+        return set()
+
+    employee_role = session.get(Role, employee.role_id) if employee.role_id else None
+    if _role_is_admin(employee_role):
+        return None
+
+    visible_role_ids: set[uuid.UUID] = set()
+    if employee.role_id:
+        visible_role_ids.add(employee.role_id)
+
+    project_assignment_role_ids = session.exec(
+        select(ProjectAssignment.role_id).where(
+            ProjectAssignment.project_id == project_id,
+            ProjectAssignment.employee_id == employee.id,
+            ProjectAssignment.role_id.is_not(None),
+        )
+    ).all()
+    for role_id in project_assignment_role_ids:
+        if role_id is None:
+            continue
+        role = session.get(Role, role_id)
+        if _role_is_admin(role):
+            return None
+        visible_role_ids.add(role_id)
+
+    return visible_role_ids
+
+
+def _get_task_list_visibility(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> tuple[bool, uuid.UUID | None, dict[uuid.UUID, set[uuid.UUID]], set[uuid.UUID]]:
+    if current_user.is_superuser:
+        return True, None, {}, set()
+
+    employee = _get_employee_for_user(session=session, current_user=current_user)
+    if not employee:
+        return False, None, {}, set()
+
+    employee_role = session.get(Role, employee.role_id) if employee.role_id else None
+    if _role_is_admin(employee_role):
+        return True, employee.role_id, {}, set()
+
+    project_role_ids_by_project_id: dict[uuid.UUID, set[uuid.UUID]] = {}
+    admin_project_ids: set[uuid.UUID] = set()
+    project_assignment_rows = session.exec(
+        select(ProjectAssignment.project_id, ProjectAssignment.role_id).where(
+            ProjectAssignment.employee_id == employee.id,
+            ProjectAssignment.role_id.is_not(None),
+        )
+    ).all()
+    for project_id, role_id in project_assignment_rows:
+        if role_id is None:
+            continue
+        role = session.get(Role, role_id)
+        if _role_is_admin(role):
+            admin_project_ids.add(project_id)
+        else:
+            project_role_ids_by_project_id.setdefault(project_id, set()).add(role_id)
+
+    return False, employee.role_id, project_role_ids_by_project_id, admin_project_ids
+
 
 # --- PROJECT CREATION ----
 @router.post("", response_model=ProjectCreateResponse)
@@ -51,7 +144,7 @@ def create_project(project: ProjectCreateRequest, session: SessionDep) -> Projec
             status_code=409,
             detail="A project with this job_number already exists",
         )
-    
+
     created_project = crud.create_project(session=session, project_data=project)
     return ProjectCreateResponse(project_id=created_project.id, message="Project created successfully")
 
@@ -111,11 +204,27 @@ def get_projects_by_due_date(
 )
 def get_tasks(
     session: SessionDep,
+    current_user: CurrentUser,
     status: str | None = None,
     start: date | None = None,
     end: date | None = None,
 ) -> ProjectTasksPublic:
-    tasks = crud.get_tasks(session=session, status=status, start=start, end=end)
+    (
+        can_view_all,
+        current_user_role_id,
+        project_role_ids_by_project_id,
+        admin_project_ids,
+    ) = _get_task_list_visibility(session=session, current_user=current_user)
+    tasks = crud.get_tasks(
+        session=session,
+        status=status,
+        start=start,
+        end=end,
+        can_view_all=can_view_all,
+        current_user_role_id=current_user_role_id,
+        project_role_ids_by_project_id=project_role_ids_by_project_id,
+        admin_project_ids=admin_project_ids,
+    )
     return ProjectTasksPublic(
         data=[ProjectTaskPublic.model_validate(task) for task in tasks],
         count=len(tasks),
@@ -172,12 +281,26 @@ def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> Projec
     "/{project_id}/task-management",
     response_model=ProjectTaskManagementResponse,
 )
-def get_project_task_management(session: SessionDep, project_id: uuid.UUID) -> ProjectTaskManagementResponse:
+def get_project_task_management(
+    session: SessionDep,
+    project_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> ProjectTaskManagementResponse:
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    milestones = crud.get_project_task_management(session=session, project_id=project_id)
+    assigned_role_ids = _get_project_visible_role_ids(
+        session=session,
+        current_user=current_user,
+        project_id=project_id,
+    )
+
+    milestones = crud.get_project_task_management(
+        session=session,
+        project_id=project_id,
+        assigned_role_ids=assigned_role_ids,
+    )
     return ProjectTaskManagementResponse(project_id=project_id, milestones=milestones)
 
 
@@ -371,7 +494,7 @@ def update_project(
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
-    
+
     existing = crud.get_project_by_id(session=session, project_id=project_id)  # Assuming you add this
     updated = crud.update_project(session=session, project=existing, updates=project.model_dump(exclude_unset=True))
     return ProjectPublic.model_validate(updated)
@@ -405,7 +528,7 @@ def get_materials_from_project(project_id: uuid.UUID, session: SessionDep) -> li
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     materials = crud.get_materials_by_project_id(session=session, project_id=project_id)
     return [MaterialPublic.model_validate(material) for material in materials]
 
@@ -426,7 +549,7 @@ def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, m
 
     if material.subcontractor_id and not session.get(Subcontractor, material.subcontractor_id):
         raise HTTPException(status_code=404, detail="Subcontractor not found")
-    
+
     existing = crud.get_material(session=session, material_id=material_id)  # Assuming you add this
     updated = crud.update_material(session=session, material=existing, updates=material.model_dump(exclude_unset=True))
     return MaterialPublic.model_validate(updated)
@@ -436,7 +559,7 @@ def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, m
 def delete_material_from_project(project_id: uuid.UUID, material_id: uuid.UUID, session: SessionDep) -> Message:
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found") 
+        raise HTTPException(status_code=404, detail="Project not found")
     material = crud.get_material(session=session, material_id=material_id)
     if not material or material.project_id != project_id:
         raise HTTPException(status_code=404, detail="Material not found")

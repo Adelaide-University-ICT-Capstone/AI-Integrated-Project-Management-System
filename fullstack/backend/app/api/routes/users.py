@@ -63,6 +63,9 @@ def create_user(*, session: SessionDep, user_in: AdminUserCreate) -> Any:
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
+    role_name = user_in.role_name or user_in.role
+    if role_name and not crud.get_role_by_name(session=session, role_name=role_name):
+        raise HTTPException(status_code=400, detail=f"Role '{role_name}' not found")
     user = crud.create_user_with_employee(session=session, user_in=user_in)
 
     if settings.emails_enabled and user_in.email:
