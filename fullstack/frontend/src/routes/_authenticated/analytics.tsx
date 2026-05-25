@@ -35,15 +35,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const api = {
-  summary:        () => apiFetch<any>("/analytics/dashboard-summary"),
-  risks:          () => apiFetch<any>("/analytics/risks"),
-  projectHealth:  () => apiFetch<any>("/analytics/project-health"),
-  workload:       () => apiFetch<any>("/analytics/workload"),
-  revenueLeakage: () => apiFetch<any>("/analytics/revenue-leakage"),
-  materialDelays: () => apiFetch<any>("/analytics/material-delays"),
-  deadlineTrend:  () => apiFetch<any>("/analytics/deadline-trend"),
+  summary:        () => apiFetch<any>("/api/v1/analytics/dashboard-summary"),
+  risks:          () => apiFetch<any>("/api/v1/analytics/risks"),
+  projectHealth:  () => apiFetch<any>("/api/v1/analytics/project-health"),
+  workload:       () => apiFetch<any>("/api/v1/analytics/workload"),
+  revenueLeakage: () => apiFetch<any>("/api/v1/analytics/revenue-leakage"),
+  materialDelays: () => apiFetch<any>("/api/v1/analytics/material-delays"),
+  deadlineTrend:  () => apiFetch<any>("/api/v1/analytics/deadline-trend"),
   chat: (userId: number, message: string) =>
-    apiFetch<any>("/chatbot/chat", {
+    apiFetch<any>("/api/v1/chatbot/chat", {
       method: "POST",
       body: JSON.stringify({ user_id: userId, message }),
     }),

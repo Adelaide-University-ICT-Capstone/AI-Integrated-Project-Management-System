@@ -1,9 +1,7 @@
 from fastapi import APIRouter
- 
-from app.api.routes import login, projects, users, utils, statuses, project_subtasks,  users, utils, materials, notifications, workforce_allocate, roles, invoices, subcontractors 
 
+from app.api.routes import login, projects, users, utils, statuses, project_subtasks, materials, notifications, workforce_allocate, roles, invoices, subcontractors, analytics
 from app.core.config import settings
- 
 
 api_router = APIRouter()
 api_router.include_router(login.router)
@@ -18,7 +16,4 @@ api_router.include_router(project_subtasks.router)
 api_router.include_router(materials.router)
 api_router.include_router(subcontractors.router)
 api_router.include_router(notifications.router)
-
-# if settings.ENVIRONMENT == "local":
-#     api_router.include_router(private.router)
-
+api_router.include_router(analytics.router)
