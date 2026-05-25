@@ -24,7 +24,6 @@ from app.models import (
     ProjectTask,
     ProjectTaskNode,
     ProjectTaskTreeCreate,
-    ProjectUpdateRequest,
 )
 
 DEFAULT_MAIN_TASKS = (
@@ -256,6 +255,7 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 job_number=p.job_number,
                 project_name=p.project_name,
                 contract_title=p.contract_title,
+                current_status_id=p.current_status_id,
                 agent=p.agent,
                 job_title=p.job_title,
                 address=p.full_address,
@@ -341,8 +341,15 @@ def get_tasks(
     start: date | None = None,
     end: date | None = None,
     status: str | None = None,
+    can_view_all: bool = True,
+    current_user_role_id: uuid.UUID | None = None,
+    project_role_ids_by_project_id: dict[uuid.UUID, set[uuid.UUID]] | None = None,
+    admin_project_ids: set[uuid.UUID] | None = None,
 ) -> list[ProjectTask]:
-    query = select(ProjectTask)
+    query = select(ProjectTask, ProjectMilestone.project_id).join(
+        ProjectMilestone,
+        ProjectMilestone.id == ProjectTask.milestone_id,
+    )
     if start is not None:
         query = query.where(ProjectTask.due_date >= start)
     if end is not None:
@@ -350,11 +357,29 @@ def get_tasks(
     if status is not None:
         query = query.where(func.lower(ProjectTask.milestone_status) == status.lower())
 
-    return list(
-        session.exec(
-            query.order_by(col(ProjectTask.due_date), col(ProjectTask.created_at))
-        ).all()
+    rows = list(
+        session.exec(query.order_by(col(ProjectTask.due_date), col(ProjectTask.created_at))).all()
     )
+    if can_view_all:
+        return [task for task, _project_id in rows]
+
+    project_role_ids_by_project_id = project_role_ids_by_project_id or {}
+    admin_project_ids = admin_project_ids or set()
+
+    visible_tasks: list[ProjectTask] = []
+    for task, task_project_id in rows:
+        if task_project_id in admin_project_ids:
+            visible_tasks.append(task)
+            continue
+        if task.assigned_role_id is None:
+            continue
+        if task.assigned_role_id == current_user_role_id:
+            visible_tasks.append(task)
+            continue
+        if task.assigned_role_id in project_role_ids_by_project_id.get(task_project_id, set()):
+            visible_tasks.append(task)
+
+    return visible_tasks
 
 def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     nodes = {
@@ -400,7 +425,12 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     return roots
 
 
-def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> list[ProjectMilestoneNode]:
+def get_project_task_management(
+    *,
+    session: Session,
+    project_id: uuid.UUID,
+    assigned_role_ids: set[uuid.UUID] | None = None,
+) -> list[ProjectMilestoneNode]:
     milestones = list(
         session.exec(
             select(ProjectMilestone)
@@ -420,6 +450,12 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
             .order_by(col(ProjectTask.created_at))
         ).all()
     )
+    if assigned_role_ids is not None:
+        task_rows = [
+            task
+            for task in task_rows
+            if task.assigned_role_id is not None and task.assigned_role_id in assigned_role_ids
+        ]
     tasks_by_milestone: dict[uuid.UUID, list[ProjectTask]] = {}
     for task in task_rows:
         tasks_by_milestone.setdefault(task.milestone_id, []).append(task)

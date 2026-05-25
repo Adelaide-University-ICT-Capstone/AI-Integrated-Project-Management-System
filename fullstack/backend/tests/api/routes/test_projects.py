@@ -4,7 +4,9 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app import crud
 from app.models import (
+    AdminUserCreate,
     Client,
     Employee,
     Invoice,
@@ -15,6 +17,7 @@ from app.models import (
     ProjectTask,
     Role,
 )
+from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_lower_string
 
 
@@ -30,6 +33,43 @@ def get_prelim_status(db: Session) -> ProjectStatusType:
     ).first()
     assert status is not None
     return status
+
+
+def create_project_with_milestone(
+    db: Session,
+    name_prefix: str,
+) -> tuple[Project, ProjectMilestone]:
+    client_row = Client(
+        client_name=f"{name_prefix} Client {random_lower_string()[:8]}",
+        company_name=f"{name_prefix} Company",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    project = Project(
+        job_number=f"JOB-{name_prefix.upper().replace(' ', '-')}-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=get_prelim_status(db).id,
+        project_name=f"{name_prefix} Project",
+        start_date=date(2026, 5, 1),
+        due_date=date(2026, 6, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    milestone = ProjectMilestone(
+        project_id=project.id,
+        milestone_name="Design & Documentation",
+        display_order=1,
+    )
+    db.add(milestone)
+    db.commit()
+    db.refresh(milestone)
+
+    return project, milestone
 
 
 def test_get_project_with_roles(
@@ -315,6 +355,507 @@ def test_delete_project_milestone_removes_tasks(
     assert db.exec(
         select(ProjectTask).where(ProjectTask.milestone_id == milestone_id)
     ).all() == []
+
+
+def test_create_update_and_delete_project_task_still_work(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    project, milestone = create_project_with_milestone(db, "Task Crud")
+
+    create_response = client.post(
+        f"/api/v1/projects/{project.id}/milestones/{milestone.id}/tasks",
+        headers=superuser_token_headers,
+        json={"task_name": "Original task name"},
+    )
+    assert create_response.status_code == 201
+    task_id = create_response.json()["id"]
+
+    update_response = client.patch(
+        f"/api/v1/projects/{project.id}/tasks/{task_id}",
+        headers=superuser_token_headers,
+        json={"task_name": "Updated task name"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["task_name"] == "Updated task name"
+
+    delete_response = client.delete(
+        f"/api/v1/projects/{project.id}/milestones/{milestone.id}/tasks/{task_id}",
+        headers=superuser_token_headers,
+    )
+    assert delete_response.status_code == 200
+    assert db.get(ProjectTask, task_id) is None
+
+
+def test_task_management_filters_tasks_by_current_user_role(
+    client: TestClient, db: Session
+) -> None:
+    engineer_role = Role(
+        role_name=f"Engineer {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    drafter_role = Role(
+        role_name=f"Drafter {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(engineer_role)
+    db.add(drafter_role)
+    db.commit()
+    db.refresh(engineer_role)
+    db.refresh(drafter_role)
+
+    password = random_lower_string()
+    email = f"task-filter-{random_lower_string()[:8]}@example.com"
+    user = crud.create_user_with_employee(
+        session=db,
+        user_in=AdminUserCreate(
+            email=email,
+            password=password,
+            full_name="Task Filter User",
+            is_superuser=False,
+        ),
+    )
+    assert user.employee_id is not None
+    employee = db.get(Employee, user.employee_id)
+    assert employee is not None
+    employee.role_id = engineer_role.id
+    db.add(employee)
+    db.commit()
+
+    client_row = Client(
+        client_name=f"Task Filter Client {random_lower_string()[:8]}",
+        company_name="Task Filter Company",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    project = Project(
+        job_number=f"JOB-FILTER-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=get_prelim_status(db).id,
+        project_name="Task Filter Project",
+        start_date=date(2026, 5, 1),
+        due_date=date(2026, 6, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    milestone = ProjectMilestone(
+        project_id=project.id,
+        milestone_name="Design & Documentation",
+        display_order=1,
+    )
+    db.add(milestone)
+    db.commit()
+    db.refresh(milestone)
+
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Engineer visible task",
+            assigned_role_id=engineer_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Drafter hidden task",
+            assigned_role_id=drafter_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Unassigned hidden task",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        f"/api/v1/projects/{project.id}/task-management",
+        headers=user_authentication_headers(
+            client=client,
+            email=email,
+            password=password,
+        ),
+    )
+
+    assert response.status_code == 200
+    tasks = response.json()["milestones"][0]["tasks"]
+    assert [task["task_name"] for task in tasks] == ["Engineer visible task"]
+
+
+def test_project_tasks_list_filters_tasks_by_current_user_role(
+    client: TestClient, db: Session
+) -> None:
+    engineer_role = Role(
+        role_name=f"Task List Engineer {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    drafter_role = Role(
+        role_name=f"Task List Drafter {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(engineer_role)
+    db.add(drafter_role)
+    db.commit()
+    db.refresh(engineer_role)
+    db.refresh(drafter_role)
+
+    password = random_lower_string()
+    email = f"task-list-filter-{random_lower_string()[:8]}@example.com"
+    user = crud.create_user_with_employee(
+        session=db,
+        user_in=AdminUserCreate(
+            email=email,
+            password=password,
+            full_name="Task List Filter User",
+            is_superuser=False,
+        ),
+    )
+    assert user.employee_id is not None
+    employee = db.get(Employee, user.employee_id)
+    assert employee is not None
+    employee.role_id = engineer_role.id
+    db.add(employee)
+    db.commit()
+
+    _project, milestone = create_project_with_milestone(db, "Task List Filter")
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Task list visible engineer task",
+            assigned_role_id=engineer_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Task list hidden drafter task",
+            assigned_role_id=drafter_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Task list hidden unassigned task",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        "/api/v1/projects/tasks",
+        headers=user_authentication_headers(
+            client=client,
+            email=email,
+            password=password,
+        ),
+    )
+
+    assert response.status_code == 200
+    task_names = {task["task_name"] for task in response.json()["data"]}
+    assert "Task list visible engineer task" in task_names
+    assert "Task list hidden drafter task" not in task_names
+    assert "Task list hidden unassigned task" not in task_names
+
+
+def test_project_tasks_list_scopes_project_assignment_roles_to_project(
+    client: TestClient, db: Session
+) -> None:
+    employee_role = Role(
+        role_name=f"Scoped Employee Role {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    assigned_role = Role(
+        role_name=f"Scoped Assigned Role {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(employee_role)
+    db.add(assigned_role)
+    db.commit()
+    db.refresh(employee_role)
+    db.refresh(assigned_role)
+
+    password = random_lower_string()
+    email = f"task-list-scope-{random_lower_string()[:8]}@example.com"
+    user = crud.create_user_with_employee(
+        session=db,
+        user_in=AdminUserCreate(
+            email=email,
+            password=password,
+            full_name="Task List Scope User",
+            is_superuser=False,
+        ),
+    )
+    assert user.employee_id is not None
+    employee = db.get(Employee, user.employee_id)
+    assert employee is not None
+    employee.role_id = employee_role.id
+    db.add(employee)
+    db.commit()
+
+    visible_project, visible_milestone = create_project_with_milestone(
+        db, "Task List Visible Assignment"
+    )
+    _hidden_project, hidden_milestone = create_project_with_milestone(
+        db, "Task List Hidden Assignment"
+    )
+    db.add(
+        ProjectAssignment(
+            project_id=visible_project.id,
+            employee_id=employee.id,
+            role_id=assigned_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=visible_milestone.id,
+            task_name="Project assignment visible task",
+            assigned_role_id=assigned_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=hidden_milestone.id,
+            task_name="Same role hidden on another project",
+            assigned_role_id=assigned_role.id,
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        "/api/v1/projects/tasks",
+        headers=user_authentication_headers(
+            client=client,
+            email=email,
+            password=password,
+        ),
+    )
+
+    assert response.status_code == 200
+    task_names = {task["task_name"] for task in response.json()["data"]}
+    assert "Project assignment visible task" in task_names
+    assert "Same role hidden on another project" not in task_names
+
+
+def test_project_tasks_list_superuser_can_see_all_tasks(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    role = Role(
+        role_name=f"Task List Superuser Role {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+
+    _project, milestone = create_project_with_milestone(db, "Task List Superuser")
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Task list superuser assigned task",
+            assigned_role_id=role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Task list superuser unassigned task",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        "/api/v1/projects/tasks",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    task_names = {task["task_name"] for task in response.json()["data"]}
+    assert "Task list superuser assigned task" in task_names
+    assert "Task list superuser unassigned task" in task_names
+
+
+def test_task_management_superuser_can_see_all_tasks(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    role = Role(
+        role_name=f"Super Task Role {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+
+    client_row = Client(
+        client_name=f"Super Task Client {random_lower_string()[:8]}",
+        company_name="Super Task Company",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    project = Project(
+        job_number=f"JOB-SUPER-TASK-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=get_prelim_status(db).id,
+        project_name="Super Task Project",
+        start_date=date(2026, 5, 1),
+        due_date=date(2026, 6, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    milestone = ProjectMilestone(
+        project_id=project.id,
+        milestone_name="Design & Documentation",
+        display_order=1,
+    )
+    db.add(milestone)
+    db.commit()
+    db.refresh(milestone)
+
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Assigned task",
+            assigned_role_id=role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Unassigned task",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        f"/api/v1/projects/{project.id}/task-management",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    tasks = response.json()["milestones"][0]["tasks"]
+    assert [task["task_name"] for task in tasks] == [
+        "Assigned task",
+        "Unassigned task",
+    ]
+
+
+def test_task_management_project_admin_assignment_can_see_all_tasks(
+    client: TestClient, db: Session
+) -> None:
+    admin_role = db.exec(select(Role).where(Role.role_name == "admin")).first()
+    if admin_role is None:
+        admin_role = Role(role_name="admin", is_active=True)
+        db.add(admin_role)
+        db.commit()
+        db.refresh(admin_role)
+
+    engineer_role = Role(
+        role_name=f"Project Admin Engineer {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    other_role = Role(
+        role_name=f"Project Admin Other {random_lower_string()[:8]}",
+        is_active=True,
+    )
+    db.add(engineer_role)
+    db.add(other_role)
+    db.commit()
+    db.refresh(engineer_role)
+    db.refresh(other_role)
+
+    password = random_lower_string()
+    email = f"task-project-admin-{random_lower_string()[:8]}@example.com"
+    user = crud.create_user_with_employee(
+        session=db,
+        user_in=AdminUserCreate(
+            email=email,
+            password=password,
+            full_name="Task Project Admin User",
+            is_superuser=False,
+        ),
+    )
+    assert user.employee_id is not None
+    employee = db.get(Employee, user.employee_id)
+    assert employee is not None
+    employee.role_id = engineer_role.id
+    db.add(employee)
+    db.commit()
+
+    client_row = Client(
+        client_name=f"Project Admin Client {random_lower_string()[:8]}",
+        company_name="Project Admin Company",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    project = Project(
+        job_number=f"JOB-PROJECT-ADMIN-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=get_prelim_status(db).id,
+        project_name="Project Admin Task Project",
+        start_date=date(2026, 5, 1),
+        due_date=date(2026, 6, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    db.add(
+        ProjectAssignment(
+            project_id=project.id,
+            employee_id=employee.id,
+            role_id=admin_role.id,
+        )
+    )
+    milestone = ProjectMilestone(
+        project_id=project.id,
+        milestone_name="Design & Documentation",
+        display_order=1,
+    )
+    db.add(milestone)
+    db.commit()
+    db.refresh(milestone)
+
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Other role task",
+            assigned_role_id=other_role.id,
+        )
+    )
+    db.add(
+        ProjectTask(
+            milestone_id=milestone.id,
+            task_name="Unassigned project admin task",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        f"/api/v1/projects/{project.id}/task-management",
+        headers=user_authentication_headers(
+            client=client,
+            email=email,
+            password=password,
+        ),
+    )
+
+    assert response.status_code == 200
+    tasks = response.json()["milestones"][0]["tasks"]
+    assert [task["task_name"] for task in tasks] == [
+        "Other role task",
+        "Unassigned project admin task",
+    ]
 
 
 def test_project_tabs_are_grouped_by_completion_and_invoice_state(

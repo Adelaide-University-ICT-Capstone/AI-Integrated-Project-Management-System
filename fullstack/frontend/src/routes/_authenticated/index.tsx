@@ -33,6 +33,7 @@ import { useQuery } from "@tanstack/react-query"
 import { projectsApi } from "../../api/project"
 import { invoicesApi } from "../../api/invoices"
 import { usersApi } from "../../api/users"
+import useAuth from "../../hooks/useAuth"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -178,6 +179,8 @@ function daysOverdue(dueDateStr: string | null): number {
 // ---------------------------------------------------------------------------
 
 function Dashboard() {
+  const { user } = useAuth()
+  const isSuperuser = user?.is_superuser === true
   const [dueToggle, setDueToggle] = useState<DueToggle>('this_month')
   const [toggleOpen, setToggleOpen] = useState(false)
 
@@ -247,6 +250,7 @@ function Dashboard() {
   const { data: activeData } = useQuery({
     queryKey: ['activeCount'],
     queryFn: projectsApi.getCurrentProjectCount,
+    enabled: isSuperuser,
   })
 
   const { data: employeeHoursData, isLoading: hoursLoading } = useQuery({
@@ -292,7 +296,7 @@ function Dashboard() {
                 {projectsData?.count ?? 0}
               </p>
               <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
-                <TrendingUp size={16} /> {activeData?.current_month ?? 0} this month
+                <TrendingUp size={16} /> {isSuperuser ? (activeData?.current_month ?? 0) : 0} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
