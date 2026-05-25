@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { toast } from 'react-toastify'
+import { readUsersWithDetails } from '@/client/adminApi'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -30,14 +31,6 @@ export const Route = createFileRoute('/_authenticated/projects/new')({
 
 // Staff list — should match the People page mock data.
 // TODO: when People backend exists, fetch this list from API instead.
-const STAFF = [
-  { id: 's1', name: 'Harri Rassias', role: 'Structural Engineer', avatarColor: 'bg-blue-500' },
-  { id: 's2', name: 'Sarah Chen', role: 'Project Manager', avatarColor: 'bg-purple-500' },
-  { id: 's3', name: 'Mike Rodriguez', role: 'Drafter', avatarColor: 'bg-orange-500' },
-  { id: 's4', name: 'Emily Watson', role: 'MEP Engineer', avatarColor: 'bg-teal-500' },
-  { id: 's5', name: 'David Kim', role: 'Safety Officer', avatarColor: 'bg-green-500' },
-]
-
 const ROLE_PILL_STYLES: Record<string, string> = {
   'Project Manager': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   'Structural Engineer': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -48,6 +41,23 @@ const ROLE_PILL_STYLES: Record<string, string> = {
 
 const getRolePillClass = (role: string) =>
   ROLE_PILL_STYLES[role] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+
+const STAFF_AVATAR_COLORS = [
+  'bg-blue-500',
+  'bg-purple-500',
+  'bg-orange-500',
+  'bg-teal-500',
+  'bg-green-500',
+  'bg-pink-500',
+  'bg-indigo-500',
+]
+
+type StaffOption = {
+  id: string
+  name: string
+  role: string
+  avatarColor: string
+}
 
 type Assignment = {
   staffId: string
@@ -80,6 +90,7 @@ const priorityColors = {
 function NewProject() {
   const navigate = useNavigate()
   const [, setSubmissionError] = useState('')
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([])
   const [currentStep, setCurrentStep] = useState<StepKey>('details')
   const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set())
 
@@ -117,6 +128,36 @@ function NewProject() {
     staffId: '',
     hours: '',
   })
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadStaffOptions = async () => {
+      try {
+        const users = await readUsersWithDetails()
+        if (!isMounted) return
+
+        setStaffOptions(
+          users.map((user: any, index: number) => ({
+            id: user.id,
+            name: user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`,
+            role: user.role_name || 'Team Member',
+            avatarColor: STAFF_AVATAR_COLORS[index % STAFF_AVATAR_COLORS.length],
+          })),
+        )
+      } catch (error) {
+        if (isMounted) {
+          setStaffOptions([])
+        }
+      }
+    }
+
+    loadStaffOptions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const calculateDaysElapsed = () => {
     if (!formData.dateReceived) return 0
@@ -267,7 +308,7 @@ function NewProject() {
     )
   }
 
-  const getStaff = (staffId: string) => STAFF.find((s) => s.id === staffId)
+  const getStaff = (staffId: string) => staffOptions.find((staff) => staff.id === staffId)
 
   // Final submit
   const handleSubmit = async () => {
@@ -755,7 +796,7 @@ function NewProject() {
                       {subtasks.map((subtask) => {
                         const isExpanded = expandedSubtaskId === subtask.id
                         const totalHours = subtask.assignments.reduce((sum, a) => sum + a.hours, 0)
-                        const availableStaff = STAFF.filter(
+                        const availableStaff = staffOptions.filter(
                           (s) => !subtask.assignments.some((a) => a.staffId === s.id),
                         )
 

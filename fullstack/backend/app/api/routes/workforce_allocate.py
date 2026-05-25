@@ -16,6 +16,8 @@ from app.crud.workforce_allocate import (
 from app.models import (
     Project,
     ProjectAssignment,
+    WorkforceAllocationEntry,
+    WorkforceAllocationListResponse,
     WorkforceAssignmentRequest,
     WorkforceAssignmentResponse,
     WorkforceDeleteRequest,
@@ -66,6 +68,48 @@ def to_assignment_response(
         employee_id=assignment.employee_id,
         role_id=assignment.role_id,
         created_at=assignment.created_at,
+    )
+
+
+@router.get(
+    "/project/{project_id}/workforce-allocate",
+    response_model=WorkforceAllocationListResponse,
+)
+def get_workforce_allocation(
+    project_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> WorkforceAllocationListResponse:
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    entries: list[WorkforceAllocationEntry] = []
+    for assignment in project.assignments:
+        if assignment.employee is None:
+            continue
+        employee = assignment.employee
+        full_name = (
+            employee.full_name
+            or f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+            or None
+        )
+        entries.append(
+            WorkforceAllocationEntry(
+                assignment_id=assignment.id,
+                project_id=assignment.project_id,
+                employee_id=assignment.employee_id,
+                employee_name=full_name,
+                role_id=assignment.role_id,
+                role_name=assignment.role.role_name if assignment.role else None,
+                created_at=assignment.created_at,
+            )
+        )
+
+    return WorkforceAllocationListResponse(
+        project_id=project_id,
+        assignments=entries,
+        count=len(entries),
     )
 
 
@@ -262,4 +306,3 @@ def remove_workforce(
         message="Workforce allocation updated successfully",
     )
 
-# ---- Igie -----
