@@ -1479,3 +1479,43 @@ class AuditLog(SQLModel, table=True):
     performed_by: uuid.UUID = Field(foreign_key="users.id")
     timestamp: datetime = Field(default_factory=get_datetime_utc)
     changes: dict = Field(sa_column=Column(JSONB))
+
+
+# --------------------------------------------------------------------------- Igie
+# Work Hours Analytics Schemas
+# Used for showing daily, weekly, and monthly employee hours
+# in the analytics dashboard.
+
+class WorkHoursUpsert(SQLModel):
+    employee_id: uuid.UUID
+    work_date: date
+    hours_worked: Decimal = Field(gt=0, max_digits=6, decimal_places=2)
+    task_id: uuid.UUID | None = None
+    description: str | None = None
+
+
+# Response schema for adding/updating employee work hours.
+class ProjectWorkHoursResponse(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    employee_id: uuid.UUID
+    task_id: uuid.UUID | None = None
+    work_date: date
+    hours_worked: Decimal
+    message: str
+
+
+class EmployeeHoursSummary(SQLModel):
+    employee_id: uuid.UUID
+    employee_name: str | None = None
+    role_name: str | None = None
+    day_hours: Decimal = Decimal("0.00")
+    week_hours: Decimal = Decimal("0.00")
+    month_hours: Decimal = Decimal("0.00")
+
+
+class ProjectHoursAnalyticsResponse(SQLModel):
+    project_id: uuid.UUID
+    data: list[EmployeeHoursSummary]
+    count: int
+# --------------------------------------------------------------------------- Igie
