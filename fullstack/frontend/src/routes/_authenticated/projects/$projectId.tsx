@@ -21,9 +21,8 @@ import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
-import type { ProjectStatusType, ProjectTaskManagementMilestone } from '../../../api/project'
+import type { ProjectStatusType, ProjectTaskManagementMilestone, ProjectTaskNode } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
-import { set } from 'zod'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -47,6 +46,8 @@ type WorkflowPhase = {
   phase: string
   status: 'pending' | 'in-progress' | 'completed'
   progress: number
+  completedTaskCount: number
+  totalTaskCount: number
   dueDate?: string | null
   displayOrder?: number | null
 }
@@ -149,17 +150,36 @@ const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
   return 'pending'
 }
 
+const COMPLETED_TASK_STATUSES = new Set(['done', 'complete', 'completed'])
+
+const normalizeTaskStatus = (status?: string | null) =>
+  (status || '').toLowerCase().replace(/[\s_-]/g, '')
+
+const flattenTaskNodes = (tasks: ProjectTaskNode[] = []): ProjectTaskNode[] =>
+  tasks.flatMap((task) => [task, ...flattenTaskNodes(task.children || [])])
+
+const getMilestoneTaskStats = (milestone: ProjectTaskManagementMilestone) => {
+  const tasks = flattenTaskNodes(milestone.tasks || []).filter((task) => !task.is_excluded)
+  const completedTaskCount = tasks.filter(
+    (task) => Boolean(task.completion_date) || COMPLETED_TASK_STATUSES.has(normalizeTaskStatus(task.milestone_status)),
+  ).length
+
+  return {
+    completedTaskCount,
+    totalTaskCount: tasks.length,
+  }
+}
+
 const mapMilestoneToWorkflowPhase = (milestone: ProjectTaskManagementMilestone): WorkflowPhase => {
-  const progress = Number.isFinite(milestone.progress)
-    ? milestone.progress
-    : milestone.is_complete
-      ? 100
-      : 0
+  const { completedTaskCount, totalTaskCount } = getMilestoneTaskStats(milestone)
+  const progress = totalTaskCount === 0 ? 0 : Math.round((completedTaskCount / totalTaskCount) * 100)
 
   return {
     id: milestone.id,
     phase: milestone.milestone_name,
     progress,
+    completedTaskCount,
+    totalTaskCount,
     status: getWorkflowPhaseStatus(progress),
     dueDate: milestone.due_date,
     displayOrder: milestone.display_order,
