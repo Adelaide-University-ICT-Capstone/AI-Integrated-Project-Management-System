@@ -70,6 +70,20 @@ export type ProjectTaskManagementMilestone = {
   is_complete: boolean
   progress: number
   display_order?: number | null
+  tasks: ProjectTaskNode[]
+}
+
+export type ProjectTaskNode = {
+  id: string
+  milestone_id: string
+  parent_task_id?: string | null
+  task_name: string
+  task_description?: string | null
+  due_date?: string | null
+  milestone_status?: string | null
+  completion_date?: string | null
+  is_excluded: boolean
+  children: ProjectTaskNode[]
 }
 
 export type ProjectTaskManagementResponse = {
