@@ -15,14 +15,17 @@ import {
   Edit2,
   Plus,
   X,
-  Minus,
+  Loader2,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { useQuery } from '@tanstack/react-query'
-import type { ProjectStatusType, ProjectTaskManagementMilestone, ProjectTaskNode } from '../../../api/project'
+import type { ProjectTaskManagementMilestone, ProjectTaskNode } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
+import { workforceAllocationApi } from '@/api/workforceAllocation'
+import { readUsersWithDetails } from '@/client/adminApi'
+import { taskManagementApi, type Role } from '@/api/taskManagement'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -64,11 +67,21 @@ type Material = {
 }
 
 type WorkforceMember = {
+  userId: string | null
   name: string
   role: string
+  roleId: string | null
   avatar: string
   status: string
   color: string
+}
+
+type DirectoryWorker = {
+  userId: string
+  name: string
+  defaultRoleName: string
+  defaultRoleId: string | null
+  status: string
 }
 
 const AVATAR_COLORS = [
@@ -144,6 +157,16 @@ const getWorkforceStatusColor = (status: string) => {
   }
 }
 
+const formatRoleLabel = (roleName?: string | null) => {
+  if (!roleName) return 'Team Member'
+  return roleName
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ')
+}
+
 const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
   if (progress >= 100) return 'completed'
   if (progress > 0) return 'in-progress'
@@ -186,11 +209,159 @@ const mapMilestoneToWorkflowPhase = (milestone: ProjectTaskManagementMilestone):
   }
 }
 
+function WorkforceAllocationModal({
+  workers,
+  employeeOptions,
+  roles,
+  saving,
+  onClose,
+  onSave,
+}: {
+  workers: WorkforceMember[]
+  employeeOptions: DirectoryWorker[]
+  roles: Role[]
+  saving: boolean
+  onClose: () => void
+  onSave: (updated: WorkforceMember[]) => Promise<void>
+}) {
+  const [rows, setRows] = useState<WorkforceMember[]>(workers)
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [selectedRoleId, setSelectedRoleId] = useState('')
+
+  const assignedUserIds = new Set(rows.map((r) => r.userId).filter(Boolean))
+  const availableEmployees = employeeOptions.filter((e) => !assignedUserIds.has(e.userId))
+
+  const handleAdd = () => {
+    const employee = availableEmployees.find((e) => e.userId === selectedUserId)
+    const role = roles.find((r) => r.id === selectedRoleId)
+    if (!employee || !role) {
+      toast.error('Please choose an employee and role')
+      return
+    }
+    const avatar = employee.name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('').slice(0, 2) || 'NA'
+    setRows((prev) => [
+      ...prev,
+      {
+        userId: employee.userId,
+        name: employee.name,
+        role: formatRoleLabel(role.role_name),
+        roleId: role.id,
+        avatar,
+        status: employee.status,
+        color: AVATAR_COLORS[prev.length % AVATAR_COLORS.length],
+      },
+    ])
+    setSelectedUserId('')
+    setSelectedRoleId('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+        <div className="px-7 pt-6 pb-4">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Manage Workforce</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Add or remove team members for this project</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 px-7 pb-4">
+          <select
+            value={selectedUserId}
+            onChange={(e) => {
+              const emp = availableEmployees.find((w) => w.userId === e.target.value)
+              setSelectedUserId(e.target.value)
+              setSelectedRoleId(emp?.defaultRoleId || '')
+            }}
+            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Employee</option>
+            {availableEmployees.map((e) => (
+              <option key={e.userId} value={e.userId}>{e.name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedRoleId}
+            onChange={(e) => setSelectedRoleId(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Role</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>{formatRoleLabel(r.role_name)}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="border-t border-gray-100 dark:border-gray-700 overflow-y-auto flex-1">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-700/50">
+                <th className="px-7 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Role</th>
+                <th className="w-16" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-7 py-6 text-sm text-center text-gray-400">No team members assigned yet</td>
+                </tr>
+              ) : (
+                rows.map((worker, idx) => (
+                  <tr key={worker.userId ?? idx} className="border-t border-gray-100 dark:border-gray-700">
+                    <td className="px-7 py-3 text-sm text-gray-800 dark:text-gray-200">{worker.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{worker.role}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setRows((prev) => prev.filter((_, i) => i !== idx))}
+                        disabled={saving}
+                        className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      >
+                        <X size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end gap-2 px-7 py-4 border-t border-gray-100 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void onSave(rows)}
+            disabled={saving}
+            className="px-4 py-2 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'timeline'>('overview')
-  const [projectStatus, setProjectStatus] = useState('Proposal')
+  const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'timeline' | 'workforce'>('overview')
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -206,6 +377,14 @@ function ProjectDetails() {
   const [editingWorkflow, setEditingWorkflow] = useState(false)
   const [newPhaseName, setNewPhaseName] = useState('')
 
+  // Workforce allocation management state
+  const [roles, setRoles] = useState<Role[]>([])
+  const [directoryWorkers, setDirectoryWorkers] = useState<DirectoryWorker[]>([])
+  const [showAllocationModal, setShowAllocationModal] = useState(false)
+  const [workforceSaving, setWorkforceSaving] = useState(false)
+  const [removingWorkerId, setRemovingWorkerId] = useState<string | null>(null)
+  const [initialWorkforce, setInitialWorkforce] = useState<WorkforceMember[]>([])
+
   // Modal states for adding materials and workforce
   const [showAddMaterial, setShowAddMaterial] = useState(false)
   const [showAddWorker, setShowAddWorker] = useState(false)
@@ -217,7 +396,23 @@ function ProjectDetails() {
   })
   const [newWorker, setNewWorker] = useState({ name: '', role: '', status: 'active' })
 
+  const taskManagementQuery = useQuery({
+    queryKey: ['task-management', projectId],
+    queryFn: () => projectsApi.getProjectTaskManagement(projectId),
+  })
 
+  useEffect(() => {
+    if (taskManagementQuery.data) {
+      setWorkflow(taskManagementQuery.data.milestones.map(mapMilestoneToWorkflowPhase))
+    }
+  }, [taskManagementQuery.data])
+
+  useEffect(() => {
+    if (taskManagementQuery.error) {
+      console.error('Error fetching workflow phases:', taskManagementQuery.error)
+      toast.error('Network error while fetching workflow phases')
+    }
+  }, [taskManagementQuery.error])
 
   useEffect(() => {
     const fetchProjectStatuses = async () => {
@@ -251,13 +446,18 @@ function ProjectDetails() {
     const fetchProject = async () => {
       try {
         const token = localStorage.getItem('access_token')
-        const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        })
+        const [response, workforceData, users, rolesResponse] = await Promise.all([
+          fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }),
+          workforceAllocationApi.getWorkforceAllocations(projectId).catch(() => null),
+          readUsersWithDetails().catch(() => []),
+          taskManagementApi.getRoles().catch(() => ({ data: [] as Role[], count: 0 })),
+        ])
 
         const result = await response.json()
         if (!response.ok) {
@@ -266,6 +466,51 @@ function ProjectDetails() {
         }
         setProjectStatusId(result.current_status_id) 
         setProject(result)
+
+        const activeRoles = rolesResponse.data.filter((r: Role) => r.is_active)
+        setRoles(activeRoles)
+
+        const directory: DirectoryWorker[] = users.map((user: any, index: number) => {
+          const name = user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`
+          return {
+            userId: user.id,
+            name,
+            defaultRoleName: 'team_member',
+            defaultRoleId: null,
+            status: user.is_active ? 'active' : 'available',
+          }
+        })
+        setDirectoryWorkers(directory)
+
+        const directoryByName = new Map(directory.map((d) => [d.name.trim().toLowerCase(), d]))
+
+        const mappedMembers: WorkforceMember[] = (workforceData?.assignments || []).map(
+          (assignment, index) => {
+            const name = assignment.employee_name?.trim() || `User ${index + 1}`
+            const matchedUser = directoryByName.get(name.toLowerCase())
+            const avatar =
+              name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part: string) => part[0]?.toUpperCase())
+                .join('')
+                .slice(0, 2) || 'NA'
+
+            return {
+              userId: matchedUser?.userId ?? null,
+              name,
+              role: formatRoleLabel(assignment.role_name),
+              roleId: assignment.role_id,
+              avatar,
+              status: matchedUser?.status ?? 'available',
+              color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+            }
+          },
+        )
+
+        setWorkforce(mappedMembers)
+        setInitialWorkforce(mappedMembers)
       } catch (error) {
         console.error('Error fetching project data:', error)
         toast.error('Network error')
@@ -306,31 +551,18 @@ function ProjectDetails() {
       }
     }
 
-    const fetchWorkflow = async () => {
-      try {
-        const taskManagement = await projectsApi.getProjectTaskManagement(projectId)
-        setWorkflow(taskManagement.milestones.map(mapMilestoneToWorkflowPhase))
-      } catch (error) {
-        console.error('Error fetching workflow phases:', error)
-        toast.error('Network error while fetching workflow phases')
-      }
-    }
-
-
     fetchProjectStatuses()
     fetchProject()
-    fetchWorkflow()
     fetchSubcontractors()
     fetchMaterials() // Fetch materials separately
 
 
   }, [projectId])
 
-  // Calculate overall progress from workflow phases
-  const overallProgress =
-    workflow.length === 0
-      ? 0
-      : Math.round(workflow.reduce((sum, p) => sum + p.progress, 0) / workflow.length)
+  // Project progress is derived from completed tasks, not manual milestone sliders.
+  const totalTaskCount = workflow.reduce((sum, phase) => sum + phase.totalTaskCount, 0)
+  const completedTaskCount = workflow.reduce((sum, phase) => sum + phase.completedTaskCount, 0)
+  const overallProgress = totalTaskCount === 0 ? 0 : Math.round((completedTaskCount / totalTaskCount) * 100)
 
   if (loading) return <div>Loading...</div>
 
@@ -428,26 +660,6 @@ function ProjectDetails() {
     } catch (error) {
       console.error('Error removing workflow phase:', error)
       toast.error('Failed to remove workflow phase')
-    }
-  }
-
-  const updatePhaseProgress = async (index: number, progress: number) => {
-    const phase = workflow[index]
-    if (!phase) return
-    const updated = [...workflow]
-    updated[index].progress = progress
-    updated[index].status = getWorkflowPhaseStatus(progress)
-    setWorkflow(updated)
-    try {
-      await projectsApi.updateProjectMilestone(projectId, phase.id, {
-        progress,
-        is_complete: progress === 100,
-        completion_date: progress === 100 ? new Date().toISOString().slice(0, 10) : null,
-      })
-    } catch (error) {
-      console.error('Error updating workflow phase progress:', error)
-      setWorkflow(workflow)
-      toast.error('Failed to update workflow phase progress')
     }
   }
 
@@ -572,15 +784,93 @@ function ProjectDetails() {
       .slice(0, 2)
       .toUpperCase()
     const color = AVATAR_COLORS[workforce.length % AVATAR_COLORS.length]
-    setWorkforce([...workforce, { ...newWorker, avatar: initials, color }])
+    setWorkforce([...workforce, { ...newWorker, userId: null, roleId: null, avatar: initials, color }])
     setNewWorker({ name: '', role: '', status: 'active' })
     setShowAddWorker(false)
     toast.success('Team member added')
   }
 
-  const removeWorker = (index: number) => {
-    setWorkforce(workforce.filter((_, i) => i !== index))
-    toast.success('Team member removed')
+  const reloadWorkforce = async () => {
+    try {
+      const workforceData = await workforceAllocationApi.getWorkforceAllocations(projectId)
+      const directoryByName = new Map(directoryWorkers.map((d) => [d.name.trim().toLowerCase(), d]))
+      const mappedMembers: WorkforceMember[] = (workforceData?.assignments || []).map(
+        (assignment, index) => {
+          const name = assignment.employee_name?.trim() || `User ${index + 1}`
+          const matchedUser = directoryByName.get(name.toLowerCase())
+          const avatar =
+            name.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]?.toUpperCase()).join('').slice(0, 2) || 'NA'
+          return {
+            userId: matchedUser?.userId ?? null,
+            name,
+            role: formatRoleLabel(assignment.role_name),
+            roleId: assignment.role_id,
+            avatar,
+            status: matchedUser?.status ?? 'available',
+            color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+          }
+        },
+      )
+      setWorkforce(mappedMembers)
+      setInitialWorkforce(mappedMembers)
+    } catch (error) {
+      console.error('Error reloading workforce:', error)
+      toast.error('Failed to reload workforce')
+    }
+  }
+
+  const persistWorkforceChanges = async (updatedRows: WorkforceMember[]) => {
+    const additions = updatedRows.filter(
+      (w) => w.userId && w.roleId && !initialWorkforce.some((iw) => iw.userId === w.userId),
+    )
+    const removals = initialWorkforce.filter(
+      (iw) => iw.userId && !updatedRows.some((w) => w.userId === iw.userId),
+    )
+    if (additions.length === 0 && removals.length === 0) {
+      setShowAllocationModal(false)
+      toast.success('No changes to save')
+      return
+    }
+    setWorkforceSaving(true)
+    try {
+      if (additions.length > 0) {
+        await workforceAllocationApi.assignWorkforce(
+          projectId,
+          additions.map((w) => ({ user_id: w.userId as string, role_id: w.roleId as string })),
+        )
+      }
+      if (removals.length > 0) {
+        await workforceAllocationApi.removeWorkforce(projectId, {
+          user_ids: removals.map((w) => w.userId as string),
+        })
+      }
+      await reloadWorkforce()
+      setShowAllocationModal(false)
+      toast.success('Workforce updated successfully')
+    } catch (error) {
+      console.error('Error saving workforce:', error)
+      toast.error('Failed to save workforce changes')
+    } finally {
+      setWorkforceSaving(false)
+    }
+  }
+
+  const handleRemoveWorker = async (member: WorkforceMember) => {
+    if (!member.userId) {
+      toast.error('This assignment cannot be removed — user record not found')
+      return
+    }
+    setRemovingWorkerId(member.userId)
+    try {
+      await workforceAllocationApi.removeWorkforce(projectId, { user_ids: [member.userId] })
+      await reloadWorkforce()
+      toast.success('Team member removed')
+    } catch (error) {
+      console.error('Error removing worker:', error)
+      toast.error('Failed to remove team member')
+    } finally {
+      setRemovingWorkerId(null)
+    }
   }
 
   // Render a single material card (used in Overview and Resources sections)
@@ -776,6 +1066,7 @@ function ProjectDetails() {
               { id: 'overview', label: 'Overview' },
               { id: 'resources', label: 'Resources' },
               { id: 'timeline', label: 'Timeline' },
+              { id: 'workforce', label: 'Workforce' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -896,14 +1187,13 @@ function ProjectDetails() {
                           <input
                             type="range"
                             min="0"
-                            max="100"
-                            step="5"
-                            value={phase.progress}
-                            onChange={(e) => {
-                              updatePhaseProgress(index, parseInt(e.target.value)).catch(() => undefined)
-                            }}
-                            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-600"
-                          />
+	                            max="100"
+	                            step="5"
+	                            value={phase.progress}
+	                            disabled
+	                            aria-label={`${phase.phase} calculated progress`}
+	                            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-not-allowed accent-blue-600 opacity-80"
+	                          />
                         </div>
                       </div>
                     ))}
@@ -947,7 +1237,7 @@ function ProjectDetails() {
                 {workforce.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
                     <Users size={40} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No team members added yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No workforce data available yet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -963,12 +1253,6 @@ function ProjectDetails() {
                             {member.status}
                           </span>
                         </div>
-                        <button
-                          onClick={() => removeWorker(index)}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-opacity"
-                        >
-                          <Minus size={12} />
-                        </button>
                       </div>
                     ))}
                   </div>
@@ -1075,8 +1359,78 @@ function ProjectDetails() {
               <p>Timeline view coming soon...</p>
             </div>
           )}
+
+          {activeTab === 'workforce' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Users size={20} /> Workforce Allocation
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{workforce.length} team member{workforce.length !== 1 ? 's' : ''} assigned</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllocationModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  disabled={workforceSaving}
+                >
+                  <Plus size={16} /> Add Member
+                </button>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
+                {workforce.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <Users size={40} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No workforce data available yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {workforce.map((member, index) => (
+                      <div key={index} className="flex items-center gap-4 px-6 py-4">
+                        <div className={`w-10 h-10 ${member.color} rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+                          {member.avatar}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">{member.name}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{member.role}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getWorkforceStatusColor(member.status)}`}>
+                          {member.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveWorker(member)}
+                          disabled={workforceSaving || removingWorkerId === member.userId || !member.userId}
+                          title={!member.userId ? 'Cannot remove — user record not found' : 'Remove member'}
+                          className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {removingWorkerId === member.userId
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <X size={14} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Workforce Allocation Modal */}
+      {showAllocationModal && (
+        <WorkforceAllocationModal
+          workers={workforce}
+          employeeOptions={directoryWorkers}
+          roles={roles}
+          saving={workforceSaving}
+          onClose={() => setShowAllocationModal(false)}
+          onSave={persistWorkforceChanges}
+        />
+      )}
 
       {/* Add Material Modal */}
       {showAddMaterial && (
@@ -1166,7 +1520,7 @@ function ProjectDetails() {
                   type="text"
                   value={newWorker.name}
                   onChange={(e) => setNewWorker({ ...newWorker, name: e.target.value })}
-                  placeholder="e.g., Sarah Chen"
+                  placeholder="e.g., Team Member"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 />
               </div>

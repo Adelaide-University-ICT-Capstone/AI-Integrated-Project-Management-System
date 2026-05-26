@@ -929,6 +929,22 @@ class WorkforcePatchResponse(SQLModel):
 class WorkforceDeleteResponse(SQLModel):
     removed: int
     message: str
+
+
+class WorkforceAllocationEntry(SQLModel):
+    assignment_id: uuid.UUID
+    project_id: uuid.UUID
+    employee_id: uuid.UUID | None = None
+    employee_name: str | None = None
+    role_id: uuid.UUID | None = None
+    role_name: str | None = None
+    created_at: datetime | None = None
+
+
+class WorkforceAllocationListResponse(SQLModel):
+    project_id: uuid.UUID
+    assignments: list[WorkforceAllocationEntry]
+    count: int
 #----- Igie -----
 
 # ---------------------------------------------------------------------------
