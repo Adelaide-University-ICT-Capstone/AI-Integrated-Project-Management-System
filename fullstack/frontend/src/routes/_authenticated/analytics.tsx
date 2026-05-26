@@ -5,7 +5,6 @@ import {
   AlertTriangle, TrendingUp, Package, DollarSign,
   Users, RefreshCw, Download, ChevronRight, Bot,
   X, Send, Activity, CheckCircle, BarChart3,
-  FolderOpen,
 } from "lucide-react"
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
