@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import { Toaster } from "@/components/ui/sonner"
@@ -7,18 +7,18 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { isLoggedIn } from "@/hooks/useAuth"
 import "react-toastify/dist/ReactToastify.css";
 
 export const Route = createFileRoute("/_authenticated")({
   component: Layout,
-  // Auth temporarily disabled — re-enable when backend is ready:
-  // beforeLoad: async () => {
-  //   if (!isLoggedIn()) {
-  //     throw redirect({
-  //       to: "/login",
-  //     })
-  //   }
-  // },
+  beforeLoad: async () => {
+    if (!isLoggedIn()) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 function Layout() {
