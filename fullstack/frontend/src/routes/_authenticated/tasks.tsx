@@ -40,8 +40,9 @@ import type {
   ProjectTaskNode,
   ProjectTaskPayload,
   ProjectTaskUpdatePayload,
-  Role,
 } from '@/api/taskManagement'
+import { workforceAllocationApi } from '@/api/workforceAllocation'
+import type { WorkforceAllocationEntry } from '@/api/workforceAllocation'
 
 export const Route = createFileRoute('/_authenticated/tasks')({
   component: TaskBoard,
@@ -70,7 +71,7 @@ interface Task {
   priority: TaskPriority
   project: string
   assignee: string
-  assignedRoleId?: string | null
+  assignedEmployeeId?: string | null
   allocatedHours: number
   dueDate: string
   aiRisk?: string
@@ -83,7 +84,7 @@ type TaskFormData = {
   taskName: string
   taskDescription: string
   dueDate: string
-  assignedRoleId: string
+  assignedEmployeeId: string
   allocatedHours: string
 }
 
@@ -91,7 +92,7 @@ type TaskEditFormData = {
   taskName: string
   taskDescription: string
   dueDate: string
-  assignedRoleId: string
+  assignedEmployeeId: string
   allocatedHours: string
   status: string
 }
@@ -187,7 +188,7 @@ const flattenTaskNodes = (
 ): Task[] =>
   nodes.flatMap((node, index) => {
     const status = normalizeTaskStatus(node.milestone_status)
-    const assignedRole = node.assigned_role_name || 'Unassigned'
+    const assigneeName = node.assigned_employee_name || 'Unassigned'
     const allocatedHours = toNumber(node.allocated_hours)
     const task: Task = {
       id: node.id,
@@ -201,16 +202,16 @@ const flattenTaskNodes = (
       status,
       priority: getPriority(node.due_date || milestone.due_date, status),
       project: getProjectName(project),
-      assignee: assignedRole,
-      assignedRoleId: node.assigned_role_id,
+      assignee: assigneeName,
+      assignedEmployeeId: node.assigned_employee_id,
       allocatedHours,
       dueDate: node.due_date || milestone.due_date || '',
-      assignees: node.assigned_role_name
+      assignees: node.assigned_employee_name
         ? [
             {
-              name: node.assigned_role_name,
-              role: node.assigned_role_name,
-              initials: getInitials(node.assigned_role_name),
+              name: node.assigned_employee_name,
+              role: node.assigned_employee_name,
+              initials: getInitials(node.assigned_employee_name),
               hours: allocatedHours,
               color: assigneeColors[index % assigneeColors.length],
             },
@@ -362,7 +363,7 @@ function DetailPanel({
   onMouseLeave,
   onSave,
   onStatusChange,
-  roles,
+  projectWorkforce,
 }: {
   task: Task
   isSaving: boolean
@@ -371,14 +372,14 @@ function DetailPanel({
   onMouseLeave: () => void
   onSave: (task: Task, formData: TaskEditFormData) => Promise<void>
   onStatusChange: (task: Task, status: string) => void
-  roles: Role[]
+  projectWorkforce: WorkforceAllocationEntry[]
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<TaskEditFormData>({
     taskName: task.title,
     taskDescription: task.description,
     dueDate: task.dueDate.slice(0, 10),
-    assignedRoleId: task.assignedRoleId || '',
+    assignedEmployeeId: task.assignedEmployeeId || '',
     allocatedHours: task.allocatedHours ? String(task.allocatedHours) : '',
     status: task.status,
   })
@@ -520,17 +521,19 @@ function DetailPanel({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assigned Role</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
                 <select
-                  value={formData.assignedRoleId}
-                  onChange={(event) => setFormData({ ...formData, assignedRoleId: event.target.value })}
+                  value={formData.assignedEmployeeId}
+                  onChange={(event) => setFormData({ ...formData, assignedEmployeeId: event.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Unassigned</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.role_name}
-                    </option>
+                  {projectWorkforce.map((member) => (
+                    member.employee_id && (
+                      <option key={member.employee_id} value={member.employee_id}>
+                        {member.employee_name}
+                      </option>
+                    )
                   ))}
                 </select>
               </div>
@@ -615,7 +618,7 @@ function DetailPanel({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Allocated Role
+                Assignee
               </h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">{totalHours}h total</span>
             </div>
@@ -672,7 +675,7 @@ function DetailPanel({
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 text-sm">
             <User size={16} className="text-gray-400" />
-            <span className="text-gray-500 dark:text-gray-400">Role:</span>
+            <span className="text-gray-500 dark:text-gray-400">Assignee:</span>
             <span className="font-medium text-gray-900 dark:text-white">{task.assignee}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
@@ -706,14 +709,14 @@ function NewTaskModal({
   onClose,
   onSave,
   projects,
-  roles,
+  workforceByProject,
 }: {
   isSaving: boolean
   milestonesByProject: Record<string, ProjectMilestoneNode[]>
   onClose: () => void
   onSave: (task: TaskFormData) => Promise<void>
   projects: ProjectTaskManagementProject[]
-  roles: Role[]
+  workforceByProject: Record<string, WorkforceAllocationEntry[]>
 }) {
   const firstProjectId = projects[0]?.project_id || ''
   const firstMilestoneId = milestonesByProject[firstProjectId]?.[0]?.id || ''
@@ -723,17 +726,19 @@ function NewTaskModal({
     taskName: '',
     taskDescription: '',
     dueDate: '',
-    assignedRoleId: '',
+    assignedEmployeeId: '',
     allocatedHours: '',
   })
 
   const selectedMilestones = milestonesByProject[formData.projectId] || []
+  const availableAssignees = workforceByProject[formData.projectId] || []
 
   const handleProjectChange = (projectId: string) => {
     setFormData({
       ...formData,
       projectId,
       milestoneId: milestonesByProject[projectId]?.[0]?.id || '',
+      assignedEmployeeId: '',
     })
   }
 
@@ -826,17 +831,19 @@ function NewTaskModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assigned Role</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
               <select
-                value={formData.assignedRoleId}
-                onChange={(event) => setFormData({ ...formData, assignedRoleId: event.target.value })}
+                value={formData.assignedEmployeeId}
+                onChange={(event) => setFormData({ ...formData, assignedEmployeeId: event.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="">Unassigned</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.role_name}
-                  </option>
+                {availableAssignees.map((member) => (
+                  member.employee_id && (
+                    <option key={member.employee_id} value={member.employee_id}>
+                      {member.employee_name}
+                    </option>
+                  )
                 ))}
               </select>
             </div>
@@ -900,11 +907,6 @@ function TaskBoard() {
   const projects = projectsQuery.data?.data || []
   const projectIds = projects.map((project) => project.project_id)
 
-  const rolesQuery = useQuery({
-    queryKey: ['roles'],
-    queryFn: taskManagementApi.getRoles,
-  })
-
   const taskManagementQuery = useQuery({
     queryKey: ['task-management', projectIds],
     enabled: projects.length > 0,
@@ -917,10 +919,31 @@ function TaskBoard() {
       ),
   })
 
+  const workforceQuery = useQuery({
+    queryKey: ['task-management-workforce', projectIds],
+    enabled: projects.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        projects.map((project) =>
+          workforceAllocationApi.getWorkforceAllocations(project.project_id).catch(() => null),
+        ),
+      )
+      return Object.fromEntries(
+        projects.map((project, i) => [
+          project.project_id,
+          results[i]?.assignments ?? [],
+        ]),
+      ) as Record<string, WorkforceAllocationEntry[]>
+    },
+  })
+
   const taskRows = taskManagementQuery.data || []
   const tasks = mapTaskManagementToTasks(taskRows)
   const milestonesByProject = buildMilestonesByProject(taskRows)
-  const roles = rolesQuery.data?.data || []
+  const workforceByProject = workforceQuery.data ?? {}
+
+  const selectedProjectWorkforce =
+    selectedProject !== 'all' ? (workforceByProject[selectedProject] ?? []) : []
 
   const createTaskMutation = useMutation({
     mutationFn: ({
@@ -993,7 +1016,7 @@ function TaskBoard() {
       task_name: taskData.taskName.trim(),
       task_description: taskData.taskDescription.trim() || null,
       due_date: taskData.dueDate || null,
-      assigned_role_id: taskData.assignedRoleId || null,
+      assigned_employee_id: taskData.assignedEmployeeId || null,
       allocated_hours: Number.isFinite(allocatedHours) && allocatedHours > 0 ? allocatedHours : null,
       milestone_status: 'todo',
     }
@@ -1007,11 +1030,14 @@ function TaskBoard() {
 
   const handleSaveTask = async (task: Task, taskData: TaskEditFormData) => {
     const allocatedHours = Number(taskData.allocatedHours)
+    const workforce = workforceByProject[task.projectId] ?? []
+    const assigneeName =
+      workforce.find((m) => m.employee_id === taskData.assignedEmployeeId)?.employee_name || 'Unassigned'
     const payload: ProjectTaskUpdatePayload = {
       task_name: taskData.taskName.trim(),
       task_description: taskData.taskDescription.trim() || null,
       due_date: taskData.dueDate || null,
-      assigned_role_id: taskData.assignedRoleId || null,
+      assigned_employee_id: taskData.assignedEmployeeId || null,
       allocated_hours: Number.isFinite(allocatedHours) && allocatedHours > 0 ? allocatedHours : null,
       milestone_status: taskData.status,
     }
@@ -1023,11 +1049,10 @@ function TaskBoard() {
             title: payload.task_name || current.title,
             description: payload.task_description || '',
             dueDate: payload.due_date || '',
-            assignedRoleId: payload.assigned_role_id,
+            assignedEmployeeId: payload.assigned_employee_id,
             allocatedHours: payload.allocated_hours || 0,
             status: payload.milestone_status || current.status,
-            assignee:
-              roles.find((role) => role.id === payload.assigned_role_id)?.role_name || 'Unassigned',
+            assignee: assigneeName,
           }
         : current,
     )
@@ -1063,7 +1088,7 @@ function TaskBoard() {
   })
 
   const loading = projectsQuery.isLoading || taskManagementQuery.isLoading
-  const error = projectsQuery.error || taskManagementQuery.error || rolesQuery.error
+  const error = projectsQuery.error || taskManagementQuery.error
 
   return (
     <div className="space-y-6 min-w-0">
@@ -1233,7 +1258,7 @@ function TaskBoard() {
           onStatusChange={(task, status) => {
             handleUpdateStatus(task, status).catch(() => undefined)
           }}
-          roles={roles}
+          projectWorkforce={workforceByProject[selectedTask.projectId] ?? []}
         />
       )}
 
@@ -1246,7 +1271,7 @@ function TaskBoard() {
           onClose={() => setShowNewTaskModal(false)}
           onSave={handleCreateTask}
           projects={projects}
-          roles={roles}
+          workforceByProject={workforceByProject}
         />
       )}
     </div>

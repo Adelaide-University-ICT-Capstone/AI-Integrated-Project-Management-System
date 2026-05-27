@@ -43,9 +43,7 @@ class Role(RoleBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    employees: list["Employee"] = Relationship(back_populates="role")
     subcontractors: list["Subcontractor"] = Relationship(back_populates="role")
-    project_tasks: list["ProjectTask"] = Relationship(back_populates="assigned_role")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="role")
 
 
@@ -176,7 +174,6 @@ class EmployeeBase(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
     role_title: str | None = Field(default=None, max_length=100)
-    role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
     is_active: bool = True
 
 
@@ -191,7 +188,6 @@ class EmployeeUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
     role_title: str | None = Field(default=None, max_length=100)
-    role_id: uuid.UUID | None = None
     is_active: bool | None = None
 
 
@@ -207,12 +203,11 @@ class Employee(EmployeeBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    role: Role | None = Relationship(back_populates="employees")
     project_assignments: list["ProjectAssignment"] = Relationship(back_populates="employee")
+    assigned_tasks: list["ProjectTask"] = Relationship(back_populates="assigned_employee")
     notification_preferences: list["NotificationPreference"] = Relationship(back_populates="employee")
 
-    # Two FKs from time_logs point to employees (employee_id + approved_by_id).
-    # Use raw SA relationship with explicit foreign_keys to disambiguate.
+    # Use raw SA relationship with explicit foreign_keys to avoid ambiguity.
     time_logs: list["TimeLog"] = Relationship(
         sa_relationship=relationship(
             "TimeLog",
@@ -407,7 +402,6 @@ class ProjectBase(SQLModel):
     contract_title: str | None = Field(default=None, max_length=255)
     agent: str | None = Field(default=None, max_length=255)
     job_title: str | None = Field(default=None, max_length=255)
-    sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
     date_received: date | None = None
@@ -433,7 +427,6 @@ class ProjectUpdate(SQLModel):
     contract_title: str | None = Field(default=None, max_length=255)
     agent: str | None = Field(default=None, max_length=255)
     job_title: str | None = Field(default=None, max_length=255)
-    sector: str | None = Field(default=None, max_length=100)
     project_type: str | None = Field(default=None, max_length=100)
     full_address: str | None = Field(default=None, max_length=500)
     date_received: date | None = None
@@ -562,7 +555,7 @@ class ProjectTaskBase(SQLModel):
     due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
-    assigned_role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
+    assigned_employee_id: uuid.UUID | None = Field(default=None, foreign_key="employees.id")
     allocated_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
     completion_date: date | None = None
     invoice_amount: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
@@ -582,7 +575,7 @@ class ProjectTaskUpdate(SQLModel):
     due_date: date | None = None
     milestone_status: str | None = Field(default=None, max_length=100)
     core_phase_name: str | None = Field(default=None, max_length=100)
-    assigned_role_id: uuid.UUID | None = None
+    assigned_employee_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
@@ -604,7 +597,7 @@ class ProjectTask(ProjectTaskBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     milestone: ProjectMilestone | None = Relationship(back_populates="tasks")
-    assigned_role: Role | None = Relationship(back_populates="project_tasks")
+    assigned_employee: Employee | None = Relationship(back_populates="assigned_tasks")
 
     # Two FKs from project_task_orders point to project_tasks (task_id + depends_on_task_id).
     # Use raw SA relationship with explicit foreign_keys to disambiguate.
@@ -628,122 +621,13 @@ class ProjectTasksPublic(SQLModel):
     data: list[ProjectTaskPublic]
     count: int
 
-# --------------------------------------------------------------------------- Igie
-# Project Subtask Models
-# Stores workforce allocation and estimated hours for subtasks
-
-class ProjectSubtaskBase(SQLModel):
-    # Parent project/task references
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
-    task_id: uuid.UUID = Field(foreign_key="project_tasks.id")
-
-    # Subtask details
-    subtask_name: str = Field(max_length=255)
-    subtask_description: str | None = Field(default=None, sa_type=Text)
-
-    # Assigned project manager + estimated hours
-    project_manager_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="employees.id"
-    )
-    project_manager_hours: Decimal | None = Field(
-        default=None,
-        max_digits=8,
-        decimal_places=2
-    )
-
-    # Assigned drafter + estimated hours
-    draft_engineer_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="employees.id"
-    )
-    draft_engineer_hours: Decimal | None = Field(
-        default=None,
-        max_digits=8,
-        decimal_places=2
-    )
-
-    # Assigned engineer + estimated hours
-    engineer_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="employees.id"
-    )
-    engineer_hours: Decimal | None = Field(
-        default=None,
-        max_digits=8,
-        decimal_places=2
-    )
-
-
-# Create schema
-class ProjectSubtaskCreate(ProjectSubtaskBase):
-    pass
-
-
-# Update schema
-class ProjectSubtaskUpdate(SQLModel):
-    subtask_name: str | None = Field(default=None, max_length=255)
-    subtask_description: str | None = None
-
-    project_manager_id: uuid.UUID | None = None
-    project_manager_hours: Decimal | None = None
-
-    draft_engineer_id: uuid.UUID | None = None
-    draft_engineer_hours: Decimal | None = None
-
-    engineer_id: uuid.UUID | None = None
-    engineer_hours: Decimal | None = None
-
-
-# PATCH request body for assigning workforce to subtasks
-class ProjectSubtaskAssignmentUpdate(SQLModel):
-    project_manager: uuid.UUID | None = None
-    project_manager_hours: Decimal | None = None
-
-    draft_engineer: uuid.UUID | None = None
-    draft_engineer_hours: Decimal | None = None
-
-    engineer: uuid.UUID | None = None
-    engineer_hours: Decimal | None = None
-
-
-# Database table
-class ProjectSubtask(ProjectSubtaskBase, table=True):
-    __tablename__ = "project_subtasks"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-
-    created_at: datetime | None = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
-    )
-
-    updated_at: datetime | None = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
-    )
-
-
-# Public response schema
-class ProjectSubtaskPublic(ProjectSubtaskBase):
-    id: uuid.UUID
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
-# Multiple subtasks response schema
-class ProjectSubtasksPublic(SQLModel):
-    data: list[ProjectSubtaskPublic]
-    count: int
-
-# --------------------------------------------------------------------------- Igie
 
 class ProjectTaskTreeCreate(SQLModel):
     task_name: str = Field(max_length=255)
     task_description: str | None = None
     due_date: date | None = None
     parent_task_id: uuid.UUID | None = None
-    assigned_role_id: uuid.UUID | None = None
+    assigned_employee_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
     milestone_status: str | None = None
     core_phase_name: str | None = None
@@ -754,7 +638,7 @@ class ProjectTaskTreeUpdate(SQLModel):
     task_description: str | None = None
     due_date: date | None = None
     parent_task_id: uuid.UUID | None = None
-    assigned_role_id: uuid.UUID | None = None
+    assigned_employee_id: uuid.UUID | None = None
     allocated_hours: Decimal | None = None
     milestone_status: str | None = None
     core_phase_name: str | None = None
@@ -774,8 +658,8 @@ class ProjectTaskNode(SQLModel):
     due_date: date | None = None
     milestone_status: str | None = None
     core_phase_name: str | None = None
-    assigned_role_id: uuid.UUID | None = None
-    assigned_role_name: str | None = None
+    assigned_employee_id: uuid.UUID | None = None
+    assigned_employee_name: str | None = None
     allocated_hours: Decimal | None = None
     completion_date: date | None = None
     invoice_amount: Decimal | None = None
@@ -849,10 +733,8 @@ class ProjectAssignmentBase(SQLModel):
     subcontractor_id: uuid.UUID | None = Field(default=None, foreign_key="subcontractors.id")
     role_id: uuid.UUID | None = Field(default=None, foreign_key="roles.id")
     allocation_notes: str | None = Field(default=None, sa_type=Text)
-    actual_hours: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
     start_date: date | None = None
     completion_date: date | None = None
-    manual_progress_percent: Decimal | None = Field(default=None, max_digits=5, decimal_places=2)
     notes: str | None = Field(default=None, sa_type=Text)
 
 
@@ -865,10 +747,8 @@ class ProjectAssignmentUpdate(SQLModel):
     subcontractor_id: uuid.UUID | None = None
     role_id: uuid.UUID | None = None
     allocation_notes: str | None = None
-    actual_hours: Decimal | None = None
     start_date: date | None = None
     completion_date: date | None = None
-    manual_progress_percent: Decimal | None = None
     notes: str | None = None
 
 
@@ -1081,7 +961,6 @@ class Customer(CustomerBase, table=True):
     __tablename__ = "customers"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    executed_at: date | None = None
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -1090,7 +969,6 @@ class Customer(CustomerBase, table=True):
 
 class CustomerPublic(CustomerBase):
     id: uuid.UUID
-    executed_at: date | None = None
     created_at: datetime | None = None
 
 
@@ -1110,7 +988,6 @@ class MaterialBase(SQLModel):
     unit: str | None = Field(default=None, max_length=50)
     quantity: Decimal | None = Field(default=None, max_digits=10, decimal_places=3)
     unit_cost: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
-    total_cost: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     supplier_name: str | None = Field(default=None, max_length=255)
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
@@ -1130,7 +1007,6 @@ class MaterialUpdate(SQLModel):
     unit: str | None = Field(default=None, max_length=50)
     quantity: Decimal | None = None
     unit_cost: Decimal | None = None
-    total_cost: Decimal | None = None
     supplier_name: str | None = Field(default=None, max_length=255)
     order_reference: str | None = Field(default=None, max_length=100)
     ordered_date: date | None = None
@@ -1168,7 +1044,7 @@ class MaterialsPublic(SQLModel):
 
 
 # ---------------------------------------------------------------------------
-# Time Logs  (two FKs -> employees: employee_id + approved_by_id)
+# Time Logs  (FK -> employees via employee_id)
 # ---------------------------------------------------------------------------
 
 class TimeLogBase(SQLModel):
@@ -1178,13 +1054,10 @@ class TimeLogBase(SQLModel):
     task_id: uuid.UUID | None = Field(default=None, foreign_key="project_tasks.id")
     log_date: date
     hours_worked: Decimal = Field(max_digits=6, decimal_places=2)
-    hourly_rate: Decimal | None = Field(default=None, max_digits=8, decimal_places=2)
-    cost: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
     activity_type: str | None = Field(default=None, max_length=100)
     description: str | None = Field(default=None, sa_type=Text)
     is_billable: bool = True
     is_approved: bool = False
-    approved_by_id: uuid.UUID | None = Field(default=None, foreign_key="employees.id")
 
 
 class TimeLogCreate(TimeLogBase):
@@ -1194,13 +1067,10 @@ class TimeLogCreate(TimeLogBase):
 class TimeLogUpdate(SQLModel):
     log_date: date | None = None
     hours_worked: Decimal | None = None
-    hourly_rate: Decimal | None = None
-    cost: Decimal | None = None
     activity_type: str | None = Field(default=None, max_length=100)
     description: str | None = None
     is_billable: bool | None = None
     is_approved: bool | None = None
-    approved_by_id: uuid.UUID | None = None
 
 
 class TimeLog(TimeLogBase, table=True):
@@ -1218,21 +1088,12 @@ class TimeLog(TimeLogBase, table=True):
     project: Project | None = Relationship(back_populates="time_logs")
     subcontractor: Subcontractor | None = Relationship(back_populates="time_logs")
 
-    # employee_id = the worker; approved_by_id = a second FK to same table.
-    # Must use raw SA relationships with explicit foreign_keys on both.
     employee: Employee | None = Relationship(
         sa_relationship=relationship(
             "Employee",
             primaryjoin="TimeLog.employee_id == Employee.id",
             foreign_keys="[TimeLog.employee_id]",
             back_populates="time_logs",
-        )
-    )
-    approved_by: Employee | None = Relationship(
-        sa_relationship=relationship(
-            "Employee",
-            primaryjoin="TimeLog.approved_by_id == Employee.id",
-            foreign_keys="[TimeLog.approved_by_id]",
         )
     )
 

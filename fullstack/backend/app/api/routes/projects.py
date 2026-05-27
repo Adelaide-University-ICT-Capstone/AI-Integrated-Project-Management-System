@@ -3,16 +3,20 @@ from typing import Any
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from sqlmodel import select
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser, get_current_user
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
+from app.api.routes.workforce_allocate import check_project_permission
 from app.models import (
     AssignmentWithRole,
+    Employee,
     MaterialPublic,
     MaterialCreate,
     MaterialUpdate,
     MonthlyCountResponse,
     MonthlyInvoiceResponse,
+    ProjectAssignment,
     ProjectDetailsResponse,
     ProjectDetailWithRoles,
     ProjectMilestonePublic,
@@ -31,7 +35,6 @@ from app.models import (
     ProjectCreateResponse,
     ProjectDetail,
     Message,
-    Role,
     Subcontractor,
     SubcontractorStatus
 )
@@ -190,10 +193,9 @@ def create_project_milestone(
     project_id: uuid.UUID,
     milestone: ProjectMilestoneTreeCreate,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> ProjectMilestonePublic:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     created = crud.create_project_milestone(
         session=session,
@@ -212,10 +214,9 @@ def update_project_milestone(
     milestone_id: uuid.UUID,
     milestone: ProjectMilestoneUpdate,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> ProjectMilestonePublic:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     existing = crud.get_project_milestone(session=session, milestone_id=milestone_id)
     if not existing or existing.project_id != project_id:
@@ -237,10 +238,9 @@ def delete_project_milestone(
     project_id: uuid.UUID,
     milestone_id: uuid.UUID,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> Message:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     existing = crud.get_project_milestone(session=session, milestone_id=milestone_id)
     if not existing or existing.project_id != project_id:
@@ -260,10 +260,9 @@ def create_project_task(
     milestone_id: uuid.UUID,
     task: ProjectTaskTreeCreate,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> ProjectTaskPublic:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     milestone = crud.get_project_milestone(session=session, milestone_id=milestone_id)
     if not milestone or milestone.project_id != project_id:
@@ -273,8 +272,19 @@ def create_project_task(
         parent_task = crud.get_project_task(session=session, task_id=task.parent_task_id)
         if not parent_task or parent_task.milestone_id != milestone_id:
             raise HTTPException(status_code=400, detail="Parent task must belong to the same milestone")
-    if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
-        raise HTTPException(status_code=404, detail="Assigned role not found")
+
+    if task.assigned_employee_id:
+        employee = session.get(Employee, task.assigned_employee_id)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Assignee not found")
+        in_project = session.exec(
+            select(ProjectAssignment).where(
+                ProjectAssignment.project_id == project_id,
+                ProjectAssignment.employee_id == task.assigned_employee_id,
+            )
+        ).first()
+        if not in_project:
+            raise HTTPException(status_code=400, detail="Assignee is not a member of this project's workforce")
 
     created = crud.create_project_task(
         session=session,
@@ -293,10 +303,9 @@ def delete_project_task(
     milestone_id: uuid.UUID,
     task_id: uuid.UUID,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> Message:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     milestone = crud.get_project_milestone(session=session, milestone_id=milestone_id)
     if not milestone or milestone.project_id != project_id:
@@ -319,10 +328,9 @@ def update_project_task(
     task_id: uuid.UUID,
     task: ProjectTaskTreeUpdate,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> ProjectTaskPublic:
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    check_project_permission(session, project_id, current_user)
 
     existing = crud.get_project_task(session=session, task_id=task_id)
     if not existing:
@@ -338,8 +346,19 @@ def update_project_task(
             raise HTTPException(status_code=400, detail="Parent task must belong to the same milestone")
         if parent_task.id == existing.id:
             raise HTTPException(status_code=400, detail="Task cannot be its own parent")
-    if task.assigned_role_id and not session.get(Role, task.assigned_role_id):
-        raise HTTPException(status_code=404, detail="Assigned role not found")
+
+    if task.assigned_employee_id:
+        employee = session.get(Employee, task.assigned_employee_id)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Assignee not found")
+        in_project = session.exec(
+            select(ProjectAssignment).where(
+                ProjectAssignment.project_id == project_id,
+                ProjectAssignment.employee_id == task.assigned_employee_id,
+            )
+        ).first()
+        if not in_project:
+            raise HTTPException(status_code=400, detail="Assignee is not a member of this project's workforce")
 
     updated = crud.update_project_task(
         session=session,
@@ -356,7 +375,9 @@ def delete_project(project_id: uuid.UUID, session: SessionDep):
     return {"message": "Project deleted successfully"}
 
 @router.delete("")
-def delete_all_projects(session: SessionDep):
+def delete_all_projects(session: SessionDep, current_user: CurrentUser):
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only superusers can delete all projects")
     count = crud.delete_all_projects(session=session)
     return {"message": f"Successfully deleted {count} projects"}
 
@@ -371,17 +392,8 @@ def update_project(
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
-    
-    existing = crud.get_project_by_id(session=session, project_id=project_id)  # Assuming you add this
     updated = crud.update_project(session=session, project=existing, updates=project.model_dump(exclude_unset=True))
     return ProjectPublic.model_validate(updated)
-
-    # try:
-    #     crud.update_project(session=session, project_id=project_id, project_data=project)
-    # except ValueError as exc:
-    #     raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    # return Message(message="Project updated successfully")
 
 
 @router.get("/{project_id}/materials/{material_id}", response_model=MaterialPublic)
@@ -553,30 +565,3 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDeta
     )
 
 
-@router.patch("/{project_id}", response_model=Message)
-def update_project(
-    project_id: uuid.UUID,
-    project: ProjectUpdateRequest,
-    session: SessionDep,
-) -> Message:
-    existing = crud.get_project_by_id(session=session, project_id=project_id)
-    if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    try:
-        crud.update_project(session=session, project_id=project_id, project_data=project)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return Message(message="Project updated successfully")
-
-
-@router.delete("/{project_id}")
-def delete_project(project_id: uuid.UUID, session: SessionDep):
-    if not crud.delete_project(session=session, project_id=project_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return {"message": "Project deleted successfully"}
-
-
-@router.delete("")
-def delete_all_projects(session: SessionDep):
-    count = crud.delete_all_projects(session=session)
-    return {"message": f"Successfully deleted {count} projects"}

@@ -6,8 +6,8 @@ from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.models import (
-    Employee,
     Message,
+    ProjectAssignment,
     Role,
     RoleCreate,
     RolePublic,
@@ -82,15 +82,15 @@ def delete_role(*, session: SessionDep, role_id: uuid.UUID) -> Any:
     role = session.get(Role, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
-    employee_count = session.exec(
-        select(func.count()).select_from(Employee).where(Employee.role_id == role_id)
+    assignment_count = session.exec(
+        select(func.count()).select_from(ProjectAssignment).where(ProjectAssignment.role_id == role_id)
     ).one()
     subcontractor_count = session.exec(
         select(func.count())
         .select_from(Subcontractor)
         .where(Subcontractor.role_id == role_id)
     ).one()
-    if employee_count or subcontractor_count:
+    if assignment_count or subcontractor_count:
         raise HTTPException(
             status_code=400,
             detail="Role is in use and cannot be deleted",

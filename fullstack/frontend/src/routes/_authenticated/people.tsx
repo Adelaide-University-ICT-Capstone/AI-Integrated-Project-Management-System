@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import {
   AlertCircle,
@@ -11,11 +11,13 @@ import {
   Search,
   Trash2,
   Users,
+  X,
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { getApiErrorMessage } from "@/api/client"
 import {
+  type CustomerCreatePayload,
   type CustomerDirectoryItem,
   type EmployeeDirectoryItem,
   peopleApi,
@@ -53,9 +55,119 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString()
 }
 
+function AddCustomerModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const [fields, setFields] = useState<CustomerCreatePayload>({
+    contact_name: "",
+    email: "",
+    current_status: "",
+    remarks: "",
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => peopleApi.createCustomer(fields),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people", "customers"] })
+      toast.success("Customer added successfully")
+      onClose()
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err))
+    },
+  })
+
+  const set = (key: keyof CustomerCreatePayload) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setFields((f) => ({ ...f, [key]: e.target.value }))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Add Customer</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <X size={20} />
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); mutation.mutate() }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Contact Name
+            </label>
+            <input
+              type="text"
+              value={fields.contact_name ?? ""}
+              onChange={set("contact_name")}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Full name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={fields.email ?? ""}
+              onChange={set("email")}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="email@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
+            </label>
+            <input
+              type="text"
+              value={fields.current_status ?? ""}
+              onChange={set("current_status")}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. Active, Prospect"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Remarks
+            </label>
+            <textarea
+              value={fields.remarks ?? ""}
+              onChange={set("remarks")}
+              rows={3}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Optional notes"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
+              Add Customer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function People() {
   const [activeTab, setActiveTab] = useState<PeopleTab>("employees")
   const [searchTerm, setSearchTerm] = useState("")
+  const [showAddCustomer, setShowAddCustomer] = useState(false)
 
   const employeesQuery = useQuery({
     queryKey: ["people", "employees"],
@@ -138,14 +250,16 @@ function People() {
             Browse all employees and customers
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => handleUnavailableAction("add")}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={20} />
-          Add {activeTab === "employees" ? "Employee" : "Customer"}
-        </button>
+        {activeTab === "customers" && (
+          <button
+            type="button"
+            onClick={() => setShowAddCustomer(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={20} />
+            Add Customer
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -473,6 +587,9 @@ function People() {
           )}
         </div>
       </div>
+      {showAddCustomer && (
+        <AddCustomerModal onClose={() => setShowAddCustomer(false)} />
+      )}
     </div>
   )
 }

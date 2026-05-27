@@ -14,11 +14,9 @@ from app.models import (
     Message,
     UpdatePassword,
     User,
-    UserCreate,
     UserDetail,
     UserProfile,
     UserPublic,
-    UserRegister,
     UsersDetail,
     UsersPublic,
     UserUpdate,
@@ -77,23 +75,6 @@ def create_user(*, session: SessionDep, user_in: AdminUserCreate) -> Any:
     return user
 
 
-@router.post("/signup", response_model=UserPublic)
-def register_user(*, session: SessionDep, user_in: UserRegister) -> Any:
-    if crud.get_user_by_email(session=session, email=user_in.email):
-        raise HTTPException(
-            status_code=400,
-            detail="The user with this email already exists in the system",
-        )
-    user = crud.create_user(
-        session=session,
-        user_create=UserCreate(
-            email=user_in.email,
-            password=user_in.password,
-            full_name=user_in.full_name,
-        ),
-    )
-    return user
-
 
 @router.patch("/me", response_model=UserPublic)
 def update_user_me(
@@ -104,11 +85,9 @@ def update_user_me(
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(status_code=409, detail="User with this email already exists")
     if user_in.role_name is not None and current_user.employee_id:
-        role = crud.update_employee_role(
+        crud.update_employee_role(
             session=session, employee_id=current_user.employee_id, role_name=user_in.role_name
         )
-        if role is None:
-            raise HTTPException(status_code=400, detail=f"Role '{user_in.role_name}' not found")
     user_data = user_in.model_dump(exclude_unset=True, exclude={"role_name"})
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
@@ -185,13 +164,9 @@ def update_user(
         if existing_user and existing_user.id != user_id:
             raise HTTPException(status_code=409, detail="User with this email already exists")
     if user_in.role_name is not None and db_user.employee_id:
-        role = crud.update_employee_role(
+        crud.update_employee_role(
             session=session, employee_id=db_user.employee_id, role_name=user_in.role_name
         )
-        if role is None:
-            raise HTTPException(
-                status_code=404, detail=f"Role '{user_in.role_name}' not found."
-            )
     db_user = crud.update_user(session=session, db_user=db_user, user_in=user_in)
     return db_user
 

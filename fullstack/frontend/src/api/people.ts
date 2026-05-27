@@ -27,7 +27,6 @@ export type CustomerDirectoryItem = {
   current_status?: string | null
   remarks?: string | null
   order_type_id?: string | null
-  executed_at?: string | null
   created_at?: string | null
 }
 
@@ -36,10 +35,20 @@ export type CustomersDirectoryResponse = {
   count: number
 }
 
+export type CustomerCreatePayload = {
+  contact_name?: string | null
+  email?: string | null
+  current_status?: string | null
+  remarks?: string | null
+}
+
 export const peopleApi = {
   getEmployees: () =>
     api.get<EmployeesDirectoryResponse>("/employees/").then((res) => res.data),
 
   getCustomers: () =>
     api.get<CustomersDirectoryResponse>("/customers/").then((res) => res.data),
+
+  createCustomer: (payload: CustomerCreatePayload) =>
+    api.post<CustomerDirectoryItem>("/customers/", payload).then((res) => res.data),
 }

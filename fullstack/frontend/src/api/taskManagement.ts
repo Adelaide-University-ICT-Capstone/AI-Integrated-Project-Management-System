@@ -23,8 +23,8 @@ export type ProjectTaskNode = {
   due_date?: string | null
   milestone_status?: string | null
   core_phase_name?: string | null
-  assigned_role_id?: string | null
-  assigned_role_name?: string | null
+  assigned_employee_id?: string | null
+  assigned_employee_name?: string | null
   allocated_hours?: number | string | null
   completion_date?: string | null
   invoice_amount?: number | string | null
@@ -56,7 +56,7 @@ export type ProjectTaskPayload = {
   task_description?: string | null
   due_date?: string | null
   parent_task_id?: string | null
-  assigned_role_id?: string | null
+  assigned_employee_id?: string | null
   allocated_hours?: number | null
   milestone_status?: string | null
   core_phase_name?: string | null
@@ -68,6 +68,7 @@ export type ProjectTaskUpdatePayload = Partial<ProjectTaskPayload> & {
   fee_final?: number | null
   is_excluded?: boolean | null
   paid_date?: string | null
+  assigned_employee_id?: string | null
 }
 
 export const taskManagementApi = {

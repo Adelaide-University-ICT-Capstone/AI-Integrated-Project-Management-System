@@ -14,8 +14,11 @@ from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Employee,
     EmployeeHoursSummary,
+    Project,
     ProjectAssignment,
     ProjectHoursAnalyticsResponse,
+    ProjectMilestone,
+    ProjectTask,
     ProjectWorkHoursResponse,
     Role,
     TimeLog,
@@ -25,17 +28,30 @@ from app.models import (
 router = APIRouter(prefix="/project", tags=["work-hours"])
 
 
-def check_work_hours_permission(current_user: CurrentUser) -> None:
-    """Only SUPERUSER or admin accounts can manage project work hours."""
+def check_work_hours_permission(session: SessionDep, current_user: CurrentUser, project_id: uuid.UUID) -> None:
+    """Only superuser or project manager of the given project can manage work hours."""
     if current_user.is_superuser:
         return
 
-    if current_user.full_name and "admin" in current_user.full_name.lower():
+    if not current_user.employee_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only superusers or project managers can manage project work hours.",
+        )
+
+    assignment = session.exec(
+        select(ProjectAssignment).where(
+            ProjectAssignment.project_id == project_id,
+            ProjectAssignment.employee_id == current_user.employee_id,
+        )
+    ).first()
+
+    if assignment and assignment.role and assignment.role.role_name == "project_manager":
         return
 
     raise HTTPException(
         status_code=403,
-        detail="Only admin or superuser accounts can manage project work hours.",
+        detail="Only superusers or project managers can manage project work hours.",
     )
 
 
@@ -83,7 +99,7 @@ def check_employee_assigned_to_project(
 
     if not assignment:
         raise HTTPException(
-            status_code=404,
+            status_code=403,
             detail="Employee is not assigned to this project.",
         )
 
@@ -101,12 +117,25 @@ def add_project_work_hours(
     If no time log exists, create a new one.
     """
 
-    check_work_hours_permission(current_user)
+    check_work_hours_permission(session, current_user, project_id)
+
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     check_employee_assigned_to_project(
         session=session,
         project_id=project_id,
         employee_id=payload.employee_id,
     )
+
+    if payload.task_id:
+        task = session.get(ProjectTask, payload.task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        milestone = session.get(ProjectMilestone, task.milestone_id)
+        if not milestone or milestone.project_id != project_id:
+            raise HTTPException(status_code=400, detail="Task does not belong to this project")
 
     existing_log = get_existing_time_log(
         session=session,
@@ -170,12 +199,25 @@ def update_project_work_hours(
     This does not add on top; it overwrites the matching time log.
     """
 
-    check_work_hours_permission(current_user)
+    check_work_hours_permission(session, current_user, project_id)
+
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     check_employee_assigned_to_project(
         session=session,
         project_id=project_id,
         employee_id=payload.employee_id,
     )
+
+    if payload.task_id:
+        task = session.get(ProjectTask, payload.task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        milestone = session.get(ProjectMilestone, task.milestone_id)
+        if not milestone or milestone.project_id != project_id:
+            raise HTTPException(status_code=400, detail="Task does not belong to this project")
 
     existing_log = get_existing_time_log(
         session=session,
@@ -220,12 +262,25 @@ def remove_project_work_hours(
 ) -> dict:
     """Remove an employee's work-hour entry for a project/date/task."""
 
-    check_work_hours_permission(current_user)
+    check_work_hours_permission(session, current_user, project_id)
+
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     check_employee_assigned_to_project(
         session=session,
         project_id=project_id,
         employee_id=employee_id,
     )
+
+    if task_id:
+        task = session.get(ProjectTask, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        milestone = session.get(ProjectMilestone, task.milestone_id)
+        if not milestone or milestone.project_id != project_id:
+            raise HTTPException(status_code=400, detail="Task does not belong to this project")
 
     existing_log = get_existing_time_log(
         session=session,

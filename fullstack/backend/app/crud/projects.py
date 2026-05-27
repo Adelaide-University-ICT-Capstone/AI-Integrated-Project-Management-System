@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, func, or_, select
 
 from app.crud.project_statuses import get_status_type
@@ -367,8 +368,12 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
             due_date=task.due_date,
             milestone_status=task.milestone_status,
             core_phase_name=task.core_phase_name,
-            assigned_role_id=task.assigned_role_id,
-            assigned_role_name=task.assigned_role.role_name if getattr(task, "assigned_role", None) else None,
+            assigned_employee_id=task.assigned_employee_id,
+            assigned_employee_name=(
+                task.assigned_employee.full_name
+                if getattr(task, "assigned_employee", None) and task.assigned_employee
+                else None
+            ),
             allocated_hours=task.allocated_hours,
             completion_date=task.completion_date,
             invoice_amount=task.invoice_amount,
@@ -417,6 +422,7 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
             select(ProjectTask)
             .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
             .where(ProjectMilestone.project_id == project_id)
+            .options(selectinload(ProjectTask.assigned_employee))  # type: ignore[arg-type]
             .order_by(col(ProjectTask.created_at))
         ).all()
     )
