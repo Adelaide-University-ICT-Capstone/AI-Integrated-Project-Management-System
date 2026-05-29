@@ -18,7 +18,6 @@ import {
   Minus,
   ChevronRight,
   ChevronLeft,
-  AlertTriangle,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
@@ -151,13 +150,6 @@ const subtaskStatusClass: Record<SubtaskStatus, string> = {
   done: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 }
 
-const subtaskStatusLabel: Record<SubtaskStatus, string> = {
-  todo: 'To Do',
-  'in-progress': 'In Progress',
-  review: 'Review',
-  done: 'Done',
-}
-
 const getSubtaskDueDateColor = (dueDate: string, status: SubtaskStatus) => {
   if (status === 'done') return 'text-gray-500 dark:text-gray-400'
   if (!dueDate) return 'text-gray-500 dark:text-gray-400'
@@ -270,7 +262,7 @@ function ProjectDetails() {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Project Not Found</h2>
         <button
-          onClick={() => navigate({ to: '/projects/' })}
+          onClick={() => navigate({ to: '/projects' })}
           className="text-blue-600 dark:text-blue-400 hover:underline"
         >
           Return to Projects
@@ -285,7 +277,7 @@ function ProjectDetails() {
       try {
         fetch(`${baseUrl}/api/v1/projects/${projectId}`, { method: 'DELETE' })
         toast.success('Project deleted successfully')
-        navigate({ to: '/projects/' })
+        navigate({ to: '/projects' })
       } catch (error) {
         console.error('Error deleting project:', error)
         toast.error('Network error')
@@ -551,7 +543,7 @@ function ProjectDetails() {
       {/* Header Bar */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate({ to: '/projects/' })}
+          onClick={() => navigate({ to: '/projects' })}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />

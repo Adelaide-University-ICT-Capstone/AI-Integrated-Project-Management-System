@@ -21,7 +21,6 @@ import {
   FolderKanban,
   Calendar,
   ChevronLeft,
-  ChevronRight,
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
