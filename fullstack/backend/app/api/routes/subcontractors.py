@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status as http_status
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser, get_current_user
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
 from app.models import (
     SubcontractorCreate,
     SubcontractorPublic
@@ -25,6 +25,13 @@ def create_subcontractor( subcontractor: SubcontractorCreate, session: SessionDe
     return SubcontractorPublic.model_validate(created)
 
 @router.get("/", response_model=list[SubcontractorPublic])
-def list_subcontractors(session: SessionDep) -> list[SubcontractorPublic]:
-    subcontractors = crud.get_subcontractors(session=session)
+def list_subcontractors(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[SubcontractorPublic]:
+    subcontractors = crud.get_visible_subcontractors(
+        session=session,
+        employee_id=current_user.employee_id,
+        is_superuser=current_user.is_superuser,
+    )
     return [SubcontractorPublic.model_validate(sub) for sub in subcontractors]
