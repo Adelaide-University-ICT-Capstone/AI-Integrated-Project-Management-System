@@ -14,8 +14,8 @@ import {
 import { toast } from 'sonner'
 import { subcontractorsApi } from '@/api/subcontractors'
 import { materialsApi } from '@/api/materials'
-import { Project, projectsApi } from '@/api/project'
-import { set } from 'zod'
+import { projectsApi } from '@/api/project'
+import type { Project } from '@/api/project'
 
 export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
@@ -39,8 +39,10 @@ interface Order {
   subcontractorId: string
   service: ServiceType
   projectId: string
+  projectJobNumber?: string
   orderedDate: string
   status: OrderStatus
+  isPlaceholder?: boolean
 }
 
 
@@ -91,23 +93,6 @@ const getServicePillClass = (service: string) =>
     ? servicePillClass[service as ServiceType]
     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
 
-// ----- Mock data -----
-
-const initialSubcontractors: Subcontractor[] = [
-  { id: 'sc1', name: 'Big Wood Suppliers', email: 'orders@bigwood.com', phone: '+1 (555) 100-2001', services: ['Timber Framing'] },
-  { id: 'sc2', name: 'GeoCon Labs', email: 'contact@geoconlabs.com', phone: '+1 (555) 100-2002', services: ['Soil Testing'] },
-  { id: 'sc3', name: 'ABC Surveyors', email: 'info@abcsurveyors.com', phone: '+1 (555) 100-2003', services: ['Survey'] },
-  { id: 'sc4', name: 'Steel Supply Co', email: 'orders@steelsupply.com', phone: '+1 (555) 100-2004', services: ['Other'] },
-  { id: 'sc5', name: 'TimberFrame Pro', email: 'sales@timberframepro.com', phone: '+1 (555) 100-2005', services: ['Timber Framing'] },
-]
-
-const today = new Date()
-const daysAgo = (n: number) => {
-  const d = new Date(today)
-  d.setDate(d.getDate() - n)
-  return d.toISOString().split('T')[0]
-}
-
 // const initialOrders: Order[] = [
 //   { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
 //   { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
@@ -117,14 +102,6 @@ const daysAgo = (n: number) => {
 //   { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
 //   { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
 // ]
-
-const PROJECT_OPTIONS = [
-  { id: 'PRJ-2024-001', name: 'Downtown Office Complex' },
-  { id: 'PRJ-2024-002', name: 'Highway Bridge Restoration' },
-  { id: 'PRJ-2024-003', name: 'Bridge Renovation Project' },
-  { id: 'PRJ-2024-004', name: 'Shopping Mall Expansion' },
-  { id: 'PRJ-2023-012', name: 'Residential Tower Foundation' },
-]
 
 const SERVICE_TYPES: ServiceType[] = ['Survey', 'Soil Testing', 'Timber Framing', 'Other']
 
@@ -193,8 +170,8 @@ const formatDaysAgo = (dateStr: string) => {
 
 // ----- Grid column definitions (kept identical between header + row) -----
 
-const ROW_COLS_BY_SC = 'grid-cols-[1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
-const ROW_COLS_BY_SVC = 'grid-cols-[1.2fr_1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
+const ROW_COLS_BY_SC = 'grid-cols-[1.4fr_1.1fr_1fr_1fr_1.1fr_64px]'
+const ROW_COLS_BY_SVC = 'grid-cols-[1.2fr_1.4fr_1.1fr_1fr_1fr_1.1fr_64px]'
 
 // ----- New Order Modal -----
 
@@ -438,7 +415,7 @@ function OrderRow({
   order: Order
   showSubcontractor?: boolean
   subcontractorName?: string
-  onDelete: () => void
+  onDelete?: () => void
 }) {
   const navigate = useNavigate();
   const alert = getOrderAlert(order)
@@ -457,7 +434,9 @@ function OrderRow({
       {showSubcontractor && (
         <span className="font-medium text-gray-900 dark:text-white truncate text-xs">{subcontractorName}</span>
       )}
-      <span className="font-mono text-blue-700 dark:text-blue-400 text-[11px] truncate">{order.projectId}</span>
+      <span className="font-mono text-blue-700 dark:text-blue-400 text-[11px] truncate">
+        {order.projectJobNumber || order.projectId}
+      </span>
       <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${getServicePillClass(order.service)}`}>
         {order.service}
       </span>
@@ -468,15 +447,19 @@ function OrderRow({
       <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${alertToneClass[alert.tone]}`}>
         {alert.label}
       </span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onDelete()
-        }}
-        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-center"
-      >
-        <Trash2 size={14} />
-      </button>
+      {order.isPlaceholder ? (
+        <span className="justify-self-center text-[10px] text-gray-400">No order</span>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete?.()
+          }}
+          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-center"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
     </div>
   )
 }
@@ -490,11 +473,12 @@ function Subcontractors() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddSubcontractor, setShowAddSubcontractor] = useState(false)
   const [newOrderForSc, setNewOrderForSc] = useState<Subcontractor | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [, setIsLoading] = useState(false)
   const totalActiveOrders = orders.length
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
   const [projects, setProjects] = useState<Project[]>([])
+  const [projectsBySubcontractor, setProjectsBySubcontractor] = useState<Record<string, Project[]>>({})
 
 
   // Fetch subcontractors on mount
@@ -524,6 +508,14 @@ function Subcontractors() {
             services: (m.specialty || '').split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s)) || [],
           }))
         setSubcontractors(subcontractorsResult);
+
+        const projectEntries = await Promise.all(
+          subcontractorsResult.map(async (subcontractor) => {
+            const response = await subcontractorsApi.getSubcontractorProjects(subcontractor.id)
+            return [subcontractor.id, response.data] as const
+          }),
+        )
+        setProjectsBySubcontractor(Object.fromEntries(projectEntries))
         // console.log('Fetched subcontractors:', subcontractorsResult)
 
       } catch (error) {
@@ -537,7 +529,7 @@ function Subcontractors() {
     const fetchOrders = async () => {
       try {
         setIsLoading(true)
-        const data = await materialsApi.getUnreceivedOrders()
+        const data = await materialsApi.getOrders()
         const ordersResult: Order[] = data.map((m: any) => ({
           id: m.id,
           projectName: m.project_name || '',
@@ -639,11 +631,43 @@ function Subcontractors() {
     matchSearch(sc.name) || sc.services.some((s) => matchSearch(s)),
   )
 
+  const getProjectJobNumber = (projectId: string) =>
+    projects.find((project) => project.project_id === projectId)?.job_number ?? projectId
+
+  const getRowsForSubcontractor = (subcontractor: Subcontractor) => {
+    const scOrders = orders
+      .filter((o) => o.subcontractorId === subcontractor.id)
+      .map((order) => ({
+        ...order,
+        projectJobNumber: getProjectJobNumber(order.projectId),
+      }))
+    const orderedProjectIds = new Set(scOrders.map((order) => order.projectId))
+    const placeholderRows = (projectsBySubcontractor[subcontractor.id] ?? [])
+      .filter((project) => !orderedProjectIds.has(project.project_id))
+      .map((project): Order => ({
+        id: `placeholder-${subcontractor.id}-${project.project_id}`,
+        subcontractorId: subcontractor.id,
+        service: subcontractor.services[0] ?? 'Other',
+        projectId: project.project_id,
+        projectJobNumber: project.job_number,
+        orderedDate: '',
+        status: 'N/A',
+        isPlaceholder: true,
+      }))
+
+    return [...scOrders, ...placeholderRows]
+  }
+
+  const visibleOrderRows = subcontractors.flatMap((subcontractor) =>
+    getRowsForSubcontractor(subcontractor),
+  )
+
   const ordersByService = SERVICE_TYPES.reduce((acc, service) => {
-    acc[service] = orders.filter((o) => {
+    acc[service] = visibleOrderRows.filter((o) => {
       const sc = subcontractors.find((s) => s.id === o.subcontractorId)
       const matches =
         matchSearch(o.projectId) ||
+        matchSearch(o.projectJobNumber || '') ||
         (sc && matchSearch(sc.name)) ||
         matchSearch(o.service)
       return mapStringToServiceType(o.service) === service && matches
@@ -782,7 +806,7 @@ function Subcontractors() {
                 </div>
               ) : (
                 filteredSubcontractors.map((sc) => {
-                  const scOrders = orders.filter((o) => o.subcontractorId === sc.id)
+                  const scOrders = getRowsForSubcontractor(sc)
                   return (
                     <div key={sc.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700">
@@ -825,7 +849,7 @@ function Subcontractors() {
 
                       {scOrders.length === 0 ? (
                         <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400 italic">
-                          No orders yet — click "New Order" to create one
+                          No assigned projects yet
                         </div>
                       ) : (
                         <>

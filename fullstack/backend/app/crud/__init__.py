@@ -102,6 +102,7 @@ from app.crud.invoices import (
 
 
 from app.crud.subcontractors import (
+    get_visible_projects_for_subcontractor,
     get_visible_subcontractors,
     get_subcontractors,
     create_subcontractor
@@ -181,6 +182,7 @@ __all__ = [
     "get_materials_by_due_date_and_status",
 
     # subcontractors
+    "get_visible_projects_for_subcontractor",
     "get_visible_subcontractors",
     "get_subcontractors",
     "create_subcontractor"
