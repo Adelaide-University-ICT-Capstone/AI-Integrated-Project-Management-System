@@ -20,6 +20,7 @@ import {
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
+import { getApiErrorMessage } from '@/api/client'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectTaskManagementMilestone } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
@@ -39,6 +40,7 @@ type Project = {
   company_name: string
   company_address: string
   status: string
+  current_status_id?: string | null
   start_date: string
   due_date: string
   days_elapsed: number
@@ -341,7 +343,9 @@ function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'timeline' | 'workforce'>('overview')
-  const [projectStatus, setProjectStatus] = useState('Proposal')
+  const [projectStatus, setProjectStatus] = useState('')
+  const [projectStatusId, setProjectStatusId] = useState('')
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<Project | null>(null)
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -412,7 +416,8 @@ function ProjectDetails() {
           toast.error(result.detail || 'Failed to fetch project')
           return
         }
-        setProjectStatus(result.status)
+        setProjectStatus(result.status || '')
+        setProjectStatusId(result.current_status_id || '')
         setProject(result)
 
         const activeRoles = rolesResponse.data.filter((r: Role) => r.is_active)
@@ -523,6 +528,8 @@ function ProjectDetails() {
     workflow.length === 0
       ? 0
       : Math.round(workflow.reduce((sum, p) => sum + p.progress, 0) / workflow.length)
+  const projectStatusOptions = statusData || []
+  const selectStatusValue = projectStatusId || projectStatusOptions.find((status) => status.status_name === projectStatus)?.id || ''
 
   if (loading) return <div>Loading...</div>
 
@@ -560,27 +567,30 @@ function ProjectDetails() {
     }
   }
 
-  const handleUpdateProjectStatus = async (newStatus: string) => {
+  const handleUpdateProjectStatus = async (newStatusId: string) => {
+    if (!newStatusId || newStatusId === projectStatusId || isUpdatingStatus) return
+
+    const selectedStatus = projectStatusOptions.find((status) => status.id === newStatusId)
+    if (!selectedStatus) return
+
+    const previousStatus = projectStatus
+    const previousStatusId = projectStatusId
+    setProjectStatus(selectedStatus.status_name)
+    setProjectStatusId(newStatusId)
+    setProject((current) => current ? { ...current, status: selectedStatus.status_name, current_status_id: newStatusId } : current)
+    setIsUpdatingStatus(true)
+
     try {
-      const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: JSON.stringify({ status: newStatus }),
-        credentials: 'include',
-      })
-      const result = await response.json()
-      if (!response.ok) {
-        toast.error(result.detail || 'Failed to update project status')
-        return
-      }
+      await projectsApi.updateProject(projectId, { current_status_id: newStatusId })
       toast.success('Project status updated successfully')
-      setProjectStatus(newStatus)
     } catch (error) {
       console.error('Error updating project status:', error)
-      toast.error('Network error')
+      setProjectStatus(previousStatus)
+      setProjectStatusId(previousStatusId)
+      setProject((current) => current ? { ...current, status: previousStatus, current_status_id: previousStatusId } : current)
+      toast.error(getApiErrorMessage(error) || 'Failed to update project status')
+    } finally {
+      setIsUpdatingStatus(false)
     }
   }
 
@@ -989,17 +999,27 @@ function ProjectDetails() {
             {/* Status Dropdown */}
             <div className="mt-4 flex items-center gap-3">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Project Status:</span>
-              <select
-                value={projectStatus}
-                onChange={(e) => handleUpdateProjectStatus(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                {statusData?.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={selectStatusValue}
+                  onChange={(e) => handleUpdateProjectStatus(e.target.value)}
+                  disabled={isUpdatingStatus || projectStatusOptions.length === 0}
+                  className="px-3 py-1.5 pr-8 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {projectStatusOptions.length === 0 ? (
+                    <option value="">No statuses available</option>
+                  ) : (
+                    projectStatusOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.status_name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {isUpdatingStatus ? (
+                  <Loader2 size={14} className="absolute right-2 top-2 animate-spin text-gray-500 dark:text-gray-300" />
+                ) : null}
+              </div>
             </div>
           </div>
 

@@ -86,6 +86,31 @@ export type ProjectMilestonePayload = {
   display_order?: number | null
 }
 
+export type ProjectUpdatePayload = {
+  current_status_id?: string | null
+  project_name?: string | null
+  project_types?: string | null
+  client_name?: string | null
+  client_company?: string | null
+  client_contact?: string | null
+  client_address?: string | null
+  contract_title?: string | null
+  agent?: string | null
+  job_title?: string | null
+  address?: string | null
+  date_received?: string | null
+  start_date?: string | null
+  due_date?: string | null
+  fee_estimate?: string | null
+}
+
+export type ProjectStatusType = {
+  id: string
+  status_name: string
+  description?: string | null
+  is_active: boolean
+}
+
 
 
 // src/api/projects.ts
@@ -102,6 +127,10 @@ export const projectsApi = {
 
   // @router.get("/{project_id}")
   getProjectById: (projectId: string) => api.get<Project>(`/projects/${projectId}`).then(res => res.data),
+
+  // @router.patch("/{project_id}")
+  updateProject: (projectId: string, payload: ProjectUpdatePayload) =>
+    api.patch<Project>(`/projects/${projectId}`, payload).then(res => res.data),
   
   // @router.get("/completed-project")
   getCompletedProjectCount: () => api.get<MonthlyCountResponse>('/projects/completed-project').then(res => res.data),
@@ -110,7 +139,7 @@ export const projectsApi = {
   getDelayedProjects: () => api.get<ProjectSummaryResponse>('/projects/delay-project').then(res => res.data),
 
   // @router.get("/statuses")
-  getProjectStatuses: () => api.get<string[]>('/statuses').then(res => res.data),
+  getProjectStatuses: () => api.get<ProjectStatusType[]>('/statuses').then(res => res.data),
 
   // @router.get("/all-project") superuser only
   getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),

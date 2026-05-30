@@ -1211,7 +1211,7 @@ class ProjectUpdateRequest(SQLModel):
     agent: str | None = None
     job_title: str | None = None
     address: str | None = None
-    status: str | None = None
+    current_status_id: uuid.UUID | None = None
     date_received: date | None = None
     start_date: date | None = None
     due_date: date | None = None
@@ -1234,6 +1234,7 @@ class ProjectDetail(SQLModel):
     company_address: str | None = None
     client_name: str | None = None
     status: str | None = None
+    current_status_id: uuid.UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
     days_elapsed: int | None = None

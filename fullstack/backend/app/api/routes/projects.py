@@ -614,10 +614,9 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: 
         company_address=project.client.billing_address if project.client else None,
         client_name=project.client.client_name if project.client else None,
         status=project.current_status.status_name if project.current_status else None,
+        current_status_id=project.current_status_id,
         start_date=project.start_date,
         due_date=project.due_date,
         days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
         fee_estimate=project.fee_final,
     )
-
-
