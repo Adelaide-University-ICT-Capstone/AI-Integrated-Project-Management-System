@@ -120,6 +120,35 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
     create_default_project_task_structure(session=session, project=project, project_data=project_data)
     return project
 
+def get_visible_projects(
+    *,
+    session: Session,
+    employee_id: uuid.UUID | None,
+    is_superuser: bool,
+    status: str | None = None,
+) -> list[Project]:
+    query = select(Project)
+
+    if status:
+        query = query.join(ProjectStatusType).where(
+            ProjectStatusType.status_name == status
+        )
+
+    if not is_superuser:
+        if not employee_id:
+            return []
+
+        query = (
+            query.join(ProjectAssignment)
+            .where(ProjectAssignment.employee_id == employee_id)
+        )
+
+    return list(
+        session.exec(
+            query.order_by(col(Project.created_at).desc()).distinct()
+        ).all()
+    )
+
 
 def percent_complete(completed: int, total: int) -> Decimal:
     if total <= 0:

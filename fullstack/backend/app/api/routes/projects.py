@@ -62,8 +62,17 @@ def create_project(project: ProjectCreateRequest, session: SessionDep) -> Projec
 # ── Static GET routes — must all come before /{project_id} ──────────────────
 
 @router.get("", response_model=ProjectDetailsResponse)
-def list_projects(session: SessionDep, status: str | None = None) -> ProjectDetailsResponse:
-    projects = crud.get_projects_by_status(session=session, status=status)
+def list_projects(
+    session: SessionDep,
+    current_user: CurrentUser,
+    status: str | None = None,
+) -> ProjectDetailsResponse:
+    projects = crud.get_visible_projects(
+        session=session,
+        employee_id=current_user.employee_id if current_user.employee_id else None,
+        is_superuser=current_user.is_superuser,
+        status=status,
+    )
     details = crud.build_project_details(session=session, projects=projects)
     return ProjectDetailsResponse(data=details, count=len(details))
 

@@ -64,6 +64,7 @@ from app.crud.projects import (
     get_projects_by_due_date,
     get_projects_by_status,
     get_projects_by_tab,
+    get_visible_projects,
     get_tasks,
     is_project_invoiced,
     month_bounds,
@@ -158,6 +159,7 @@ __all__ = [
     "delete_all_projects",
     "update_project",
     "get_projects_by_due_date",
+    "get_visible_projects",
     # project statuses
     "get_status_type",
     "create_status_type",
