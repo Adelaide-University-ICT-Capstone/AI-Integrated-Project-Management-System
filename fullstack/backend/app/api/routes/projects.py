@@ -6,9 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from sqlmodel import select
 
 from app import crud
+from app.crud.workforce_allocate import (
+    get_assignment
+)
+
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
 from app.api.routes.workforce_allocate import check_project_permission
 from app.models import (
+    Project,
     AssignmentWithRole,
     Employee,
     MaterialPublic,
@@ -44,6 +49,35 @@ router = APIRouter(
     tags=["projects"],
     dependencies=[Depends(get_current_user)],
 )
+
+def check_project_view_permission(
+    session: SessionDep,
+    project_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> Project:
+    project = session.get(Project, project_id)
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if current_user.is_superuser:
+        return project
+
+    if not current_user.employee_id:
+        raise HTTPException(status_code=403, detail="Project access denied")
+
+    assignment = get_assignment(
+        session=session,
+        project_id=project_id,
+        employee_id=current_user.employee_id,
+    )
+
+    if assignment:
+        return project
+
+    raise HTTPException(status_code=403, detail="Project access denied")
+
+
 
 # --- PROJECT CREATION ----
 @router.post("", response_model=ProjectCreateResponse)
@@ -138,7 +172,8 @@ def get_tasks(
     "/{project_id}/with-roles",
     response_model=ProjectDetailWithRoles,
 )
-def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> ProjectDetailWithRoles:
+def get_project_with_roles(session: SessionDep, current_user: CurrentUser, project_id: uuid.UUID) -> ProjectDetailWithRoles:
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -184,7 +219,8 @@ def get_project_with_roles(session: SessionDep, project_id: uuid.UUID) -> Projec
     "/{project_id}/task-management",
     response_model=ProjectTaskManagementResponse,
 )
-def get_project_task_management(session: SessionDep, project_id: uuid.UUID) -> ProjectTaskManagementResponse:
+def get_project_task_management(session: SessionDep, current_user: CurrentUser, project_id: uuid.UUID) -> ProjectTaskManagementResponse:
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -378,7 +414,8 @@ def update_project_task(
 
 
 @router.delete("/{project_id}")
-def delete_project(project_id: uuid.UUID, session: SessionDep):
+def delete_project(project_id: uuid.UUID, current_user: CurrentUser, session: SessionDep):
+    check_project_permission(session, project_id, current_user)
     if not crud.delete_project(session=session, project_id=project_id):
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
     return {"message": "Project deleted successfully"}
@@ -397,7 +434,9 @@ def update_project(
     project_id: uuid.UUID,
     project: ProjectUpdateRequest,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> ProjectPublic:
+    check_project_view_permission(session, project_id, current_user)
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
@@ -410,7 +449,10 @@ def get_material(
     project_id: uuid.UUID,
     material_id: uuid.UUID,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> MaterialPublic:
+    
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -422,7 +464,8 @@ def get_material(
     return MaterialPublic.model_validate(material)
 
 @router.get("/{project_id}/materials", response_model=list[MaterialPublic], status_code=http_status.HTTP_200_OK)
-def get_materials_from_project(project_id: uuid.UUID, session: SessionDep) -> list[MaterialPublic]:
+def get_materials_from_project(project_id: uuid.UUID, session: SessionDep, current_user: CurrentUser) -> list[MaterialPublic]:
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -431,7 +474,8 @@ def get_materials_from_project(project_id: uuid.UUID, session: SessionDep) -> li
     return [MaterialPublic.model_validate(material) for material in materials]
 
 @router.post("/{project_id}/materials", response_model=MaterialPublic, status_code=http_status.HTTP_201_CREATED)
-def create_material_for_project(project_id: uuid.UUID, material: MaterialCreate, session: SessionDep) -> MaterialPublic:
+def create_material_for_project(project_id: uuid.UUID, material: MaterialCreate, session: SessionDep, current_user: CurrentUser) -> MaterialPublic:
+    check_project_view_permission(session, project_id, current_user)
     # Add validation for subcontractor_id if provided
     if material.subcontractor_id and not session.get(Subcontractor, material.subcontractor_id):
         raise HTTPException(status_code=404, detail="Subcontractor not found")
@@ -439,7 +483,8 @@ def create_material_for_project(project_id: uuid.UUID, material: MaterialCreate,
     return MaterialPublic.model_validate(created)
 
 @router.patch("/{project_id}/materials/{material_id}", response_model=MaterialPublic)
-def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, material: MaterialUpdate, session: SessionDep) -> MaterialPublic:
+def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, material: MaterialUpdate, session: SessionDep, current_user: CurrentUser) -> MaterialPublic:
+    check_project_view_permission(session, project_id, current_user)
     # Add validation for subcontractor_id if provided
     available_statuses = crud.get_material_statuses(session=session)
     if material.status and material.status not in available_statuses:
@@ -454,7 +499,8 @@ def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, m
 
 
 @router.delete("/{project_id}/materials/{material_id}", response_model=Message)
-def delete_material_from_project(project_id: uuid.UUID, material_id: uuid.UUID, session: SessionDep) -> Message:
+def delete_material_from_project(project_id: uuid.UUID, material_id: uuid.UUID, session: SessionDep, current_user: CurrentUser) -> Message:
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found") 
@@ -555,7 +601,8 @@ def get_projects_expected_to_finish(session: SessionDep, date_str: str) -> Any:
 # ── Dynamic routes — /{project_id} must come after all static paths ──────────
 
 @router.get("/{project_id}", response_model=ProjectDetail)
-def get_project_by_id(session: SessionDep, project_id: uuid.UUID) -> ProjectDetail:
+def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: CurrentUser) -> ProjectDetail:
+    check_project_view_permission(session, project_id, current_user)
     project = crud.get_project_by_id(session=session, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
