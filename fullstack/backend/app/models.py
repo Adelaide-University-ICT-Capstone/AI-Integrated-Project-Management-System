@@ -466,6 +466,7 @@ class Project(ProjectBase, table=True):
         },
     )
     time_logs: list["TimeLog"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True})
+    audit_logs: list["AuditLog"] = Relationship(sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True, "foreign_keys": "[AuditLog.project_id]"})
 
 
 class ProjectPublic(ProjectBase):
@@ -1336,7 +1337,7 @@ class AuditLog(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     action: str = Field(max_length=100)
-    project_id: uuid.UUID = Field(foreign_key="projects.id")
+    project_id: uuid.UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     target_user_ids: list[str] = Field(sa_column=Column(JSONB))
     performed_by: uuid.UUID = Field(foreign_key="users.id")
     timestamp: datetime = Field(default_factory=get_datetime_utc)
