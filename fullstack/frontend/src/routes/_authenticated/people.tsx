@@ -1,3 +1,13 @@
+// People page — staff + clients directory.
+// Lives at /people. Local-state only (no backend yet) so adds/edits/
+// removes happen optimistically against the in-memory lists. The
+// initial data below is demo content; once backend endpoints exist
+// these arrays come from API queries instead.
+//
+// The Add and Edit modals live in src/components/People/. They share
+// one shape (Person) but conditionally show Department or Company
+// depending on which tab is active.
+
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
@@ -12,20 +22,17 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+// Extracted module — see src/components/People/
+import type { Person, PersonType } from '@/components/People/types'
+import AddPersonModal from '@/components/People/AddPersonModal'
+import EditPersonModal from '@/components/People/EditPersonModal'
+
 export const Route = createFileRoute('/_authenticated/people')({
   component: People,
 })
 
-interface Person {
-  id: string
-  name: string
-  email: string
-  phone: string
-  role: string
-  department?: string
-  company?: string
-  status: 'active' | 'inactive'
-}
+// ----- Demo data -----
+// Replaced with API responses once backend endpoints are wired up.
 
 const initialStaff: Person[] = [
   { id: '1', name: 'Harri Rassias', email: 'harri@gamaconsulting.com', phone: '+1 (555) 100-0001', role: 'Structural Engineer', department: 'Engineering', status: 'active' },
@@ -43,25 +50,51 @@ const initialClients: Person[] = [
 ]
 
 function People() {
-  const [activeTab, setActiveTab] = useState<'staff' | 'clients'>('staff')
+  // ----- Page state -----
+  const [activeTab, setActiveTab] = useState<PersonType>('staff')
   const [staff, setStaff] = useState(initialStaff)
   const [clients, setClients] = useState(initialClients)
   const [searchTerm, setSearchTerm] = useState('')
 
+  // Modal state. `editingPerson` doubles as both the "which person
+  // are we editing?" reference and the show/hide flag for the Edit
+  // modal — null means hidden, non-null means shown.
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingPerson, setEditingPerson] = useState<Person | null>(null)
+
+  // Derived current list / setter pair based on the active tab so the
+  // rest of the page doesn't have to keep checking activeTab.
   const currentList = activeTab === 'staff' ? staff : clients
   const setCurrentList = activeTab === 'staff' ? setStaff : setClients
 
-  const filtered = currentList.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.role.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = currentList.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.role.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  // ----- Mutation handlers -----
 
   const handleDelete = (id: string) => {
     if (window.confirm('Remove this person?')) {
       setCurrentList(currentList.filter((p) => p.id !== id))
       toast.success('Removed successfully')
     }
+  }
+
+  const handleAddPerson = (person: Omit<Person, 'id'>) => {
+    // Generate a simple timestamp id. Will be replaced with a UUID
+    // from the backend once persistence is wired up.
+    const newPerson: Person = { ...person, id: Date.now().toString() }
+    setCurrentList([...currentList, newPerson])
+    toast.success(`${activeTab === 'staff' ? 'Staff member' : 'Client'} added`)
+  }
+
+  const handleUpdatePerson = (updated: Person) => {
+    setCurrentList(currentList.map((p) => (p.id === updated.id ? updated : p)))
+    setEditingPerson(null)
+    toast.success('Updated successfully')
   }
 
   return (
@@ -75,7 +108,7 @@ function People() {
           </p>
         </div>
         <button
-          onClick={() => toast.info('Add person form coming soon')}
+          onClick={() => setShowAddModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus size={20} />
@@ -83,14 +116,17 @@ function People() {
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — separate cards for staff and clients counts so the user
+          can see both totals at a glance regardless of which tab is active. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Staff</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{staff.length}</p>
-              <p className="text-sm text-green-600 mt-2">{staff.filter(s => s.status === 'active').length} active</p>
+              <p className="text-sm text-green-600 mt-2">
+                {staff.filter((s) => s.status === 'active').length} active
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
               <Users className="text-blue-600" size={24} />
@@ -103,7 +139,9 @@ function People() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Clients</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{clients.length}</p>
-              <p className="text-sm text-green-600 mt-2">{clients.filter(c => c.status === 'active').length} active</p>
+              <p className="text-sm text-green-600 mt-2">
+                {clients.filter((c) => c.status === 'active').length} active
+              </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
               <Building2 className="text-purple-600" size={24} />
@@ -112,7 +150,7 @@ function People() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs + search + table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="flex gap-8 px-6">
@@ -174,7 +212,7 @@ function People() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                        {person.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {person.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                       </div>
                       <div className="font-medium text-gray-900 dark:text-white">{person.name}</div>
                     </div>
@@ -196,25 +234,30 @@ function People() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                      person.status === 'active'
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        person.status === 'active'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                      }`}
+                    >
                       {person.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {/* Edit button — now opens the EditPersonModal pre-filled with this row's data */}
                       <button
-                        onClick={() => toast.info('Edit coming soon')}
+                        onClick={() => setEditingPerson(person)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Edit"
                       >
                         <Edit2 size={16} />
                       </button>
                       <button
                         onClick={() => handleDelete(person.id)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Remove"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -225,15 +268,36 @@ function People() {
             </tbody>
           </table>
 
+          {/* Empty state */}
           {filtered.length === 0 && (
             <div className="text-center py-12">
               <Users size={48} className="mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No {activeTab} found</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                No {activeTab} found
+              </h3>
               <p className="text-gray-600 dark:text-gray-400">Try adjusting your search</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modals — only mounted when active to keep the DOM light. */}
+      {showAddModal && (
+        <AddPersonModal
+          personType={activeTab}
+          onClose={() => setShowAddModal(false)}
+          onSave={handleAddPerson}
+        />
+      )}
+
+      {editingPerson && (
+        <EditPersonModal
+          person={editingPerson}
+          personType={activeTab}
+          onClose={() => setEditingPerson(null)}
+          onSave={handleUpdatePerson}
+        />
+      )}
     </div>
   )
 }
