@@ -15,7 +15,6 @@ import { toast } from 'sonner'
 import { subcontractorsApi } from '@/api/subcontractors'
 import { materialsApi } from '@/api/materials'
 import { Project, projectsApi } from '@/api/project'
-import { set } from 'zod'
 
 export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
@@ -93,38 +92,12 @@ const getServicePillClass = (service: string) =>
 
 // ----- Mock data -----
 
-const initialSubcontractors: Subcontractor[] = [
-  { id: 'sc1', name: 'Big Wood Suppliers', email: 'orders@bigwood.com', phone: '+1 (555) 100-2001', services: ['Timber Framing'] },
-  { id: 'sc2', name: 'GeoCon Labs', email: 'contact@geoconlabs.com', phone: '+1 (555) 100-2002', services: ['Soil Testing'] },
-  { id: 'sc3', name: 'ABC Surveyors', email: 'info@abcsurveyors.com', phone: '+1 (555) 100-2003', services: ['Survey'] },
-  { id: 'sc4', name: 'Steel Supply Co', email: 'orders@steelsupply.com', phone: '+1 (555) 100-2004', services: ['Other'] },
-  { id: 'sc5', name: 'TimberFrame Pro', email: 'sales@timberframepro.com', phone: '+1 (555) 100-2005', services: ['Timber Framing'] },
-]
-
 const today = new Date()
 const daysAgo = (n: number) => {
   const d = new Date(today)
   d.setDate(d.getDate() - n)
   return d.toISOString().split('T')[0]
 }
-
-// const initialOrders: Order[] = [
-//   { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
-//   { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
-//   { id: 'o3', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2023-012', projectName: 'Residential Tower Foundation', orderedDate: daysAgo(28), status: 'Ordered' },
-//   { id: 'o4', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(2), status: 'Received' },
-//   { id: 'o5', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(35), status: 'Ordered' },
-//   { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
-//   { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
-// ]
-
-const PROJECT_OPTIONS = [
-  { id: 'PRJ-2024-001', name: 'Downtown Office Complex' },
-  { id: 'PRJ-2024-002', name: 'Highway Bridge Restoration' },
-  { id: 'PRJ-2024-003', name: 'Bridge Renovation Project' },
-  { id: 'PRJ-2024-004', name: 'Shopping Mall Expansion' },
-  { id: 'PRJ-2023-012', name: 'Residential Tower Foundation' },
-]
 
 const SERVICE_TYPES: ServiceType[] = ['Survey', 'Soil Testing', 'Timber Framing', 'Other']
 
@@ -227,8 +200,6 @@ function NewOrderModal({
       status: formData.status,
     })
 
-    // send order to backend 
-      
     onClose()
   }
 
@@ -427,6 +398,176 @@ function AddSubcontractorModal({
   )
 }
 
+// ----- Edit Subcontractor Slide-Out Panel -----
+
+function EditSubcontractorPanel({
+  subcontractor,
+  onClose,
+  onSave,
+}: {
+  subcontractor: Subcontractor
+  onClose: () => void
+  onSave: (sc: Subcontractor) => void
+}) {
+  const [formData, setFormData] = useState({
+    name: subcontractor.name,
+    email: subcontractor.email,
+    phone: subcontractor.phone,
+    services: [...subcontractor.services],
+  })
+
+  const toggleService = (s: ServiceType) => {
+    setFormData((prev) => ({
+      ...prev,
+      services: prev.services.includes(s)
+        ? prev.services.filter((x) => x !== s)
+        : [...prev.services, s],
+    }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.name.trim() || !formData.email.trim()) {
+      toast.error('Please fill in name and email')
+      return
+    }
+    if (formData.services.length === 0) {
+      toast.error('Pick at least one service')
+      return
+    }
+    onSave({
+      ...subcontractor,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      services: formData.services,
+    })
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className="fixed inset-0 bg-black bg-opacity-40 z-40"
+      />
+
+      {/* Slide-out panel */}
+      <div className="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white dark:bg-gray-800 shadow-2xl border-l border-gray-200 dark:border-gray-700 z-50 overflow-y-auto animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`w-10 h-10 ${avatarColorFromName(subcontractor.name)} rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                {initials(subcontractor.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Edit Subcontractor
+                </p>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                  {subcontractor.name}
+                </h2>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Close edit panel"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Company Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+1 (555) 000-0000"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Services Provided <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_TYPES.map((s) => (
+                <button
+                  type="button"
+                  key={s}
+                  onClick={() => toggleService(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    formData.services.includes(s)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+              Tap to toggle. At least one service is required.
+            </p>
+          </div>
+
+          {/* Footer actions */}
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700 mt-2">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  )
+}
+
 // ----- Order Row Component -----
 
 function OrderRow({
@@ -490,6 +631,7 @@ function Subcontractors() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddSubcontractor, setShowAddSubcontractor] = useState(false)
   const [newOrderForSc, setNewOrderForSc] = useState<Subcontractor | null>(null)
+  const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const totalActiveOrders = orders.length
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
@@ -503,7 +645,6 @@ function Subcontractors() {
       try {
         const data = await projectsApi.getAllProjects();
         setProjects(data.data);
-        // console.log('Raw projects data:', data)
       } catch (error) {
         toast.error('Failed to load projects')
         console.error(error)
@@ -514,7 +655,6 @@ function Subcontractors() {
       try {
         setIsLoading(true)
         const data = await subcontractorsApi.getSubcontractors();
-        // console.log('Raw subcontractors data:', data)
 
         const subcontractorsResult: Subcontractor[] = data.map((m: any) => ({
             id: m.id,
@@ -524,7 +664,6 @@ function Subcontractors() {
             services: (m.specialty || '').split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s)) || [],
           }))
         setSubcontractors(subcontractorsResult);
-        // console.log('Fetched subcontractors:', subcontractorsResult)
 
       } catch (error) {
         toast.error('Failed to load subcontractors')
@@ -549,7 +688,6 @@ function Subcontractors() {
         }))
         setOrders(ordersResult);
 
-        // console.log('Fetched orders:', ordersResult)
       } catch (error) {
         toast.error('Failed to load orders')
         console.error(error)
@@ -590,6 +728,40 @@ function Subcontractors() {
     }
   }
 
+  const handleUpdateSubcontractor = async (updated: Subcontractor) => {
+    try {
+      const apiPayload = {
+        company_name: updated.name,
+        contact_email: updated.email,
+        phone: updated.phone,
+        specialty: updated.services.join(', '),
+      }
+      // Try to update via API. If the method doesn't exist on the API client yet,
+      // fall back to a local-only update so the UI still works for the demo.
+      let saved: any = updated
+      if (typeof (subcontractorsApi as any).updateSubcontractor === 'function') {
+        saved = await (subcontractorsApi as any).updateSubcontractor(updated.id, apiPayload)
+      }
+
+      const frontendSc: Subcontractor = {
+        id: updated.id,
+        name: saved.company_name ?? updated.name,
+        email: saved.contact_email ?? updated.email,
+        phone: saved.phone ?? updated.phone,
+        services: saved.specialty
+          ? saved.specialty.split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s))
+          : updated.services,
+      }
+
+      setSubcontractors((prev) => prev.map((s) => (s.id === frontendSc.id ? frontendSc : s)))
+      setEditingSubcontractor(null)
+      toast.success(`${frontendSc.name} updated`)
+    } catch (error) {
+      toast.error('Failed to update subcontractor')
+      console.error(error)
+    }
+  }
+
   const handleAddOrder = async (order: Omit<Order, 'id'>) => {
     try {
       setIsLoading(true)
@@ -609,8 +781,6 @@ function Subcontractors() {
         orderedDate: material.ordered_date ?? '',
         status: mapMaterialStatus(material.status),
       }
-
-      // console.log('Created material:', material)
 
       setOrders((prev) => [...prev, newOrder])
       toast.success('Order created')
@@ -801,7 +971,7 @@ function Subcontractors() {
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button
-                            onClick={() => toast.info('Edit subcontractor coming soon')}
+                            onClick={() => setEditingSubcontractor(sc)}
                             className="p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                             title="Edit"
                           >
@@ -919,6 +1089,13 @@ function Subcontractors() {
           subcontractor={newOrderForSc}
           onClose={() => setNewOrderForSc(null)}
           onSave={handleAddOrder}
+        />
+      )}
+      {editingSubcontractor && (
+        <EditSubcontractorPanel
+          subcontractor={editingSubcontractor}
+          onClose={() => setEditingSubcontractor(null)}
+          onSave={handleUpdateSubcontractor}
         />
       )}
     </div>

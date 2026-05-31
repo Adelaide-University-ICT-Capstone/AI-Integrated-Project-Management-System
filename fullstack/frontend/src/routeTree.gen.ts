@@ -13,7 +13,6 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSubcontractorsRouteImport } from './routes/_authenticated/subcontractors'
@@ -49,52 +48,48 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
-  id: '/tasks',
+  id: '/_authenticated/tasks',
   path: '/tasks',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSubcontractorsRoute =
   AuthenticatedSubcontractorsRouteImport.update({
-    id: '/subcontractors',
+    id: '/_authenticated/subcontractors',
     path: '/subcontractors',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
+  id: '/_authenticated/settings',
   path: '/settings',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
-  id: '/people',
+  id: '/_authenticated/people',
   path: '/people',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAiAssistantRoute =
   AuthenticatedAiAssistantRouteImport.update({
-    id: '/ai-assistant',
+    id: '/_authenticated/ai-assistant',
     path: '/ai-assistant',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
+  id: '/_authenticated/admin',
   path: '/admin',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
-    id: '/projects/',
+    id: '/_authenticated/projects/',
     path: '/projects/',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -103,15 +98,15 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
 } as any)
 const AuthenticatedProjectsNewRoute =
   AuthenticatedProjectsNewRouteImport.update({
-    id: '/projects/new',
+    id: '/_authenticated/projects/new',
     path: '/projects/new',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedProjectsProjectIdRoute =
   AuthenticatedProjectsProjectIdRouteImport.update({
-    id: '/projects/$projectId',
+    id: '/_authenticated/projects/$projectId',
     path: '/projects/$projectId',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedAdminSettingsRoute =
   AuthenticatedAdminSettingsRouteImport.update({
@@ -127,13 +122,12 @@ const AuthenticatedAdminPeopleRoute =
   } as any)
 const AuthenticatedProjectsWorkforceProjectIdRoute =
   AuthenticatedProjectsWorkforceProjectIdRouteImport.update({
-    id: '/projects/workforce/$projectId',
+    id: '/_authenticated/projects/workforce/$projectId',
     path: '/projects/workforce/$projectId',
-    getParentRoute: () => AuthenticatedRoute,
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -144,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/subcontractors': typeof AuthenticatedSubcontractorsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/': typeof AuthenticatedIndexRoute
   '/admin/people': typeof AuthenticatedAdminPeopleRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -173,7 +168,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -196,7 +190,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/login'
     | '/recover-password'
     | '/reset-password'
@@ -207,6 +200,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/subcontractors'
     | '/tasks'
+    | '/'
     | '/admin/people'
     | '/admin/settings'
     | '/projects/$projectId'
@@ -235,7 +229,6 @@ export interface FileRouteTypes {
     | '/projects/workforce/$projectId'
   id:
     | '__root__'
-    | '/_authenticated'
     | '/login'
     | '/recover-password'
     | '/reset-password'
@@ -257,11 +250,21 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
+  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSubcontractorsRoute: typeof AuthenticatedSubcontractorsRoute
+  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
+  AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
+  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedProjectsWorkforceProjectIdRoute: typeof AuthenticatedProjectsWorkforceProjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -294,68 +297,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tasks': {
       id: '/_authenticated/tasks'
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/subcontractors': {
       id: '/_authenticated/subcontractors'
       path: '/subcontractors'
       fullPath: '/subcontractors'
       preLoaderRoute: typeof AuthenticatedSubcontractorsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/people': {
       id: '/_authenticated/people'
       path: '/people'
       fullPath: '/people'
       preLoaderRoute: typeof AuthenticatedPeopleRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/ai-assistant': {
       id: '/_authenticated/ai-assistant'
       path: '/ai-assistant'
       fullPath: '/ai-assistant'
       preLoaderRoute: typeof AuthenticatedAiAssistantRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
       fullPath: '/projects/'
       preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -369,14 +365,14 @@ declare module '@tanstack/react-router' {
       path: '/projects/new'
       fullPath: '/projects/new'
       preLoaderRoute: typeof AuthenticatedProjectsNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/projects/$projectId': {
       id: '/_authenticated/projects/$projectId'
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/settings': {
       id: '/_authenticated/admin/settings'
@@ -397,7 +393,7 @@ declare module '@tanstack/react-router' {
       path: '/projects/workforce/$projectId'
       fullPath: '/projects/workforce/$projectId'
       preLoaderRoute: typeof AuthenticatedProjectsWorkforceProjectIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -417,21 +413,11 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
-interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-  AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
-  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedSubcontractorsRoute: typeof AuthenticatedSubcontractorsRoute
-  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
-  AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
-  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
-  AuthenticatedProjectsWorkforceProjectIdRoute: typeof AuthenticatedProjectsWorkforceProjectIdRoute
-}
-
-const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+const rootRouteChildren: RootRouteChildren = {
+  LoginRoute: LoginRoute,
+  RecoverPasswordRoute: RecoverPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SignupRoute: SignupRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAiAssistantRoute: AuthenticatedAiAssistantRoute,
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
@@ -444,18 +430,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
   AuthenticatedProjectsWorkforceProjectIdRoute:
     AuthenticatedProjectsWorkforceProjectIdRoute,
-}
-
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
-
-const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  LoginRoute: LoginRoute,
-  RecoverPasswordRoute: RecoverPasswordRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
-  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
