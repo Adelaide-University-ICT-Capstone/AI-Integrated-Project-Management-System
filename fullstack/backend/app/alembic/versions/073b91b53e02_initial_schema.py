@@ -139,7 +139,7 @@ def upgrade():
     sa.Column('timestamp', sa.DateTime(), nullable=False),
     sa.Column('changes', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.ForeignKeyConstraint(['performed_by'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('invoices',
