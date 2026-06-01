@@ -618,5 +618,8 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: 
         start_date=project.start_date,
         due_date=project.due_date,
         days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
+        completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
+        is_invoiced=crud.is_project_invoiced(session=session, project=project),
+        project_tab=crud.get_project_tab(session=session, project=project),
         fee_estimate=project.fee_final,
     )

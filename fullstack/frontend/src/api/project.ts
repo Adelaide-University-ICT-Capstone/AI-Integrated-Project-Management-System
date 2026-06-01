@@ -69,6 +69,27 @@ export type ProjectTaskManagementMilestone = {
   is_complete: boolean
   progress: number
   display_order?: number | null
+  tasks?: ProjectTaskNode[]
+}
+
+export type ProjectTaskNode = {
+  id: string
+  milestone_id: string
+  parent_task_id?: string | null
+  task_name: string
+  task_description?: string | null
+  due_date?: string | null
+  milestone_status?: string | null
+  core_phase_name?: string | null
+  assigned_employee_id?: string | null
+  assigned_employee_name?: string | null
+  allocated_hours?: number | string | null
+  completion_date?: string | null
+  invoice_amount?: number | string | null
+  fee_final?: number | string | null
+  is_excluded: boolean
+  paid_date?: string | null
+  children: ProjectTaskNode[]
 }
 
 export type ProjectTaskManagementResponse = {
