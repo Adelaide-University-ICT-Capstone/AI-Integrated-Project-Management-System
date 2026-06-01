@@ -66,6 +66,7 @@ import AddSubtaskModal from '@/components/ProjectDetails/AddSubtaskModal'
 import AddMaterialModal from '@/components/ProjectDetails/AddMaterialModal'
 import AddWorkerModal from '@/components/ProjectDetails/AddWorkerModal'
 import EditProjectModal from '@/components/ProjectDetails/EditProjectModal'
+import TimelineSection from '@/components/ProjectDetails/TimelineSection'
 
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -91,7 +92,7 @@ function ProjectDetails() {
   const navigate = useNavigate()
 
   // ----- Page-level state -----
-  const [activeTab, setActiveTab] = useState
+  const [activeTab, setActiveTab] = useState <
     'overview' | 'resources' | 'timeline'
   >('overview')
   const [projectStatus, setProjectStatus] = useState('Proposal')
@@ -466,8 +467,8 @@ function ProjectDetails() {
                 className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 {statusData?.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                  <option key={s,id} value={s.status_name}>
+                    {{s.status_name}}
                   </option>
                 ))}
               </select>
@@ -703,11 +704,12 @@ function ProjectDetails() {
 
           {/* TIMELINE TAB — placeholder for future Gantt-style view */}
           {activeTab === 'timeline' && (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              <Calendar size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Timeline view coming soon...</p>
-            </div>
-          )}
+            <TimelineSection
+              workflow={workflow}
+              startDate={project.start_date}
+              dueDate={project.due_date}
+            />
+            )}
         </div>
       </div>
 
