@@ -22,7 +22,7 @@ import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { getApiErrorMessage } from '@/api/client'
 import { useQuery } from '@tanstack/react-query'
-import type { ProjectTaskManagementMilestone } from '../../../api/project'
+import type { ProjectTaskManagementMilestone, ProjectTaskNode } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
 import { workforceAllocationApi } from '@/api/workforceAllocation'
 import { readUsersWithDetails } from '@/client/adminApi'
@@ -51,6 +51,8 @@ type WorkflowPhase = {
   phase: string
   status: 'pending' | 'in-progress' | 'completed'
   progress: number
+  doneTasks: number
+  totalTasks: number
   dueDate?: string | null
   displayOrder?: number | null
 }
@@ -173,17 +175,33 @@ const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
   return 'pending'
 }
 
+const isDoneTaskStatus = (status?: string | null) => status?.trim().toLowerCase() === 'done'
+
+const calculateTaskCompletion = (tasks: ProjectTaskNode[]): { doneTasks: number; totalTasks: number } =>
+  tasks.reduce(
+    (counts, task) => {
+      const childCounts = calculateTaskCompletion(task.children || [])
+      return {
+        doneTasks: counts.doneTasks + (isDoneTaskStatus(task.milestone_status) ? 1 : 0) + childCounts.doneTasks,
+        totalTasks: counts.totalTasks + 1 + childCounts.totalTasks,
+      }
+    },
+    { doneTasks: 0, totalTasks: 0 },
+  )
+
+const calculateProgressPercent = (doneTasks: number, totalTasks: number) =>
+  totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
+
 const mapMilestoneToWorkflowPhase = (milestone: ProjectTaskManagementMilestone): WorkflowPhase => {
-  const progress = Number.isFinite(milestone.progress)
-    ? milestone.progress
-    : milestone.is_complete
-      ? 100
-      : 0
+  const { doneTasks, totalTasks } = calculateTaskCompletion(milestone.tasks || [])
+  const progress = calculateProgressPercent(doneTasks, totalTasks)
 
   return {
     id: milestone.id,
     phase: milestone.milestone_name,
     progress,
+    doneTasks,
+    totalTasks,
     status: getWorkflowPhaseStatus(progress),
     dueDate: milestone.due_date,
     displayOrder: milestone.display_order,
@@ -523,11 +541,10 @@ function ProjectDetails() {
 
   }, [projectId])
 
-  // Calculate overall progress from workflow phases
-  const overallProgress =
-    workflow.length === 0
-      ? 0
-      : Math.round(workflow.reduce((sum, p) => sum + p.progress, 0) / workflow.length)
+  // Calculate overall progress from all tasks in the project.
+  const totalTasks = workflow.reduce((sum, phase) => sum + phase.totalTasks, 0)
+  const doneTasks = workflow.reduce((sum, phase) => sum + phase.doneTasks, 0)
+  const overallProgress = calculateProgressPercent(doneTasks, totalTasks)
   const projectStatusOptions = statusData || []
   const selectStatusValue = projectStatusId || projectStatusOptions.find((status) => status.status_name === projectStatus)?.id || ''
 
@@ -626,26 +643,6 @@ function ProjectDetails() {
     } catch (error) {
       console.error('Error removing workflow phase:', error)
       toast.error('Failed to remove workflow phase')
-    }
-  }
-
-  const updatePhaseProgress = async (index: number, progress: number) => {
-    const phase = workflow[index]
-    if (!phase) return
-    const updated = [...workflow]
-    updated[index].progress = progress
-    updated[index].status = getWorkflowPhaseStatus(progress)
-    setWorkflow(updated)
-    try {
-      await projectsApi.updateProjectMilestone(projectId, phase.id, {
-        progress,
-        is_complete: progress === 100,
-        completion_date: progress === 100 ? new Date().toISOString().slice(0, 10) : null,
-      })
-    } catch (error) {
-      console.error('Error updating workflow phase progress:', error)
-      setWorkflow(workflow)
-      toast.error('Failed to update workflow phase progress')
     }
   }
 
@@ -1184,10 +1181,9 @@ function ProjectDetails() {
                             max="100"
                             step="5"
                             value={phase.progress}
-                            onChange={(e) => {
-                              updatePhaseProgress(index, parseInt(e.target.value)).catch(() => undefined)
-                            }}
-                            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-600"
+                            readOnly
+                            disabled
+                            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-not-allowed accent-blue-600 opacity-80"
                           />
                         </div>
                       </div>

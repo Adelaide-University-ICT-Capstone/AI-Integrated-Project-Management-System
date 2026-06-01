@@ -6,6 +6,18 @@ export const api = axios.create({
   baseURL: `${baseUrl}/api/v1`,
 })
 
+const isAuthFailure = (status?: number, data?: unknown) => {
+  if (status === 401) return true
+  if (status !== 403) return false
+
+  const detail =
+    data && typeof data === 'object' && 'detail' in data
+      ? (data as { detail?: unknown }).detail
+      : undefined
+
+  return detail === 'Could not validate credentials'
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
@@ -17,7 +29,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response && [401, 403].includes(error.response.status)) {
+    if (isAuthFailure(error.response?.status, error.response?.data)) {
       localStorage.removeItem('access_token')
       window.location.href = '/login'
     }
