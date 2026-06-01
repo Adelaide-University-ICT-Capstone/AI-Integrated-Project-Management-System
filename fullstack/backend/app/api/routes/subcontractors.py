@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
 from app.models import (
+    Message,
     ProjectDetailsResponse,
     Subcontractor,
     SubcontractorCreate,
@@ -56,6 +57,35 @@ def list_subcontractors(
         is_superuser=current_user.is_superuser,
     )
     return [SubcontractorPublic.model_validate(sub) for sub in subcontractors]
+
+
+@router.delete("/{subcontractor_id}", response_model=Message)
+def delete_subcontractor(
+    subcontractor_id: uuid.UUID,
+    session: SessionDep,
+) -> Message:
+    subcontractor = session.get(Subcontractor, subcontractor_id)
+    if not subcontractor:
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    usage = crud.subcontractor_usage_counts(
+        session=session,
+        subcontractor_id=subcontractor_id,
+    )
+
+    if any(usage.values()):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Subcontractor is in use and cannot be deleted. "
+                f"Assignments: {usage['assignments']}, "
+                f"materials: {usage['materials']}, "
+                f"time logs: {usage['time_logs']}."
+            ),
+        )
+
+    crud.delete_subcontractor(session=session, subcontractor=subcontractor)
+    return Message(message="Subcontractor deleted successfully")
 
 
 @router.get("/{subcontractor_id}/projects", response_model=ProjectDetailsResponse)

@@ -22,7 +22,8 @@ export type Subcontractor = {
 
 export type SubcontractorUpdate = Partial<Omit<Subcontractor, 'id'>>
 export const subcontractorsApi = {
-    getSubcontractors: () => api.get<Subcontractor[]>('/subcontractors').then(res => res.data),
-    createSubcontractor: (subcontractor: Omit<Subcontractor, 'id'>) => api.post<Subcontractor>('/subcontractors', subcontractor).then(res => res.data),
-    updateSubcontractor: (id: string, subcontractor: SubcontractorUpdate) => api.patch<Subcontractor>(`/subcontractors/${id}`, subcontractor).then(res => res.data),
-  }
+  getSubcontractors: () => api.get<Subcontractor[]>('/subcontractors').then(res => res.data),
+  createSubcontractor: (subcontractor: Omit<Subcontractor, 'id'>) => api.post<Subcontractor>('/subcontractors', subcontractor).then(res => res.data),
+  updateSubcontractor: (id: string, subcontractor: SubcontractorUpdate) => api.patch<Subcontractor>(`/subcontractors/${id}`, subcontractor).then(res => res.data),
+  deleteSubcontractor: (id: string) => api.delete<{ message: string }>(`/subcontractors/${id}`).then(res => res.data),
+}

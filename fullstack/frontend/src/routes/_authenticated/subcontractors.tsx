@@ -209,16 +209,30 @@ function Subcontractors() {
     }
   }
 
-  const handleDeleteOrder = (id: string) => {
-    setOrders(orders.filter((o) => o.id !== id))
-    toast.success('Order removed')
+  const handleDeleteOrder = async (order: Order) => {
+    try {
+      await materialsApi.deleteOrder(order.projectId, order.id)
+
+      setOrders((prev) => prev.filter((o) => o.id !== order.id))
+      toast.success('Order removed')
+    } catch (error) {
+      toast.error('Failed to remove order')
+      console.error(error)
+    }
   }
 
-  const handleDeleteSubcontractor = (id: string) => {
-    if (window.confirm('Remove this subcontractor and all their orders?')) {
-      setSubcontractors(subcontractors.filter((s) => s.id !== id))
-      setOrders(orders.filter((o) => o.subcontractorId !== id))
+  const handleDeleteSubcontractor = async (id: string) => {
+    if (!window.confirm('Remove this subcontractor?')) return
+
+    try {
+      await subcontractorsApi.deleteSubcontractor(id)
+
+      setSubcontractors((prev) => prev.filter((s) => s.id !== id))
+      setOrders((prev) => prev.filter((o) => o.subcontractorId !== id))
       toast.success('Subcontractor removed')
+    } catch (error) {
+      toast.error('Failed to remove subcontractor')
+      console.error(error)
     }
   }
 
@@ -447,7 +461,7 @@ function Subcontractors() {
                             <OrderRow
                               key={order.id}
                               order={order}
-                              onDelete={() => handleDeleteOrder(order.id)}
+                              onDelete={() => handleDeleteOrder(order)}
                             />
                           ))}
                         </>
@@ -498,7 +512,7 @@ function Subcontractors() {
                               order={order}
                               showSubcontractor
                               subcontractorName={sc?.name || 'Unknown'}
-                              onDelete={() => handleDeleteOrder(order.id)}
+                              onDelete={() => handleDeleteOrder(order)}
                             />
                           )
                         })}

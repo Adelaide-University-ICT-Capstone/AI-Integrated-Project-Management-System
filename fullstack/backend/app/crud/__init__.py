@@ -107,6 +107,8 @@ from app.crud.subcontractors import (
     get_subcontractors,
     create_subcontractor,
     update_subcontractor,
+    subcontractor_usage_counts,
+    delete_subcontractor,
 )
 
 __all__ = [
@@ -187,5 +189,7 @@ __all__ = [
     "get_visible_subcontractors",
     "get_subcontractors",
     "create_subcontractor",
-    "update_subcontractor"
+    "update_subcontractor",
+    "subcontractor_usage_counts",
+    "delete_subcontractor",
 ]
