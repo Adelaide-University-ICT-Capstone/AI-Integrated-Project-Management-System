@@ -105,7 +105,8 @@ from app.crud.subcontractors import (
     get_visible_projects_for_subcontractor,
     get_visible_subcontractors,
     get_subcontractors,
-    create_subcontractor
+    create_subcontractor,
+    update_subcontractor,
 )
 
 __all__ = [
@@ -185,5 +186,6 @@ __all__ = [
     "get_visible_projects_for_subcontractor",
     "get_visible_subcontractors",
     "get_subcontractors",
-    "create_subcontractor"
+    "create_subcontractor",
+    "update_subcontractor"
 ]

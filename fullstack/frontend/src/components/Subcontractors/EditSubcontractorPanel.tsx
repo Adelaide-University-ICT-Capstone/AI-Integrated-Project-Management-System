@@ -70,7 +70,7 @@ export function EditSubcontractorPanel({
           renders on top. */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black bg-opacity-40 z-40"
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-40"
       />
 
       {/* Slide-out panel — full width on mobile, 480px on tablet+ */}

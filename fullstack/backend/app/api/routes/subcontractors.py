@@ -10,7 +10,8 @@ from app.models import (
     ProjectDetailsResponse,
     Subcontractor,
     SubcontractorCreate,
-    SubcontractorPublic
+    SubcontractorPublic,
+    SubcontractorUpdate
 )
 
 router = APIRouter(
@@ -25,6 +26,24 @@ router = APIRouter(
 def create_subcontractor( subcontractor: SubcontractorCreate, session: SessionDep) -> SubcontractorPublic:
     created = crud.create_subcontractor(session=session, subcontractor=subcontractor)
     return SubcontractorPublic.model_validate(created)
+
+@router.patch("/{subcontractor_id}", response_model=SubcontractorPublic)
+def update_subcontractor(
+    subcontractor_id: uuid.UUID,
+    subcontractor_update: SubcontractorUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> SubcontractorPublic:
+    db_subcontractor = session.get(Subcontractor, subcontractor_id)
+    if not db_subcontractor:
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    updated = crud.update_subcontractor(
+        session=session,
+        db_subcontractor=db_subcontractor,
+        subcontractor_update=subcontractor_update
+    )
+    return SubcontractorPublic.model_validate(updated)
 
 @router.get("/", response_model=list[SubcontractorPublic])
 def list_subcontractors(

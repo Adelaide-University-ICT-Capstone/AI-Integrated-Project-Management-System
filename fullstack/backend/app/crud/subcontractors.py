@@ -9,7 +9,8 @@ from app.models import (
     Project,
     ProjectAssignment,
     Subcontractor,
-    SubcontractorCreate
+    SubcontractorCreate,
+    SubcontractorUpdate,
 )
 
 def get_subcontractors(*, session: Session) -> list[Subcontractor]:
@@ -62,6 +63,22 @@ def get_visible_projects_for_subcontractor(
 
 def create_subcontractor(*, session: Session, subcontractor: SubcontractorCreate) -> Subcontractor:
     db_subcontractor = Subcontractor.model_validate(subcontractor)
+    session.add(db_subcontractor)
+    session.commit()
+    session.refresh(db_subcontractor)
+    return db_subcontractor
+
+def update_subcontractor(
+    *,
+    session: Session,
+    db_subcontractor: Subcontractor,
+    subcontractor_update: SubcontractorUpdate,
+) -> Subcontractor:
+    update_data = subcontractor_update.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(db_subcontractor, field, value)
+
     session.add(db_subcontractor)
     session.commit()
     session.refresh(db_subcontractor)

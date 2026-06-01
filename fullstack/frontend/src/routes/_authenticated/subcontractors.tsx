@@ -19,6 +19,7 @@ import {
   mapStringToServiceType,
   mapStatus,
 } from '@/components/Subcontractors/utils'
+import EditSubcontractorPanel from '@/components/Subcontractors/EditSubcontractorPanel'
 
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -68,6 +69,7 @@ function Subcontractors() {
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
   const [projects, setProjects] = useState<Project[]>([])
+  const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null)
 
   useEffect(() => {
 
@@ -117,6 +119,37 @@ function Subcontractors() {
 
     fetchSubcontractorData()
   }, [])
+
+  const handleUpdateSubcontractor = async (updated: Subcontractor) => {
+    try {
+      const saved = await subcontractorsApi.updateSubcontractor(updated.id, {
+        company_name: updated.name,
+        contact_email: updated.email,
+        phone: updated.phone,
+        specialty: updated.services.join(', '),
+      })
+
+      const frontendSc: Subcontractor = {
+        id: saved.id,
+        name: saved.company_name || '',
+        email: saved.contact_email || '',
+        phone: saved.phone || '',
+        services: (saved.specialty || '')
+          .split(',')
+          .map((s: string) => s.trim() as ServiceType)
+          .filter((s: ServiceType) => SERVICE_TYPES.includes(s)),
+      }
+
+      setSubcontractors((prev) =>
+        prev.map((s) => (s.id === frontendSc.id ? frontendSc : s)),
+      )
+      setEditingSubcontractor(null)
+      toast.success(`${frontendSc.name} updated`)
+    } catch (error) {
+      toast.error('Failed to update subcontractor')
+      console.error(error)
+    }
+  }
 
   
   const matchSearch = (text: string) => text.toLowerCase().includes(searchTerm.toLowerCase())
@@ -373,7 +406,7 @@ function Subcontractors() {
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button
-                            onClick={() => toast.info('Edit subcontractor coming soon')}
+                            onClick={() => setEditingSubcontractor(sc)}
                             className="p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                             title="Edit"
                           >
@@ -491,6 +524,13 @@ function Subcontractors() {
           subcontractor={newOrderForSc}
           onClose={() => setNewOrderForSc(null)}
           onSave={handleAddOrder}
+        />
+      )}
+      {editingSubcontractor && (
+        <EditSubcontractorPanel
+          subcontractor={editingSubcontractor}
+          onClose={() => setEditingSubcontractor(null)}
+          onSave={handleUpdateSubcontractor}
         />
       )}
     </div>
