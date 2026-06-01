@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner'
 import { subcontractorsApi } from '@/api/subcontractors'
 import { materialsApi } from '@/api/materials'
+import type { Material } from '@/api/materials'
 import { projectsApi } from '@/api/project'
 import type { Project } from '@/api/project'
 
@@ -37,7 +38,7 @@ interface Subcontractor {
 interface Order {
   id: string
   subcontractorId: string
-  service: ServiceType
+  service: string
   projectId: string
   projectJobNumber?: string
   orderedDate: string
@@ -167,6 +168,15 @@ const formatDaysAgo = (dateStr: string) => {
   if (d === 1) return 'yesterday'
   return `${d} days ago`
 }
+
+const mapMaterialToOrder = (material: Material): Order => ({
+  id: material.id,
+  projectId: material.project_id || '',
+  subcontractorId: material.subcontractor_id || '',
+  service: material.name || '',
+  orderedDate: material.ordered_date || '',
+  status: mapMaterialStatus(material.status),
+})
 
 // ----- Grid column definitions (kept identical between header + row) -----
 
@@ -481,26 +491,27 @@ function Subcontractors() {
   const [projectsBySubcontractor, setProjectsBySubcontractor] = useState<Record<string, Project[]>>({})
 
 
-  // Fetch subcontractors on mount
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const data = await projectsApi.getAllProjects();
-        setProjects(data.data);
-        // console.log('Raw projects data:', data)
-      } catch (error) {
-        toast.error('Failed to load projects')
-        console.error(error)
-      }
-    }
+    const fetchSubcontractorProjectEntries = async (subcontractorsResult: Subcontractor[]) =>
+      Promise.all(
+        subcontractorsResult.map(async (subcontractor) => {
+          const response = await subcontractorsApi.getSubcontractorProjects(subcontractor.id)
+          return [subcontractor.id, response.data] as const
+        }),
+      )
 
-    const fetchSubcontractors = async () => {
+
+    const fetchSubcontractorData = async () => {
       try {
         setIsLoading(true)
-        const data = await subcontractorsApi.getSubcontractors();
-        // console.log('Raw subcontractors data:', data)
+        const [projectsData, subcontractorsData] = await Promise.all([
+          projectsApi.getAllProjects(),
+          subcontractorsApi.getSubcontractors(),
+        ])
 
-        const subcontractorsResult: Subcontractor[] = data.map((m: any) => ({
+        setProjects(projectsData.data)
+
+        const subcontractorsResult: Subcontractor[] = subcontractorsData.map((m: any) => ({
             id: m.id,
             name: m.company_name || '',
             email: m.contact_email || '',
@@ -509,15 +520,27 @@ function Subcontractors() {
           }))
         setSubcontractors(subcontractorsResult);
 
-        const projectEntries = await Promise.all(
-          subcontractorsResult.map(async (subcontractor) => {
-            const response = await subcontractorsApi.getSubcontractorProjects(subcontractor.id)
-            return [subcontractor.id, response.data] as const
-          }),
-        )
-        setProjectsBySubcontractor(Object.fromEntries(projectEntries))
-        // console.log('Fetched subcontractors:', subcontractorsResult)
+        const projectEntries = await fetchSubcontractorProjectEntries(subcontractorsResult)
+        const scopedProjectsBySubcontractor = Object.fromEntries(projectEntries)
+        setProjectsBySubcontractor(scopedProjectsBySubcontractor)
 
+        // fetch all materials already scoped server-side to projects current user is assigned to
+        const visibleMaterials = await materialsApi.getOrders()
+        const visibleSubcontractorIds = new Set(subcontractorsResult.map((subcontractor) => subcontractor.id))
+        // map API Material -> shared lightweight Order then convert fields to local UI types
+        console.log('Visible materials from API:', visibleMaterials)
+        const uiOrders: Order[] = visibleMaterials
+          .map(mapMaterialToOrder)
+          .map((m) => ({
+            id: m.id,
+            subcontractorId: m.subcontractorId || '',
+            service: (m.service ?? '') as string,
+            projectId: m.projectId,
+            orderedDate: m.orderedDate ?? '',
+            status: mapMaterialStatus(m.status as any),
+          }))
+          .filter((order) => visibleSubcontractorIds.has(order.subcontractorId))
+        setOrders(uiOrders)
       } catch (error) {
         toast.error('Failed to load subcontractors')
         console.error(error)
@@ -526,33 +549,7 @@ function Subcontractors() {
       }
     }
 
-    const fetchOrders = async () => {
-      try {
-        setIsLoading(true)
-        const data = await materialsApi.getOrders()
-        const ordersResult: Order[] = data.map((m: any) => ({
-          id: m.id,
-          projectName: m.project_name || '',
-          projectId: m.project_id || '',
-          subcontractorId: m.subcontractor_id || '',
-          service: m.name || '',
-          orderedDate: m.ordered_date || null,
-          status: m.status || '',
-        }))
-        setOrders(ordersResult);
-
-        // console.log('Fetched orders:', ordersResult)
-      } catch (error) {
-        toast.error('Failed to load orders')
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProjects()
-    fetchSubcontractors()
-    fetchOrders()
+    fetchSubcontractorData()
   }, [])
 
   
@@ -593,17 +590,16 @@ function Subcontractors() {
         ordered_date: order.orderedDate,
       })
 
+      // map returned material -> UI order using shared mapper then normalize UI fields
+      const mapped = mapMaterialToOrder(material)
       const newOrder: Order = {
-        id: material.id,
-        subcontractorId: material.subcontractor_id ?? '',
-        service: material.name as ServiceType,
-        projectId: material.project_id,
-        orderedDate: material.ordered_date ?? '',
-        status: mapMaterialStatus(material.status),
+        id: mapped.id,
+        subcontractorId: mapped.subcontractorId ?? '',
+        service: mapStringToServiceType((mapped.service ?? '') as string),
+        projectId: mapped.projectId,
+        orderedDate: mapped.orderedDate ?? '',
+        status: mapMaterialStatus(mapped.status as any),
       }
-
-      // console.log('Created material:', material)
-
       setOrders((prev) => [...prev, newOrder])
       toast.success('Order created')
     } catch (error) {
@@ -635,14 +631,17 @@ function Subcontractors() {
     projects.find((project) => project.project_id === projectId)?.job_number ?? projectId
 
   const getRowsForSubcontractor = (subcontractor: Subcontractor) => {
+    const scopedProjects = projectsBySubcontractor[subcontractor.id] ?? []
+
     const scOrders = orders
       .filter((o) => o.subcontractorId === subcontractor.id)
       .map((order) => ({
         ...order,
         projectJobNumber: getProjectJobNumber(order.projectId),
       }))
+
     const orderedProjectIds = new Set(scOrders.map((order) => order.projectId))
-    const placeholderRows = (projectsBySubcontractor[subcontractor.id] ?? [])
+    const placeholderRows = scopedProjects
       .filter((project) => !orderedProjectIds.has(project.project_id))
       .map((project): Order => ({
         id: `placeholder-${subcontractor.id}-${project.project_id}`,
