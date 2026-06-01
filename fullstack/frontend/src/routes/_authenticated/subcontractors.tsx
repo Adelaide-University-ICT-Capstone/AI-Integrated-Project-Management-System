@@ -488,18 +488,8 @@ function Subcontractors() {
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
   const [projects, setProjects] = useState<Project[]>([])
-  const [projectsBySubcontractor, setProjectsBySubcontractor] = useState<Record<string, Project[]>>({})
-
 
   useEffect(() => {
-    const fetchSubcontractorProjectEntries = async (subcontractorsResult: Subcontractor[]) =>
-      Promise.all(
-        subcontractorsResult.map(async (subcontractor) => {
-          const response = await subcontractorsApi.getSubcontractorProjects(subcontractor.id)
-          return [subcontractor.id, response.data] as const
-        }),
-      )
-
 
     const fetchSubcontractorData = async () => {
       try {
@@ -520,9 +510,6 @@ function Subcontractors() {
           }))
         setSubcontractors(subcontractorsResult);
 
-        const projectEntries = await fetchSubcontractorProjectEntries(subcontractorsResult)
-        const scopedProjectsBySubcontractor = Object.fromEntries(projectEntries)
-        setProjectsBySubcontractor(scopedProjectsBySubcontractor)
 
         // fetch all materials already scoped server-side to projects current user is assigned to
         const visibleMaterials = await materialsApi.getOrders()
@@ -630,30 +617,13 @@ function Subcontractors() {
     projects.find((project) => project.project_id === projectId)?.job_number ?? projectId
 
   const getRowsForSubcontractor = (subcontractor: Subcontractor) => {
-    const scopedProjects = projectsBySubcontractor[subcontractor.id] ?? []
-
     const scOrders = orders
       .filter((o) => o.subcontractorId === subcontractor.id)
       .map((order) => ({
         ...order,
         projectJobNumber: getProjectJobNumber(order.projectId),
       }))
-
-    const orderedProjectIds = new Set(scOrders.map((order) => order.projectId))
-    const placeholderRows = scopedProjects
-      .filter((project) => !orderedProjectIds.has(project.project_id))
-      .map((project): Order => ({
-        id: `placeholder-${subcontractor.id}-${project.project_id}`,
-        subcontractorId: subcontractor.id,
-        service: subcontractor.services[0] ?? 'Other',
-        projectId: project.project_id,
-        projectJobNumber: project.job_number,
-        orderedDate: '',
-        status: 'N/A',
-        isPlaceholder: true,
-      }))
-
-    return [...scOrders, ...placeholderRows]
+    return [...scOrders]
   }
 
   const visibleOrderRows = subcontractors.flatMap((subcontractor) =>

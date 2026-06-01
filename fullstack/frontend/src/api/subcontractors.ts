@@ -22,7 +22,5 @@ export type Subcontractor = {
 
 export const subcontractorsApi = {
     getSubcontractors: () => api.get<Subcontractor[]>('/subcontractors').then(res => res.data),
-    getSubcontractorProjects: (subcontractorId: string) =>
-        api.get<ProjectsResponse>(`/subcontractors/${subcontractorId}/projects`).then(res => res.data),
     createSubcontractor: (subcontractor: Omit<Subcontractor, 'id'>) => api.post<Subcontractor>('/subcontractors', subcontractor).then(res => res.data)
 }
