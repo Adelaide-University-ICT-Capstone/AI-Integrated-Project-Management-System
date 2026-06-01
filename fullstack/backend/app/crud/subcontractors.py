@@ -22,24 +22,7 @@ def get_visible_subcontractors(
     employee_id: uuid.UUID | None,
     is_superuser: bool,
 ) -> list[Subcontractor]:
-    if is_superuser:
-        return get_subcontractors(session=session)
-
-    if not employee_id:
-        return []
-
-    visible_project_ids = select(ProjectAssignment.project_id).where(
-        ProjectAssignment.employee_id == employee_id
-    )
-
-    query = (
-        select(Subcontractor)
-        .join(ProjectAssignment, ProjectAssignment.subcontractor_id == Subcontractor.id)
-        .where(col(ProjectAssignment.project_id).in_(visible_project_ids))
-        .distinct()
-    )
-
-    return list(session.exec(query).all())
+    return get_subcontractors(session=session)
 
 
 def get_visible_projects_for_subcontractor(
