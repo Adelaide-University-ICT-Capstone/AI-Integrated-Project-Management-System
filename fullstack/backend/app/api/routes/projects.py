@@ -375,7 +375,7 @@ def update_project_task(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> ProjectTaskPublic:
-    check_project_permission(session, project_id, current_user)
+    check_project_view_permission(session, project_id, current_user)
 
     existing = crud.get_project_task(session=session, task_id=task_id)
     if not existing:
