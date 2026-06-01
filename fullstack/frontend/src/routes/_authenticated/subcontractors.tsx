@@ -528,7 +528,6 @@ function Subcontractors() {
         const visibleMaterials = await materialsApi.getOrders()
         const visibleSubcontractorIds = new Set(subcontractorsResult.map((subcontractor) => subcontractor.id))
         // map API Material -> shared lightweight Order then convert fields to local UI types
-        console.log('Visible materials from API:', visibleMaterials)
         const uiOrders: Order[] = visibleMaterials
           .map(mapMaterialToOrder)
           .map((m) => ({
