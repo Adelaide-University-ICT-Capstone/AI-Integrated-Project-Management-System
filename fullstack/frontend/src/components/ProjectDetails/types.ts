@@ -13,18 +13,15 @@ export type Project = {
   days_elapsed: number
 }
 
-export type WorkflowPhaseStatus = 'pending' | 'in-progress' | 'completed'
-
 export type WorkflowPhase = {
   id: string
   phase: string
-  status: WorkflowPhaseStatus
+  status: 'pending' | 'in-progress' | 'completed'
   progress: number
   doneTasks: number
   totalTasks: number
   dueDate?: string | null
   displayOrder?: number | null
-  subtasks?: Subtask[]
 }
 
 export type MaterialStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
@@ -55,6 +52,11 @@ export type DirectoryWorker = {
   defaultRoleId: string | null
   status: string
 }
+
+
+
+
+export type WorkflowPhaseStatus = 'pending' | 'in-progress' | 'completed'
 
 export type ProjectTab = 'overview' | 'resources' | 'timeline' | 'workforce'
 

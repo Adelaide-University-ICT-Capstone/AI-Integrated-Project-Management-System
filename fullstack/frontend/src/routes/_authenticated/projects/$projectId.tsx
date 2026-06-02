@@ -9,7 +9,6 @@ import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { getApiErrorMessage } from '@/api/client'
 import { useQuery } from '@tanstack/react-query'
-import type { ProjectTaskManagementMilestone, ProjectTaskNode } from '../../../api/project'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
 import { workforceAllocationApi } from '@/api/workforceAllocation'
 import { readUsersWithDetails } from '@/client/adminApi'
@@ -20,177 +19,18 @@ import { ProjectHeader } from '@/components/ProjectDetails/ProjectHeader'
 import { ProjectTabs } from '@/components/ProjectDetails/ProjectTabs'
 import { TimelineSection } from '@/components/ProjectDetails/TimelineSection'
 import { WorkflowSection } from '@/components/ProjectDetails/WorkflowSection'
-import type { ProjectTab } from '@/components/ProjectDetails/types'
+import type { DirectoryWorker, Material, Project, ProjectTab, WorkflowPhase, WorkforceMember } from '@/components/ProjectDetails/types'
 import { EditProjectModal } from '@/components/ProjectDetails/EditProjectModal'
 import type { ProjectEditForm } from '@/components/ProjectDetails/types'
 import { WorkforceTab } from '@/components/ProjectDetails/WorkforceTab'
+import { AVATAR_COLORS } from '@/components/ProjectDetails/constants'
+import { calculateProgressPercent, formatRoleLabel, getWorkforceStatusColor, mapFrontendFieldToBackend, mapMilestoneToWorkflowPhase, mapStatusToFrontend } from '@/components/ProjectDetails/utils'
 const baseUrl = import.meta.env.VITE_API_URL
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetails,
 })
 
-type Project = {
-  job_number: string
-  project_name: string
-  company_name: string
-  company_address: string
-  client_name: string
-  status: string
-  current_status_id?: string | null
-  start_date: string
-  due_date: string
-  days_elapsed: number
-}
-
-type WorkflowPhase = {
-  id: string
-  phase: string
-  status: 'pending' | 'in-progress' | 'completed'
-  progress: number
-  doneTasks: number
-  totalTasks: number
-  dueDate?: string | null
-  displayOrder?: number | null
-}
-
-type MaterialStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
-
-type Material = {
-  id?: string
-  name: string
-  status: MaterialStatus
-  subcontractorId: string
-  orderedDate: string
-  isDefault?: boolean
-}
-
-type WorkforceMember = {
-  userId: string | null
-  name: string
-  role: string
-  roleId: string | null
-  avatar: string
-  status: string
-  color: string
-}
-
-type DirectoryWorker = {
-  userId: string
-  name: string
-  defaultRoleName: string
-  defaultRoleId: string | null
-  status: string
-}
-
-const AVATAR_COLORS = [
-  'bg-blue-500',
-  'bg-purple-500',
-  'bg-green-500',
-  'bg-orange-500',
-  'bg-teal-500',
-  'bg-pink-500',
-  'bg-indigo-500',
-]
-
-// Default subcontractor items pre-loaded for every project (per Harri's spec)
-// const DEFAULT_MATERIALS: Material[] = [
-//   { name: 'Survey', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-//   { name: 'Soil Testing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-//   { name: 'Timber Framing', status: 'N/A', subcontractor: '', orderedDate: '', isDefault: true },
-// ]
-
-
-
-
-
-const mapStatusToFrontend = (backendStatus: string) => { 
-  switch (backendStatus) {
-    case 'ordered':
-      return 'Ordered'
-    case 'received':
-      return 'Received'
-    case 'by_client':
-      return 'By Client'
-    default:
-      return 'N/A'
-  }
-}
-
-const mapFrontendFieldToBackend = (field: keyof Material) => {
-  switch (field) {
-    case 'name':
-      return 'name'
-    case 'status':
-      return 'status'
-    case 'subcontractorId':
-      return 'subcontractor_id'
-    case 'orderedDate':
-      return 'ordered_date'
-    default:
-      return field
-  }
-}
-
-const getWorkforceStatusColor = (status: string) => {
-  switch (status) {
-    case 'active':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-    case 'available':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-  }
-}
-
-const formatRoleLabel = (roleName?: string | null) => {
-  if (!roleName) return 'Team Member'
-  return roleName
-    .replace(/_/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ')
-}
-
-const getWorkflowPhaseStatus = (progress: number): WorkflowPhase['status'] => {
-  if (progress >= 100) return 'completed'
-  if (progress > 0) return 'in-progress'
-  return 'pending'
-}
-
-const isDoneTaskStatus = (status?: string | null) => status?.trim().toLowerCase() === 'done'
-
-const calculateTaskCompletion = (tasks: ProjectTaskNode[]): { doneTasks: number; totalTasks: number } =>
-  tasks.reduce(
-    (counts, task) => {
-      const childCounts = calculateTaskCompletion(task.children || [])
-      return {
-        doneTasks: counts.doneTasks + (isDoneTaskStatus(task.milestone_status) ? 1 : 0) + childCounts.doneTasks,
-        totalTasks: counts.totalTasks + 1 + childCounts.totalTasks,
-      }
-    },
-    { doneTasks: 0, totalTasks: 0 },
-  )
-
-const calculateProgressPercent = (doneTasks: number, totalTasks: number) =>
-  totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
-
-const mapMilestoneToWorkflowPhase = (milestone: ProjectTaskManagementMilestone): WorkflowPhase => {
-  const { doneTasks, totalTasks } = calculateTaskCompletion(milestone.tasks || [])
-  const progress = calculateProgressPercent(doneTasks, totalTasks)
-
-  return {
-    id: milestone.id,
-    phase: milestone.milestone_name,
-    progress,
-    doneTasks,
-    totalTasks,
-    status: getWorkflowPhaseStatus(progress),
-    dueDate: milestone.due_date,
-    displayOrder: milestone.display_order,
-  }
-}
 
 function WorkforceAllocationModal({
   workers,
