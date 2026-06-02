@@ -157,11 +157,19 @@ def get_projects_by_due_date(
 )
 def get_tasks(
     session: SessionDep,
+    current_user: CurrentUser,
     status: str | None = None,
     start: date | None = None,
     end: date | None = None,
 ) -> ProjectTasksPublic:
-    tasks = crud.get_tasks(session=session, status=status, start=start, end=end)
+    tasks = crud.get_tasks(
+        session=session,
+        status=status,
+        start=start,
+        end=end,
+        employee_id=current_user.employee_id,
+        filter_by_employee=not current_user.is_superuser,
+    )
     return ProjectTasksPublic(
         data=[ProjectTaskPublic.model_validate(task) for task in tasks],
         count=len(tasks),
@@ -225,7 +233,12 @@ def get_project_task_management(session: SessionDep, current_user: CurrentUser, 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    milestones = crud.get_project_task_management(session=session, project_id=project_id)
+    milestones = crud.get_project_task_management(
+        session=session,
+        project_id=project_id,
+        employee_id=current_user.employee_id,
+        filter_by_employee=not current_user.is_superuser,
+    )
     return ProjectTaskManagementResponse(project_id=project_id, milestones=milestones)
 
 

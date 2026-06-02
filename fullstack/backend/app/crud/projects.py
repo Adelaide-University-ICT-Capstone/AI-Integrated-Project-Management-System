@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from sqlalchemy import false
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, func, or_, select
 
@@ -371,6 +372,8 @@ def get_tasks(
     start: date | None = None,
     end: date | None = None,
     status: str | None = None,
+    employee_id: uuid.UUID | None = None,
+    filter_by_employee: bool = False,
 ) -> list[ProjectTask]:
     query = select(ProjectTask)
     if start is not None:
@@ -379,6 +382,11 @@ def get_tasks(
         query = query.where(ProjectTask.due_date <= end)
     if status is not None:
         query = query.where(func.lower(ProjectTask.milestone_status) == status.lower())
+    if filter_by_employee:
+        employee_filter = (
+            ProjectTask.assigned_employee_id == employee_id if employee_id else false()
+        )
+        query = query.where(employee_filter)
 
     return list(
         session.exec(
@@ -434,7 +442,13 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     return roots
 
 
-def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> list[ProjectMilestoneNode]:
+def get_project_task_management(
+    *,
+    session: Session,
+    project_id: uuid.UUID,
+    employee_id: uuid.UUID | None = None,
+    filter_by_employee: bool = False,
+) -> list[ProjectMilestoneNode]:
     milestones = list(
         session.exec(
             select(ProjectMilestone)
@@ -446,15 +460,20 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
         ).all()
     )
 
-    task_rows = list(
-        session.exec(
-            select(ProjectTask)
-            .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
-            .where(ProjectMilestone.project_id == project_id)
-            .options(selectinload(ProjectTask.assigned_employee))  # type: ignore[arg-type]
-            .order_by(col(ProjectTask.created_at))
-        ).all()
+    task_query = (
+        select(ProjectTask)
+        .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
+        .where(ProjectMilestone.project_id == project_id)
+        .options(selectinload(ProjectTask.assigned_employee))  # type: ignore[arg-type]
+        .order_by(col(ProjectTask.created_at))
     )
+    if filter_by_employee:
+        employee_filter = (
+            ProjectTask.assigned_employee_id == employee_id if employee_id else false()
+        )
+        task_query = task_query.where(employee_filter)
+
+    task_rows = list(session.exec(task_query).all())
     tasks_by_milestone: dict[uuid.UUID, list[ProjectTask]] = {}
     for task in task_rows:
         tasks_by_milestone.setdefault(task.milestone_id, []).append(task)
