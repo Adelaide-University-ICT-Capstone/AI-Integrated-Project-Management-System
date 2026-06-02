@@ -521,51 +521,48 @@ def delete_all_projects(*, session: Session) -> int:
 #     return material
 
 
-def update_project(*, session: Session, project: Project, updates: dict) -> Project:
-    project.sqlmodel_update(updates)
-    session.add(project)
-    session.commit()
-    session.refresh(project)
-    return project
-
-
-# def update_project_new(*, session: Session, project_id: uuid.UUID, project_data: ProjectUpdateRequest) -> Project | None:
-#     project = session.get(Project, project_id)
-#     if not project:
-#         return None
-
-#     if project_data.status is not None:
-#         status_type = get_status_type(session=session, status_name=project_data.status)
-
-#         if not status_type:
-#             raise ValueError(f"Status type '{project_data.status}' does not exist.")
-#         project.current_status_id = status_type.id
-
-#     if project_data.project_name is not None:
-#         project.project_name = project_data.project_name
-#     if project_data.contract_title is not None:
-#         project.contract_title = project_data.contract_title
-#     if project_data.agent is not None:
-#         project.agent = project_data.agent
-#     if project_data.job_title is not None:
-#         project.job_title = project_data.job_title
-#     if project_data.address is not None:
-#         project.full_address = project_data.address
-#     if project_data.project_types is not None:
-#         project.project_type = project_data.project_types
-#     if project_data.date_received is not None:
-#         project.date_received = project_data.date_received
-#     if project_data.start_date is not None:
-#         project.start_date = project_data.start_date
-#     if project_data.due_date is not None:
-#         project.due_date = project_data.due_date
-#     if project_data.fee_estimate is not None:
-#         project.fee_final = project_data.fee_estimate
-
+# def update_project(*, session: Session, project: Project, updates: dict) -> Project:
+#     project.sqlmodel_update(updates)
 #     session.add(project)
 #     session.commit()
 #     session.refresh(project)
 #     return project
+
+def update_project(*, session: Session, project: Project, updates: dict) -> Project:
+    client_company = updates.pop("client_company", None)
+    client_address = updates.pop("client_address", None)
+    client_name = updates.pop("client_name", None)
+    client_contact = updates.pop("client_contact", None)
+    fee_estimate = updates.pop("fee_estimate", None)
+    project_types = updates.pop("project_types", None)
+
+    if client_company is not None and project.client:
+        project.client.company_name = client_company
+
+    if client_address is not None and project.client:
+        project.client.billing_address = client_address
+
+    if client_name is not None and project.client:
+        project.client.client_name = client_name
+
+    if client_contact is not None and project.client:
+        project.client.contact_email = client_contact
+
+    if fee_estimate is not None:
+        project.invoice_amount = fee_estimate
+
+    if project_types is not None:
+        project.project_type = project_types
+
+    project.sqlmodel_update(updates)
+
+    if project.client:
+        session.add(project.client)
+
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return project
 
 # --------------------------------
 
