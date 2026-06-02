@@ -1,6 +1,6 @@
 """sync_project_task_columns
 
-Revision ID: 8a4f0c2d9b6e
+Revision ID: aaad3ce2e561
 Revises: 073b91b53e02
 Create Date: 2026-05-31 15:45:00.000000
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "8a4f0c2d9b6e"
+revision = "aaad3ce2e561"
 down_revision = "073b91b53e02"
 branch_labels = None
 depends_on = None
@@ -103,9 +103,30 @@ def upgrade():
             ["assigned_employee_id"],
             ["id"],
         )
+    
+    # Drop the old constraint without cascade
+    op.drop_constraint("audit_logs_project_id_fkey", "audit_logs", type_="foreignkey")
+    
+    # Recreate it WITH cascade
+    op.create_foreign_key(
+        "audit_logs_project_id_fkey",
+        "audit_logs",
+        "projects",
+        ["project_id"],
+        ["id"],
+        ondelete="CASCADE",
+    )
 
 
 def downgrade():
     # The current initial migration already owns these columns. This compatibility
     # migration only repairs databases that applied an older copy of it.
+    op.drop_constraint("audit_logs_project_id_fkey", "audit_logs", type_="foreignkey")
+    op.create_foreign_key(
+        "audit_logs_project_id_fkey",
+        "audit_logs",
+        "projects",
+        ["project_id"],
+        ["id"],
+    )
     pass

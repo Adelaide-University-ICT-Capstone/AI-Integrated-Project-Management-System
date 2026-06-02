@@ -38,6 +38,7 @@ export type MonthlyInvoiceResponse = {
 }
 
 export type Project = {
+  agent: string;
   job_number: string
   project_id: string
   project_name: string

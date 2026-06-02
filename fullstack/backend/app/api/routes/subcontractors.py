@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, get_current_user
 from app.models import (
+    Message,
     ProjectDetailsResponse,
     Subcontractor,
     SubcontractorCreate,
-    SubcontractorPublic
+    SubcontractorPublic,
+    SubcontractorUpdate
 )
 
 router = APIRouter(
@@ -26,6 +28,24 @@ def create_subcontractor( subcontractor: SubcontractorCreate, session: SessionDe
     created = crud.create_subcontractor(session=session, subcontractor=subcontractor)
     return SubcontractorPublic.model_validate(created)
 
+@router.patch("/{subcontractor_id}", response_model=SubcontractorPublic)
+def update_subcontractor(
+    subcontractor_id: uuid.UUID,
+    subcontractor_update: SubcontractorUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> SubcontractorPublic:
+    db_subcontractor = session.get(Subcontractor, subcontractor_id)
+    if not db_subcontractor:
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    updated = crud.update_subcontractor(
+        session=session,
+        db_subcontractor=db_subcontractor,
+        subcontractor_update=subcontractor_update
+    )
+    return SubcontractorPublic.model_validate(updated)
+
 @router.get("/", response_model=list[SubcontractorPublic])
 def list_subcontractors(
     session: SessionDep,
@@ -37,6 +57,35 @@ def list_subcontractors(
         is_superuser=current_user.is_superuser,
     )
     return [SubcontractorPublic.model_validate(sub) for sub in subcontractors]
+
+
+@router.delete("/{subcontractor_id}", response_model=Message)
+def delete_subcontractor(
+    subcontractor_id: uuid.UUID,
+    session: SessionDep,
+) -> Message:
+    subcontractor = session.get(Subcontractor, subcontractor_id)
+    if not subcontractor:
+        raise HTTPException(status_code=404, detail="Subcontractor not found")
+
+    usage = crud.subcontractor_usage_counts(
+        session=session,
+        subcontractor_id=subcontractor_id,
+    )
+
+    if any(usage.values()):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Subcontractor is in use and cannot be deleted. "
+                f"Assignments: {usage['assignments']}, "
+                f"materials: {usage['materials']}, "
+                f"time logs: {usage['time_logs']}."
+            ),
+        )
+
+    crud.delete_subcontractor(session=session, subcontractor=subcontractor)
+    return Message(message="Subcontractor deleted successfully")
 
 
 @router.get("/{subcontractor_id}/projects", response_model=ProjectDetailsResponse)

@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy.orm import aliased
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, select, func
 from datetime import date, datetime, timedelta
 
 
@@ -9,7 +9,10 @@ from app.models import (
     Project,
     ProjectAssignment,
     Subcontractor,
-    SubcontractorCreate
+    SubcontractorCreate,
+    SubcontractorUpdate,
+    Material,
+    TimeLog,
 )
 
 def get_subcontractors(*, session: Session) -> list[Subcontractor]:
@@ -66,3 +69,58 @@ def create_subcontractor(*, session: Session, subcontractor: SubcontractorCreate
     session.commit()
     session.refresh(db_subcontractor)
     return db_subcontractor
+
+def update_subcontractor(
+    *,
+    session: Session,
+    db_subcontractor: Subcontractor,
+    subcontractor_update: SubcontractorUpdate,
+) -> Subcontractor:
+    update_data = subcontractor_update.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(db_subcontractor, field, value)
+
+    session.add(db_subcontractor)
+    session.commit()
+    session.refresh(db_subcontractor)
+    return db_subcontractor
+
+
+def subcontractor_usage_counts(
+    *,
+    session: Session,
+    subcontractor_id: uuid.UUID,
+) -> dict[str, int]:
+    assignment_count = session.exec(
+        select(func.count())
+        .select_from(ProjectAssignment)
+        .where(ProjectAssignment.subcontractor_id == subcontractor_id)
+    ).one()
+
+    material_count = session.exec(
+        select(func.count())
+        .select_from(Material)
+        .where(Material.subcontractor_id == subcontractor_id)
+    ).one()
+
+    time_log_count = session.exec(
+        select(func.count())
+        .select_from(TimeLog)
+        .where(TimeLog.subcontractor_id == subcontractor_id)
+    ).one()
+
+    return {
+        "assignments": assignment_count,
+        "materials": material_count,
+        "time_logs": time_log_count,
+    }
+
+
+def delete_subcontractor(
+    *,
+    session: Session,
+    subcontractor: Subcontractor,
+) -> None:
+    session.delete(subcontractor)
+    session.commit()
