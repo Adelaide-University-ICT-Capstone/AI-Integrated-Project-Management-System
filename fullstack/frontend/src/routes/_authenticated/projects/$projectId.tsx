@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   Users,
-  Plus,
   X,
   Loader2,
 } from 'lucide-react'

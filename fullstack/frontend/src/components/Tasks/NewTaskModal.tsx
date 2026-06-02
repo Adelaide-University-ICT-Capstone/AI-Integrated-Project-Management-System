@@ -29,7 +29,7 @@ interface NewTaskModalProps {
   onClose: () => void
   onSave: (task: TaskFormData) => Promise<void>
   projects: ProjectTaskManagementProject[]
-  roles: Role[]
+  workforceByProject: Record<string, WorkforceAllocationEntry[]>
 }
 
 export function NewTaskModal({
@@ -39,14 +39,7 @@ export function NewTaskModal({
   onSave,
   projects,
   workforceByProject,
-}: {
-  isSaving: boolean
-  milestonesByProject: Record<string, ProjectMilestoneNode[]>
-  onClose: () => void
-  onSave: (task: TaskFormData) => Promise<void>
-  projects: ProjectTaskManagementProject[]
-  workforceByProject: Record<string, WorkforceAllocationEntry[]>
-}) {
+}: NewTaskModalProps) {
   const firstProjectId = projects[0]?.project_id || ''
   const firstMilestoneId = milestonesByProject[firstProjectId]?.[0]?.id || ''
   const [formData, setFormData] = useState<TaskFormData>({

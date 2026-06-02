@@ -8,9 +8,8 @@ import type {
   ProjectMilestoneNode,
   ProjectTaskManagementProject,
   ProjectTaskManagementResponse,
-  ProjectTaskNode,
 } from '@/api/taskManagement'
-import type { Task, TaskPriority } from './types'
+import type { TaskPriority } from './types'
 
 // ----- Generic helpers -----
 
@@ -81,9 +80,7 @@ export const getDueDateColor = (dueDate: string, status: string) => {
   today.setHours(0, 0, 0, 0)
   const due = new Date(dueDate)
   due.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil(
-    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-  )
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return 'text-red-600 font-semibold'
   if (diffDays < 3) return 'text-orange-600 font-semibold'
   if (diffDays < 7) return 'text-yellow-600 font-medium'
@@ -97,15 +94,15 @@ export const getDueDateLabel = (dueDate: string, status: string) => {
   today.setHours(0, 0, 0, 0)
   const due = new Date(dueDate)
   due.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil(
-    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-  )
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`
   if (diffDays === 0) return 'Due today'
   if (diffDays === 1) return 'Due tomorrow'
   if (diffDays < 14) return `${diffDays} days left`
   return null
 }
+
+
 
 // ----- Project label helpers -----
 
@@ -114,11 +111,8 @@ export const getDueDateLabel = (dueDate: string, status: string) => {
 // different subsets of these fields, so we go down the list until we
 // find something usable.
 export const getProjectName = (project: ProjectTaskManagementProject) =>
-  project.project_name ||
-  project.contract_title ||
-  project.job_title ||
-  project.job_number ||
-  project.project_id
+  project.project_name || project.contract_title || project.job_title || project.job_number || project.project_id
+
 
 // Compact label used on the project filter tabs. The job number is
 // short and uniquely identifies the project, so we prefer that over

@@ -22,13 +22,12 @@ import {
 import EditSubcontractorPanel from '@/components/Subcontractors/EditSubcontractorPanel'
 
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import {
   Plus,
   Search,
   Building2,
   Mail,
-  X,
   Send,
   Edit2,
   Trash2,

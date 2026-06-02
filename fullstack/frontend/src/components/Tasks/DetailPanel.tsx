@@ -24,7 +24,6 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Role } from '@/api/taskManagement'
 import type { Task, TaskEditFormData } from './types'
 import { columns, priorityColors } from './constants'
 import { getDueDateColor, getDueDateLabel } from './utils'

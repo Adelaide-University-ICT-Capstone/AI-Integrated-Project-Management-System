@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -12,7 +12,6 @@ import {
 } from '@dnd-kit/core'
 import {
   AlertTriangle,
-  Filter,
   FolderKanban,
   Loader2,
   Plus,
@@ -34,93 +33,16 @@ import { workforceAllocationApi } from '@/api/workforceAllocation'
 import type { WorkforceAllocationEntry } from '@/api/workforceAllocation'
 import TaskCard from '@/components/Tasks/TaskCard'
 import DetailPanel, { ArrowTab } from '@/components/Tasks/DetailPanel'
-import { TaskEditFormData, TaskFormData } from '@/components/Tasks/types'
+import { Task, TaskEditFormData, TaskFormData } from '@/components/Tasks/types'
 import NewTaskModal from '@/components/Tasks/NewTaskModal'
 import DroppableColumn from '@/components/Tasks/DroppableColumn'
-import { getInitials, normalizeTaskStatus } from '@/components/Tasks/utils'
+import { getInitials, getPriority, getProjectName, getProjectTabLabel, normalizeTaskStatus } from '@/components/Tasks/utils'
 import { assigneeColors, columns } from '@/components/Tasks/constants'
 
 export const Route = createFileRoute('/_authenticated/tasks')({
   component: TaskBoard,
 })
 
-type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
-
-interface Assignee {
-  name: string
-  role: string
-  initials: string
-  hours: number
-  color: string
-}
-
-interface Task {
-  id: string
-  projectId: string
-  milestoneId: string
-  parentTaskId?: string | null
-  jobNumber: string
-  workflowPhase: string
-  title: string
-  description: string
-  status: string
-  priority: TaskPriority
-  project: string
-  assignee: string
-  assignedEmployeeId?: string | null
-  allocatedHours: number
-  dueDate: string
-  aiRisk?: string
-  assignees?: Assignee[]
-}
-
-
-const getPriority = (dueDate?: string | null, status?: string | null): TaskPriority => {
-  if (!dueDate || normalizeTaskStatus(status) === 'done') return 'medium'
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return 'critical'
-  if (diffDays < 3) return 'high'
-  if (diffDays < 7) return 'medium'
-  return 'low'
-}
-
-const getDueDateColor = (dueDate: string, status: string) => {
-  if (!dueDate || status === 'done') return 'text-gray-500 dark:text-gray-400'
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return 'text-red-600 font-semibold'
-  if (diffDays < 3) return 'text-orange-600 font-semibold'
-  if (diffDays < 7) return 'text-yellow-600 font-medium'
-  if (diffDays < 14) return 'text-green-600'
-  return 'text-gray-500 dark:text-gray-400'
-}
-
-const getDueDateLabel = (dueDate: string, status: string) => {
-  if (!dueDate || status === 'done') return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`
-  if (diffDays === 0) return 'Due today'
-  if (diffDays === 1) return 'Due tomorrow'
-  if (diffDays < 14) return `${diffDays} days left`
-  return null
-}
-
-const getProjectName = (project: ProjectTaskManagementProject) =>
-  project.project_name || project.contract_title || project.job_title || project.job_number || project.project_id
-
-const getProjectTabLabel = (project: ProjectTaskManagementProject) =>
-  project.job_number || getProjectName(project)
 
 const toNumber = (value?: number | string | null) => {
   const parsed = Number(value ?? 0)
