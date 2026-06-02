@@ -34,26 +34,18 @@ export interface Task {
   id: string
   projectId: string
   milestoneId: string
-  // Null at the root of a milestone; populated for nested child tasks.
   parentTaskId?: string | null
   jobNumber: string
   workflowPhase: string
   title: string
   description: string
-  // Normalised kanban status: 'todo' | 'inprogress' | 'review' | 'done'.
-  // Kept as a plain string so we can match against the columns config
-  // and avoid a circular dependency between types and constants.
   status: string
   priority: TaskPriority
-  // Display name of the project — denormalised so the kanban card
-  // doesn't have to look it up from the projects list every render.
   project: string
-  // Role assigned to the task, or 'Unassigned' if none.
   assignee: string
-  assignedRoleId?: string | null
+  assignedEmployeeId?: string | null
   allocatedHours: number
   dueDate: string
-  // Optional AI-generated risk warning shown in the detail panel.
   aiRisk?: string
   assignees?: Assignee[]
 }
@@ -70,20 +62,16 @@ export type TaskFormData = {
   taskName: string
   taskDescription: string
   dueDate: string
-  assignedRoleId: string
-  // Stored as a string while the user is typing so the input field
-  // can show partial values; coerced to a number when the form is
-  // submitted.
+  assignedEmployeeId: string
   allocatedHours: string
 }
+
 
 export type TaskEditFormData = {
   taskName: string
   taskDescription: string
   dueDate: string
-  assignedRoleId: string
+  assignedEmployeeId: string
   allocatedHours: string
-  // Includes status because editing in the detail panel lets the user
-  // change the kanban column inline.
   status: string
 }

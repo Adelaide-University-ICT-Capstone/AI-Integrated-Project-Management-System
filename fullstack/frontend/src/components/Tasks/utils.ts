@@ -11,7 +11,6 @@ import type {
   ProjectTaskNode,
 } from '@/api/taskManagement'
 import type { Task, TaskPriority } from './types'
-import { assigneeColors } from './constants'
 
 // ----- Generic helpers -----
 
@@ -128,78 +127,6 @@ export const getProjectTabLabel = (project: ProjectTaskManagementProject) =>
   project.job_number || getProjectName(project)
 
 // ----- Task tree flattening -----
-
-// The backend returns tasks as a nested tree: a project has milestones,
-// each milestone has root tasks, and each task can have child tasks.
-// The kanban board needs a flat list. This walks the tree depth-first
-// and produces that flat list while embedding the project + milestone
-// context onto each task so we don't have to look it up later.
-//
-// Recursion is bounded by how deep the backend nests child tasks — in
-// practice a few levels at most. Switch to an iterative implementation
-// only if we ever hit a stack depth limit.
-export const flattenTaskNodes = (
-  nodes: ProjectTaskNode[],
-  project: ProjectTaskManagementProject,
-  milestone: ProjectMilestoneNode,
-): Task[] =>
-  nodes.flatMap((node, index) => {
-    const status = normalizeTaskStatus(node.milestone_status)
-    const assignedRole = node.assigned_role_name || 'Unassigned'
-    const allocatedHours = toNumber(node.allocated_hours)
-    const task: Task = {
-      id: node.id,
-      projectId: project.project_id,
-      milestoneId: milestone.id,
-      parentTaskId: node.parent_task_id,
-      jobNumber: project.job_number || project.project_id,
-      // Prefer the task-level phase name; fall back to the milestone
-      // name so the kanban card always has something to show.
-      workflowPhase: node.core_phase_name || milestone.milestone_name,
-      title: node.task_name,
-      description: node.task_description || '',
-      status,
-      // Pull due date from the task first, milestone second. The
-      // milestone date acts as a sensible default when a task hasn't
-      // had its own date set yet.
-      priority: getPriority(node.due_date || milestone.due_date, status),
-      project: getProjectName(project),
-      assignee: assignedRole,
-      assignedRoleId: node.assigned_role_id,
-      allocatedHours,
-      dueDate: node.due_date || milestone.due_date || '',
-      // The detail panel shows a single assignee block per task. We
-      // create one only when there's a real role assigned — leaving
-      // the array empty otherwise keeps the panel uncluttered.
-      assignees: node.assigned_role_name
-        ? [
-            {
-              name: node.assigned_role_name,
-              role: node.assigned_role_name,
-              initials: getInitials(node.assigned_role_name),
-              hours: allocatedHours,
-              color: assigneeColors[index % assigneeColors.length],
-            },
-          ]
-        : [],
-    }
-
-    return [task, ...flattenTaskNodes(node.children || [], project, milestone)]
-  })
-
-// Top-level entry point that walks every project's milestone tree
-// and produces the flat task list the kanban renders.
-export const mapTaskManagementToTasks = (
-  rows: Array<{
-    project: ProjectTaskManagementProject
-    taskManagement: ProjectTaskManagementResponse
-  }>,
-) =>
-  rows.flatMap(({ project, taskManagement }) =>
-    taskManagement.milestones.flatMap((milestone) =>
-      flattenTaskNodes(milestone.tasks || [], project, milestone),
-    ),
-  )
 
 // Reduces the same rows into a Record keyed by project ID, so the
 // new-task modal can populate the milestone dropdown once the user
