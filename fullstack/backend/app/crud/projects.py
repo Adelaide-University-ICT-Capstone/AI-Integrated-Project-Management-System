@@ -289,6 +289,7 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 contract_title=p.contract_title,
                 agent=p.agent,
                 job_title=p.job_title,
+                current_status_id=p.current_status_id,
                 address=p.full_address,
                 company_name=p.client.company_name if client else None,
                 company_address=p.client.billing_address if client else None,
