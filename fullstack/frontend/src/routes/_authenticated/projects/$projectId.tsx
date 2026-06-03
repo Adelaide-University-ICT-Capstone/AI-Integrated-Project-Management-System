@@ -186,6 +186,7 @@ function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDeleteProject = Boolean(user?.is_superuser) || user?.role_name?.trim().toLowerCase() === 'project_manager'
   const [activeTab, setActiveTab] = useState<ProjectTab>('overview')
   const [projectStatus, setProjectStatus] = useState('')
   const [projectStatusId, setProjectStatusId] = useState('')
@@ -788,7 +789,7 @@ function ProjectDetails() {
         selectStatusValue={selectStatusValue}
         isUpdatingStatus={isUpdatingStatus}
         onBack={() => navigate({ to: '/projects' })}
-        onDelete={handleDelete}
+        onDelete={canDeleteProject ? handleDelete : undefined}
         onEdit={() => setShowEditProject(true)}
         onUpdateStatus={(statusId) => void handleUpdateProjectStatus(statusId)}
       />

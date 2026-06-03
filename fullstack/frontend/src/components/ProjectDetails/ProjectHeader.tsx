@@ -11,7 +11,7 @@ interface ProjectHeaderProps {
   selectStatusValue: string
   isUpdatingStatus: boolean
   onBack: () => void
-  onDelete: () => void
+  onDelete?: () => void
   onEdit: () => void
   onUpdateStatus: (statusId: string) => void
 }
@@ -45,13 +45,15 @@ export function ProjectHeader({
             <Edit2 size={16} />
             Edit Project
           </button>
-          <button
-            onClick={onDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-          >
-            <Trash2 size={16} />
-            Delete Project
-          </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+            >
+              <Trash2 size={16} />
+              Delete Project
+            </button>
+          )}
         </div>
       </div>
 
