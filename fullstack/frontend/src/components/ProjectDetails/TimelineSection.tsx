@@ -8,21 +8,48 @@ interface TimelineSectionProps {
 }
 
 export function TimelineSection({ workflow, startDate, dueDate }: TimelineSectionProps) {
-  if (!startDate || !dueDate) {
-    return (
-      <TimelineEmpty
-        title="Project dates not set"
-        message="Set a start date and due date to enable the timeline view."
-      />
-    )
-  }
-
   if (workflow.length === 0) {
     return <TimelineEmpty title="No workflow phases yet" message="Add phases on the Overview tab to build the timeline." />
   }
 
-  const start = new Date(startDate)
-  const end = new Date(dueDate)
+  const parseDate = (value?: string | null) => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    date.setHours(0, 0, 0, 0)
+    return date
+  }
+
+  const addDays = (date: Date, days: number) => {
+    const next = new Date(date)
+    next.setDate(next.getDate() + days)
+    return next
+  }
+
+  const workflowDueDates = workflow.map((phase) => parseDate(phase.dueDate)).filter((date): date is Date => Boolean(date))
+  const projectStart = parseDate(startDate)
+  const projectDue = parseDate(dueDate)
+  const earliestWorkflowDue = workflowDueDates.length
+    ? new Date(Math.min(...workflowDueDates.map((date) => date.getTime())))
+    : null
+  const latestWorkflowDue = workflowDueDates.length
+    ? new Date(Math.max(...workflowDueDates.map((date) => date.getTime())))
+    : null
+
+  const start = projectStart || (earliestWorkflowDue ? addDays(earliestWorkflowDue, -Math.max(workflow.length, 1)) : null)
+  const end = latestWorkflowDue && projectDue
+    ? new Date(Math.max(latestWorkflowDue.getTime(), projectDue.getTime()))
+    : latestWorkflowDue || projectDue
+
+  if (!start || !end) {
+    return (
+      <TimelineEmpty
+        title="Timeline dates not set"
+        message="Set project dates or workflow due dates to enable the timeline view."
+      />
+    )
+  }
+
   start.setHours(0, 0, 0, 0)
   end.setHours(0, 0, 0, 0)
 
@@ -50,8 +77,30 @@ export function TimelineSection({ workflow, startDate, dueDate }: TimelineSectio
     })
     cursor.setMonth(cursor.getMonth() + 1)
   }
+  const totalDays = Math.max(1, Math.ceil(totalMs / (1000 * 60 * 60 * 24)))
+  let previousPhaseEnd = start
+  const timelineRows = workflow.map((phase, index) => {
+    const phaseDueDate = parseDate(phase.dueDate)
+    const phaseStart = index === 0 ? start : previousPhaseEnd
+    const fallbackEnd = index === workflow.length - 1
+      ? end
+      : addDays(start, Math.round((totalDays / workflow.length) * (index + 1)))
+    const candidateEnd = phaseDueDate || fallbackEnd
+    const phaseEnd = candidateEnd > phaseStart ? candidateEnd : addDays(phaseStart, 1)
+    previousPhaseEnd = phaseEnd
 
-  const phaseSlice = 100 / workflow.length
+    const boundedStart = phaseStart > end ? end : phaseStart
+    const boundedEnd = phaseEnd > end ? end : phaseEnd
+    const left = dateToPercent(boundedStart)
+    const right = dateToPercent(boundedEnd)
+
+    return {
+      phase,
+      phaseDueDate,
+      left,
+      width: Math.max(0, Math.min(100 - left, Math.max(2, right - left || 2))),
+    }
+  })
 
   return (
     <div className="space-y-4">
@@ -87,9 +136,7 @@ export function TimelineSection({ workflow, startDate, dueDate }: TimelineSectio
           </div>
 
           <div className="relative">
-            {workflow.map((phase, index) => {
-              const left = index * phaseSlice
-              const width = phaseSlice
+            {timelineRows.map(({ phase, phaseDueDate, left, width }) => {
               const barColor =
                 phase.status === 'completed'
                   ? 'bg-green-300 dark:bg-green-900/40'
@@ -114,6 +161,9 @@ export function TimelineSection({ workflow, startDate, dueDate }: TimelineSectio
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       {phase.progress}% - {phase.doneTasks}/{phase.totalTasks} tasks
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                      Due {phaseDueDate ? phaseDueDate.toLocaleDateString() : 'TBD'}
                     </div>
                   </div>
                   <div className="flex-1 relative h-10">

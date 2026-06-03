@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -22,8 +22,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { readUsersWithDetails } from '@/client/adminApi'
-
-const baseUrl = import.meta.env.VITE_API_URL
+import { getApiErrorMessage } from '@/api/client'
+import { projectsApi } from '@/api/project'
+import { taskManagementApi } from '@/api/taskManagement'
+import { workforceAllocationApi } from '@/api/workforceAllocation'
 
 export const Route = createFileRoute('/_authenticated/projects/new')({
   component: NewProject,
@@ -54,6 +56,7 @@ const STAFF_AVATAR_COLORS = [
 
 type StaffOption = {
   id: string
+  employeeId: string | null
   name: string
   role: string
   avatarColor: string
@@ -90,6 +93,8 @@ const priorityColors = {
 function NewProject() {
   const navigate = useNavigate()
   const [, setSubmissionError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([])
   const [currentStep, setCurrentStep] = useState<StepKey>('details')
   const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set())
@@ -140,6 +145,7 @@ function NewProject() {
         setStaffOptions(
           users.map((user: any, index: number) => ({
             id: user.id,
+            employeeId: user.employee_id || null,
             name: user.full_name?.trim() || user.email?.split('@')[0] || `User ${index + 1}`,
             role: user.role_name || 'Team Member',
             avatarColor: STAFF_AVATAR_COLORS[index % STAFF_AVATAR_COLORS.length],
@@ -310,9 +316,119 @@ function NewProject() {
 
   const getStaff = (staffId: string) => staffOptions.find((staff) => staff.id === staffId)
 
+  const ensureAssignedStaffInWorkforce = async (projectId: string) => {
+    const assignedStaff = new Map<string, StaffOption>()
+    subtasks.forEach((subtask) => {
+      subtask.assignments.forEach((assignment) => {
+        const staff = getStaff(assignment.staffId)
+        if (staff?.employeeId) assignedStaff.set(staff.id, staff)
+      })
+    })
+
+    if (assignedStaff.size === 0) return
+
+    const [workforce, roles] = await Promise.all([
+      workforceAllocationApi.getWorkforceAllocations(projectId),
+      taskManagementApi.getRoles(),
+    ])
+    const existingEmployeeIds = new Set(
+      workforce.assignments
+        .map((assignment) => assignment.employee_id)
+        .filter((employeeId): employeeId is string => Boolean(employeeId)),
+    )
+    const activeRoles = roles.data.filter((role) => role.is_active)
+    const fallbackRole = activeRoles[0]
+
+    const payload = [...assignedStaff.values()]
+      .filter((staff) => staff.employeeId && !existingEmployeeIds.has(staff.employeeId))
+      .map((staff) => {
+        const matchingRole = activeRoles.find(
+          (role) => role.role_name.toLowerCase() === staff.role.toLowerCase(),
+        )
+        const role = matchingRole || fallbackRole
+        if (!role) {
+          throw new Error('No active role is available for workforce assignment')
+        }
+        return {
+          user_id: staff.id,
+          role_id: role.id,
+        }
+      })
+
+    if (payload.length > 0) {
+      await workforceAllocationApi.assignWorkforce(projectId, payload)
+    }
+  }
+
+  const createWorkflowAndSubtasks = async (projectId: string) => {
+    await ensureAssignedStaffInWorkforce(projectId)
+
+    const createdMilestonesByPhaseId = new Map<string, string>()
+
+    for (const [index, phase] of phases.entries()) {
+      const milestone = await projectsApi.createProjectMilestone(projectId, {
+        milestone_name: phase.name.trim(),
+        display_order: index + 3,
+        progress: phase.progress,
+        is_complete: phase.progress >= 100,
+      })
+      createdMilestonesByPhaseId.set(phase.id, milestone.id)
+    }
+
+    for (const subtask of subtasks) {
+      const milestoneId = createdMilestonesByPhaseId.get(subtask.phaseId)
+      const phase = phases.find((item) => item.id === subtask.phaseId)
+      if (!milestoneId || !phase) continue
+
+      const baseTaskPayload = {
+        task_name: subtask.title.trim(),
+        task_description: `Priority: ${subtask.priority}`,
+        milestone_status: 'todo',
+        core_phase_name: phase.name,
+      }
+
+      if (subtask.assignments.length <= 1) {
+        const assignment = subtask.assignments[0]
+        const staff = assignment ? getStaff(assignment.staffId) : null
+        await taskManagementApi.createTask(projectId, milestoneId, {
+          ...baseTaskPayload,
+          assigned_employee_id: staff?.employeeId || null,
+          allocated_hours: assignment?.hours ?? null,
+        })
+        continue
+      }
+
+      const parentTask = await taskManagementApi.createTask(projectId, milestoneId, {
+        ...baseTaskPayload,
+        allocated_hours: subtask.assignments.reduce((sum, assignment) => sum + assignment.hours, 0),
+      })
+
+      for (const assignment of subtask.assignments) {
+        const staff = getStaff(assignment.staffId)
+        await taskManagementApi.createTask(projectId, milestoneId, {
+          task_name: `${subtask.title.trim()} - ${staff?.name || 'Assigned work'}`,
+          task_description: `Priority: ${subtask.priority}`,
+          parent_task_id: parentTask.id,
+          assigned_employee_id: staff?.employeeId || null,
+          allocated_hours: assignment.hours,
+          milestone_status: 'todo',
+          core_phase_name: phase.name,
+        })
+      }
+    }
+  }
+
   // Final submit
   const handleSubmit = async () => {
+    if (isSubmittingRef.current) return
+    if (!validateDetails()) {
+      toast.error('Please fill all required fields')
+      return
+    }
+
     setSubmissionError('')
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
 
     const payload = {
       job_number: formData.jobNumber,
@@ -328,36 +444,41 @@ function NewProject() {
       date_received: formData.dateReceived,
       start_date: formData.dateReceived,
       due_date: formData.dueDate,
-      // phases, subtasks, and assignments stored locally for now
-      // TODO: send to backend once API supports them
     }
 
     const token = localStorage.getItem('access_token');
     if (!token) {
       toast.error('You must be logged in to create a project')
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
       return
     }
 
     try {
-      const response = await fetch(`${baseUrl}/api/v1/projects`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify(payload),
-      })
-      const result = await response.json()
-      if (!response.ok) {
-        toast.error(result.detail || 'Failed to create project')
-        return
+      const result = await projectsApi.createProject(payload)
+      const projectId = result.project_id
+
+      if (phases.length > 0) {
+        try {
+          await createWorkflowAndSubtasks(projectId)
+        } catch (error) {
+          const message = getApiErrorMessage(error)
+          setSubmissionError(`Project created, but workflow/subtask setup failed: ${message}`)
+          toast.error(`Project created, but workflow/subtask setup failed: ${message}`)
+          navigate({ to: '/projects/$projectId', params: { projectId } })
+          return
+        }
       }
 
       toast.success("Project created successfully");
       navigate({ to: '/projects' })
     } catch (error) {
-      setSubmissionError('Unable to reach the backend. Please try again later.')
-      toast.error('Unable to reach the backend')
+      const message = getApiErrorMessage(error)
+      setSubmissionError(message)
+      toast.error(message || 'Unable to reach the backend')
+    } finally {
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
     }
   }
 
@@ -965,6 +1086,7 @@ function NewProject() {
         <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
           <button
             onClick={currentStep === 'details' ? () => navigate({ to: '/projects' }) : handleBack}
+            disabled={isSubmitting}
             className="flex items-center gap-2 px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             {currentStep === 'details' ? (
@@ -981,6 +1103,7 @@ function NewProject() {
               <button
                 type="button"
                 onClick={() => navigate({ to: '/projects' })}
+                disabled={isSubmitting}
                 className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
@@ -988,10 +1111,11 @@ function NewProject() {
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save size={20} />
-                Save Project
+                {isSubmitting ? 'Saving...' : 'Save Project'}
               </button>
             </>
           ) : (

@@ -126,6 +126,31 @@ export type ProjectUpdatePayload = {
   fee_estimate?: string | null
 }
 
+export type ProjectCreatePayload = {
+  job_number: string
+  project_types: string
+  project_name: string
+  client_name: string
+  client_company?: string | null
+  client_contact?: string | null
+  client_address?: string | null
+  address?: string | null
+  contract_title?: string | null
+  agent?: string | null
+  job_title?: string | null
+  fee_estimate?: number | string | null
+  date_received: string
+  start_date: string
+  due_date: string
+  preliminary_due_date?: string | null
+  design_due_date?: string | null
+}
+
+export type ProjectCreateResponse = {
+  project_id: string
+  message: string
+}
+
 export type ProjectStatusType = {
   id: string
   status_name: string
@@ -137,6 +162,9 @@ export type ProjectStatusType = {
 
 // src/api/projects.ts
 export const projectsApi = {
+  createProject: (payload: ProjectCreatePayload) =>
+    api.post<ProjectCreateResponse>('/projects', payload).then(res => res.data),
+
   //  @router.get("/current-project-num")
   getCurrentProjectCount: () => api.get<MonthlyCountResponse>('/projects/current-project-num').then(res => res.data),
 
