@@ -182,7 +182,7 @@ def trigger_invoice_reminders(
         from app import crud
 
         StatusModel = Project.current_status.property.mapper.class_
-        target_names = ["to_be_invoiced", "to be invoiced", "completed"]
+        target_names = ["to_be_invoiced", "to be invoiced"]
         stmt = select(Project).join(StatusModel).where(
             StatusModel.status_name.in_(target_names),
             Project.is_active == True
