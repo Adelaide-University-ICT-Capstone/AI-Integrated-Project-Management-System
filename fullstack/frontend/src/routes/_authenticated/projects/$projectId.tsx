@@ -300,6 +300,16 @@ function ProjectDetails() {
     setWorkflow(updated)
   }
 
+  // Persist a milestone due date for the given phase.
+  // TODO: Lee/Depresso — wire this to PATCH
+  const updatePhaseDueDate = (index: number, dueDate: string) => {
+    const updated = [...workflow]
+    // WorkflowPhase type doesn't declare a dueDate field in the shared
+    // types; store it dynamically and avoid a TS error by using a cast.
+    ;(updated[index] as any).dueDate = dueDate
+    setWorkflow(updated)
+  }
+
   // ----- Phase panel handlers -----
 
   const handlePhaseClick = (index: number) => {
@@ -467,8 +477,8 @@ function ProjectDetails() {
                 className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 {statusData?.map((s) => (
-                  <option key={s,id} value={s.status_name}>
-                    {{s.status_name}}
+                  <option key={s.id} value={s.status_name}>
+                    {s.status_name}
                   </option>
                 ))}
               </select>
@@ -553,6 +563,7 @@ function ProjectDetails() {
                 onRemovePhase={removeWorkflowPhase}
                 onPhaseClick={handlePhaseClick}
                 onUpdatePhaseProgress={updatePhaseProgress}
+                onUpdatePhaseDueDate={updatePhaseDueDate}
               />
 
               <MaterialsSection

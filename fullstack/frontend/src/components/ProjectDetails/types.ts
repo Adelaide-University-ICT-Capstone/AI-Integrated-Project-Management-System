@@ -33,6 +33,10 @@ export interface WorkflowPhase {
   phase: string
   status: WorkflowPhaseStatus
   progress: number
+  // Optional milestone due date. Backend exposes PATCH
+  // /projects/{id}/milestones/{id} to persist this — currently
+  // local-only until that's wired up.
+  dueDate?: string
   subtasks: Subtask[]
 }
 
