@@ -48,7 +48,7 @@ def generate_due_reminder_email(
     html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>{project_name} Due Date Reminders</h2>
+            <h2>Gama Consulting Due Date Reminders</h2>
             <p>The following items are approaching their deadlines (14, 7, 3, or 0 days remaining):</p>
             <table style='border-collapse: collapse; width: 100%; border: 1px solid #ddd;'>
                 <thead>
@@ -65,6 +65,8 @@ def generate_due_reminder_email(
     </html>
     """
     return EmailData(html_content=html_content, subject=subject)
+
+
 
 # =========================================================================
 # 1. Deadline Reminders (Refactored to loop through users and check toggle)
@@ -158,9 +160,111 @@ def trigger_due_reminders(
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
+
 # =========================================================================
-# Added: Centralized Email Notification Triggers with Preference Verification
+# Weekly Invoice Alerts (Scans completed projects without invoices)
 # =========================================================================
+@router.post(
+    "/trigger-invoice-reminders/",
+    dependencies=[Depends(get_current_active_superuser)],
+    status_code=202,
+    response_model=Message
+)
+def trigger_invoice_reminders(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+) -> Message:
+    """
+    Scan for completed or fully delivered projects missing invoices,
+    routing personalised summaries directly to assigned staff members.
+    """
+    try:
+        from app.models import ProjectAssignment, User, Employee, Project
+        from app import crud
+
+        target_status_ids = [
+            uuid.UUID("b0000000-0000-0000-0000-000000000005"),
+            uuid.UUID("b0000000-0000-0000-0000-000000000003"),
+            uuid.UUID("d5ccd295-7dcd-45f1-b4db-29bfbdeae305")
+        ]
+
+        stmt = select(Project).where(
+            Project.current_status_id.in_(target_status_ids),
+            Project.is_active == True
+        )
+        candidate_projects = db.exec(stmt).all()
+        user_reminders_map = {}
+
+        for p in candidate_projects:
+            if not crud.is_project_invoiced(session=db, project=p):
+                project_item = {
+                    "job_number": p.job_number,
+                    "name": p.project_name or "Unnamed Project",
+                    "status": p.current_status.status_name if p.current_status else "Unknown"
+                }
+                
+                assignment_stmt = select(User).join(
+                    Employee, User.employee_id == Employee.id
+                ).join(
+                    ProjectAssignment, ProjectAssignment.employee_id == Employee.id
+                ).where(
+                    ProjectAssignment.project_id == p.id,
+                    User.is_active == True,
+                    User.pref_invoice_alerts == True
+                )
+                assigned_users = db.exec(assignment_stmt).all()
+                
+                for user in assigned_users:
+                    user_reminders_map.setdefault(user.email, []).append(project_item)
+
+        if not user_reminders_map:
+            return Message(message="No un-invoiced completed projects detected for active subscribers.")
+
+        if settings.emails_enabled:
+            project_name_app = settings.PROJECT_NAME
+            for email_recipient, items in user_reminders_map.items():
+                table_rows = "".join([
+                    f"<tr>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['job_number']}</td>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['name']}</td>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['status']}</td>"
+                    f"</tr>" for item in items
+                ])
+
+                html_content = f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif; color: #333;">
+                        <h2>Gama Consulting Pending Invoice Reminders</h2>
+                        <p>The following projects are completed but have <strong style="color: red;">NOT</strong> been invoiced yet:</p>
+                        <table style='border-collapse: collapse; width: 100%; border: 1px solid #ddd;'>
+                            <thead>
+                                <tr style='background-color: #f2f2f2;'>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Job Number</th>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Project Name</th>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Current Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>{table_rows}</tbody>
+                        </table>
+                    </body>
+                </html>
+                """
+                background_tasks.add_task(
+                    send_email,
+                    email_to=email_recipient,
+                    subject=f"{project_name_app} - Weekly Pending Invoice Alert",
+                    html_content=html_content
+                )
+            return Message(message=f"Success: Dispatched invoice reminders to {len(user_reminders_map)} distinct users.")
+        
+        return Message(message="Pending items found, but email system is disabled.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+
+
+
 
 
 # =========================================================================
@@ -353,79 +457,3 @@ def send_task_removal_notification(
     )
     print(f"[Event Trigger] Successfully queued task removal email for {user.email}.")
 
-# =========================================================================
-# 3. Standby Stubs (Placeholders for Future Sprints)
-# =========================================================================
-
-def send_invoice_alert_notification(db: Session, background_tasks: BackgroundTasks, invoice_number: str, status: str):
-    """Placeholder trigger for Invoice Alert notifications."""
-    if not settings.emails_enabled:
-        return
-        
-    stmt = select(User).where(User.is_active == True, User.pref_invoice_alerts == True)
-    users = db.exec(stmt).all()
-    
-    for user in users:
-        background_tasks.add_task(
-            send_email,
-            email_to=user.email,
-            subject=f"Invoice Update Notification - {invoice_number}",
-            html_content=f"<p>Invoice <strong>{invoice_number}</strong> status has shifted to: <strong>{status}</strong>.</p>"
-        )
-
-
-def send_weekly_report_notification(db: Session, background_tasks: BackgroundTasks, report_summary: str):
-    """Placeholder trigger for Weekly Performance Summary Report notifications."""
-    if not settings.emails_enabled:
-        return
-        
-    stmt = select(User).where(User.is_active == True, User.pref_weekly_reports == True)
-    users = db.exec(stmt).all()
-    
-    for user in users:
-        background_tasks.add_task(
-            send_email,
-            email_to=user.email,
-            subject="Your Weekly Activity Summary Report",
-            html_content=f"<h3>Weekly Performance Summary</h3><p>{report_summary}</p>"
-        )
-
-
-
-
-def send_invoice_alert_notification(db: Session, background_tasks: BackgroundTasks, invoice_number: str, status: str):
-    """
-    Trigger Invoice Alerts. Dispatches emails to users subscribed to payment states updates.
-    """
-    if not settings.emails_enabled:
-        return
-        
-    stmt = select(User).where(User.is_active == True, User.pref_invoice_alerts == True)
-    users = db.exec(stmt).all()
-    
-    for user in users:
-        background_tasks.add_task(
-            send_email,
-            email_to=user.email,
-            subject=f"Invoice Update Notification - {invoice_number}",
-            html_content=f"<p>Invoice <strong>{invoice_number}</strong> status has shifted to: <strong>{status}</strong>.</p>"
-        )
-
-
-def send_weekly_report_notification(db: Session, background_tasks: BackgroundTasks, report_summary: str):
-    """
-    Trigger Weekly Summary Report notification distribution loop.
-    """
-    if not settings.emails_enabled:
-        return
-        
-    stmt = select(User).where(User.is_active == True, User.pref_weekly_reports == True)
-    users = db.exec(stmt).all()
-    
-    for user in users:
-        background_tasks.add_task(
-            send_email,
-            email_to=user.email,
-            subject="Your Weekly Activity Summary Report",
-            html_content=f"<h3>Weekly Performance Summary</h3><p>{report_summary}</p>"
-        )

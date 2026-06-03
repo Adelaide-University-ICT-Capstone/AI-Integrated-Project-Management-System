@@ -12,7 +12,7 @@ import asyncio
 from datetime import datetime, time, timedelta
 from sqlmodel import Session
 import zoneinfo
-from app.api.routes.notifications import trigger_due_reminders
+from app.api.routes.notifications import trigger_due_reminders, trigger_invoice_reminders
 from app.db.session import get_session
 
 
@@ -57,7 +57,44 @@ async def daily_deadline_checker():
         # 🚀 Heartbeat Sleep: Instead of sleeping for 24 hours straight, 
         # sleep for 60 seconds to ensure we never miss the target time window.
         await asyncio.sleep(60)
-    
+
+
+async def weekly_invoice_checker():
+    """
+    Background worker running an hourly heartbeat check. It autonomously parses 
+    and dispatches invoice alerts once a week on Monday mornings.
+    """
+    last_processed_date = None
+    print("[Scheduler] Asynchronous weekly invoice alert checker activated successfully.")
+
+    while True:
+        adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
+        now = datetime.now(adelaide_tz)
+        
+        # 🔔 Check condition: Trigger precisely on Mondays at 08:00 AM Adelaide Time
+        if now.weekday() == 0 and now.hour == 7 and now.minute == 30 and last_processed_date != now.date():
+            print(f"[Scheduler] Weekly invoice check window detected at {now}. Initialising scanning process...")
+            try:
+                from fastapi import BackgroundTasks
+                bg_tasks = BackgroundTasks()
+                
+                with get_session() as session:
+                    trigger_invoice_reminders(background_tasks=bg_tasks, db=session)
+                    
+                await bg_tasks()
+                
+                last_processed_date = now.date()
+                print(f"[Scheduler] Weekly invoice notification batch for {last_processed_date} processed.")
+            except Exception as exc:
+                print(f"[Scheduler] Critical error inside weekly invoice runner: {exc}")
+
+        # Heartbeat Sleep
+        await asyncio.sleep(60)
+
+
+
+
+
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
@@ -75,6 +112,7 @@ async def startup_event():
 
     # ==== Added: Bootstrap the daily midnight deadline checker background task ====
     asyncio.create_task(daily_deadline_checker())
+    asyncio.create_task(weekly_invoice_checker())
         
 
 # Set all CORS enabled origins
