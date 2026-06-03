@@ -2,7 +2,8 @@ from datetime import date, datetime
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import status as http_status
 from sqlmodel import select
 
 from app import crud
@@ -43,6 +44,8 @@ from app.models import (
     Subcontractor,
     SubcontractorStatus
 )
+
+from app.api.routes.notifications import send_project_update_notification
 
 router = APIRouter(
     prefix="/projects",
@@ -448,12 +451,26 @@ def update_project(
     project: ProjectUpdateRequest,
     session: SessionDep,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ) -> ProjectPublic:
     check_project_view_permission(session, project_id, current_user)
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    old_status_id = existing.current_status_id
+    
     updated = crud.update_project(session=session, project=existing, updates=project.model_dump(exclude_unset=True))
+    
+    if project.current_status_id and project.current_status_id != old_status_id:
+       send_project_update_notification(
+           db=session,
+           background_tasks=background_tasks,
+           project_name=existing.project_name,
+           job_number=existing.job_number,
+           project_id=project_id
+       )
+
     return ProjectPublic.model_validate(updated)
 
 
@@ -636,3 +653,49 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: 
         project_tab=crud.get_project_tab(session=session, project=project),
         fee_estimate=project.fee_final,
     )
+
+
+@router.patch("/{project_id}", response_model=Message)
+def update_project(
+    project_id: uuid.UUID,
+    project: ProjectUpdateRequest,
+    session: SessionDep,
+    background_tasks: BackgroundTasks,
+) -> Message:
+    existing = crud.get_project_by_id(session=session, project_id=project_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Track the old status id before saving database updates
+    old_status_id = existing.current_status_id
+
+    try:
+        crud.update_project(session=session, project_id=project_id, project_data=project)
+
+        # 🔔 Trigger email event only if the project status type actually modified
+        if project.current_status_id and project.current_status_id != old_status_id: # ➕ Added this block
+            send_project_update_notification(
+                db=session,
+                background_tasks=background_tasks,
+                project_name=existing.project_name,
+                job_number=existing.job_number
+            )
+
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return Message(message="Project updated successfully")
+
+
+@router.delete("/{project_id}")
+def delete_project(project_id: uuid.UUID, session: SessionDep):
+    if not crud.delete_project(session=session, project_id=project_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return {"message": "Project deleted successfully"}
+
+
+@router.delete("")
+def delete_all_projects(session: SessionDep):
+    count = crud.delete_all_projects(session=session)
+    return {"message": f"Successfully deleted {count} projects"}
+
+

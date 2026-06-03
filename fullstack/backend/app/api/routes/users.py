@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
@@ -198,3 +200,43 @@ def get_employee_time_log(
         raise HTTPException(status_code=400, detail="Invalid date format. Use dd-mm-yyyy")
     data = crud.get_employee_hours_since(session=session, since=since, user_ids=user_ids)
     return EmployeeHoursResponse(data=data, count=len(data))
+
+
+# --- Added: Schema for sync user email preference states ---
+class EmailPreferencesUpdate(BaseModel):
+    pref_project_updates: bool | None = None
+    pref_task_assignments: bool | None = None
+    pref_deadline_reminders: bool | None = None
+    pref_weekly_reports: bool | None = None
+    pref_invoice_alerts: bool | None = None
+
+
+@router.get("/me/email-preferences", response_model=EmailPreferencesUpdate)
+def get_my_email_preferences(current_user: CurrentUser) -> Any:
+    """
+    Get the email preference configurations for the currently authenticated user.
+    """
+    return {
+        "pref_project_updates": current_user.pref_project_updates,
+        "pref_task_assignments": current_user.pref_task_assignments,
+        "pref_deadline_reminders": current_user.pref_deadline_reminders,
+        "pref_weekly_reports": current_user.pref_weekly_reports,
+        "pref_invoice_alerts": current_user.pref_invoice_alerts,
+    }
+
+
+@router.patch("/me/email-preferences", response_model=Message)
+def update_my_email_preferences(
+    *, session: SessionDep, preferences: EmailPreferencesUpdate, current_user: CurrentUser
+) -> Any:
+    """
+    Update specific email preferences for the current logged-in user dynamically.
+    """
+    update_data = preferences.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return Message(message="Email preferences successfully updated.")
