@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createFileRoute, Link, useRouterState } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import {
   User,
   Lock,
@@ -18,6 +18,15 @@ import {
 } from 'lucide-react'
 import useAuth from '@/hooks/useAuth'
 import { usersApi } from '@/api/users'
+
+// Map frontend state keys to backend API fields
+const PREF_KEY_MAP = {
+  projectUpdates: 'pref_project_updates',
+  taskAssignments: 'pref_task_assignments',
+  deadlineReminders: 'pref_deadline_reminders',
+  weeklyReports: 'pref_weekly_reports',
+  invoiceAlerts: 'pref_invoice_alerts',
+} as const
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: Settings,
@@ -62,13 +71,33 @@ export function Settings() {
 
   const [theme, setThemeState] = useState<'light' | 'dark'>('light')
 
-  const [emailPreferences, setEmailPreferences] = useState({
-    projectUpdates: true,
-    taskAssignments: true,
-    deadlineReminders: true,
-    weeklyReports: false,
-    invoiceAlerts: true,
+  // Fetch email preferences from backend
+  const { data: serverPreferences } = useQuery({
+    queryKey: ['emailPreferences'],
+    queryFn: usersApi.getEmailPreferences,
   })
+  
+  const [emailPreferences, setEmailPreferences] = useState({
+    projectUpdates: serverPreferences?.pref_project_updates ?? true,
+    taskAssignments: serverPreferences?.pref_task_assignments ?? true,
+    deadlineReminders: serverPreferences?.pref_deadline_reminders ?? true,
+    weeklyReports: serverPreferences?.pref_weekly_reports ?? false,
+    invoiceAlerts: serverPreferences?.pref_invoice_alerts ?? true,
+  })
+
+  // Synchronise state when server data loads
+  useEffect(() => {
+    if (serverPreferences) {
+      setEmailPreferences({
+        projectUpdates: serverPreferences.pref_project_updates ?? true,
+        taskAssignments: serverPreferences.pref_task_assignments ?? true,
+        deadlineReminders: serverPreferences.pref_deadline_reminders ?? true,
+        weeklyReports: serverPreferences.pref_weekly_reports ?? false,
+        invoiceAlerts: serverPreferences.pref_invoice_alerts ?? true,
+      })
+    }
+  }, [serverPreferences])
+
 
   const updateMeMutation = useMutation({
     mutationFn: usersApi.updateMe,
@@ -118,10 +147,31 @@ export function Settings() {
     toast.success(`Switched to ${newTheme} mode`)
   }
 
-  const handleEmailPreferenceChange = (key: string, value: boolean) => {
+  // Mutation to update email preferences in the backend
+  const updatePreferencesMutation = useMutation({
+    mutationFn: usersApi.updateEmailPreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emailPreferences'] })
+      toast.success('Email preferences synchronised successfully')
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail || 'Failed to synchronise preferences')
+    },
+  })
+ 
+  const handleEmailPreferenceChange = (key: keyof typeof PREF_KEY_MAP, value: boolean) => {
+    // 1. Update the local UI state instantly for a responsive feel
     setEmailPreferences((prev) => ({ ...prev, [key]: value }))
-    toast.success('Email preferences updated')
+  
+    // 2. Map the frontend key to the backend format (e.g., projectUpdates -> pref_project_updates)
+    const backendKey = PREF_KEY_MAP[key]
+  
+    // 3. Trigger the partial update API
+    updatePreferencesMutation.mutate({
+      [backendKey]: value,
+    })
   }
+  
 
   const handleAvatarColorChange = (color: string) => {
     setSelectedAvatarColor(color)
@@ -466,7 +516,7 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={emailPreferences[pref.key as keyof typeof emailPreferences]}
-                  onChange={(e) => handleEmailPreferenceChange(pref.key, e.target.checked)}
+                  onChange={(e) => handleEmailPreferenceChange(pref.key as keyof typeof emailPreferences, e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />

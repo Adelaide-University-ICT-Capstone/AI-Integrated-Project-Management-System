@@ -302,6 +302,13 @@ class UserBase(SQLModel):
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
 
+    # ==== Added: Email preference switches for frontend preference sync ====
+    pref_project_updates: bool = Field(default=True, description="Toggle for project status change notifications")
+    pref_task_assignments: bool = Field(default=True, description="Toggle for new task assignment notifications")
+    pref_deadline_reminders: bool = Field(default=True, description="Toggle for upcoming due date reminders")
+    pref_weekly_reports: bool = Field(default=True, description="Toggle for weekly activity reports summary")
+    pref_invoice_alerts: bool = Field(default=True, description="Toggle for invoicing and payment alerts")
+
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=128)

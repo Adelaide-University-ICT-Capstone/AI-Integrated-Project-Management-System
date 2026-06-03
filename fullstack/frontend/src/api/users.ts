@@ -35,6 +35,14 @@ export type UpdatePasswordRequest = {
   new_password: string
 }
 
+export type EmailPreferences = {
+  pref_project_updates?: boolean
+  pref_task_assignments?: boolean
+  pref_deadline_reminders?: boolean
+  pref_weekly_reports?: boolean
+  pref_invoice_alerts?: boolean
+}
+
 export const usersApi = {
   // GET /users/time_log/{date_str} — hours worked by all employees since date
   getEmployeeHours: (since: string) =>
@@ -47,4 +55,13 @@ export const usersApi = {
   // PATCH /users/me/password — change password
   updatePassword: (data: UpdatePasswordRequest) =>
     api.patch(`/users/me/password`, data).then(res => res.data),
+
+  // GET /users/me/email-preferences — get user's email preferneces
+  getEmailPreferences: () =>
+    api.get<EmailPreferences>(`/users/me/email-preferences`).then(res => res.data),
+
+  // PATCH /users/me/email-preferences — update user's email preferneces
+  updateEmailPreferences: (data: EmailPreferences) =>
+    api.patch(`/users/me/email-preferences`, data).then(res => res.data),
 }
+
