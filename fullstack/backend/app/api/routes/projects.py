@@ -35,6 +35,7 @@ from app.models import (
     ProjectTaskTreeCreate,
     ProjectTaskTreeUpdate,
     ProjectTasksPublic,
+    ProjectUpdate,
     ProjectUpdateRequest,
     ProjectsListResponse,
     ProjectCreateRequest,

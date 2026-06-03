@@ -11,6 +11,7 @@ import {
   TrendingUp,
   CheckCircle2,
   Circle,
+  Loader2,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/projects/')({
@@ -157,14 +158,24 @@ const ProjectCard = ({ project }: { project: Project }) => {
 }
 
 function Projects() {
-  const { data: projectsData } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAllProjects,
+  const { data: projectsData, isLoading } = useQuery({
+     queryKey: ['projects'],
+     queryFn: projectsApi.getAllProjects,
   });
-  console.log('Fetched projects:', projectsData)
   const inProgress = projectsData?.data.filter((p) => IN_PROGRESS_STATUSES.includes(p.status)) || []
   const toBeInvoiced = projectsData?.data.filter((p) => TO_BE_INVOICED_STATUSES.includes(p.status)) || []
   const completed = projectsData?.data.filter((p) => COMPLETED_STATUSES.includes(p.status)) || []
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center">
+          <Loader2 size={40} className="animate-spin text-gray-500" />
+          <p className="mt-3 text-gray-600">Loading projects…</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
