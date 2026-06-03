@@ -570,7 +570,7 @@ function NewProject() {
                   <label htmlFor="client" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <div className="flex items-center gap-2">
                       <Building2 size={16} />
-                      Client <span className="text-red-500">*</span>
+                      Client Company <span className="text-red-500">*</span>
                     </div>
                   </label>
                   <input
@@ -592,7 +592,7 @@ function NewProject() {
                 <div>
                   <label htmlFor="agent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <div className="flex items-center gap-2">
-                      <User size={16} /> Agent
+                      <User size={16} /> Client Name
                     </div>
                   </label>
                   <input
