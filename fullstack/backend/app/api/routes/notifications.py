@@ -160,7 +160,6 @@ def trigger_due_reminders(
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
-
 # =========================================================================
 # Weekly Invoice Alerts (Scans completed projects without invoices)
 # =========================================================================
@@ -182,14 +181,10 @@ def trigger_invoice_reminders(
         from app.models import ProjectAssignment, User, Employee, Project
         from app import crud
 
-        target_status_ids = [
-            uuid.UUID("b0000000-0000-0000-0000-000000000005"),
-            uuid.UUID("b0000000-0000-0000-0000-000000000003"),
-            uuid.UUID("d5ccd295-7dcd-45f1-b4db-29bfbdeae305")
-        ]
-
-        stmt = select(Project).where(
-            Project.current_status_id.in_(target_status_ids),
+        StatusModel = Project.current_status.property.mapper.class_
+        target_names = ["to_be_invoiced", "to be invoiced", "completed"]
+        stmt = select(Project).join(StatusModel).where(
+            StatusModel.status_name.in_(target_names),
             Project.is_active == True
         )
         candidate_projects = db.exec(stmt).all()
