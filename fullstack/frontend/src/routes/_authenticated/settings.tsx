@@ -504,7 +504,8 @@ export function Settings() {
             { key: 'projectUpdates', label: 'Project Updates', description: 'Get notified about project status changes' },
             { key: 'taskAssignments', label: 'Task Assignments', description: 'When you are assigned to a new task' },
             { key: 'deadlineReminders', label: 'Deadline Reminders', description: 'Reminders for upcoming deadlines' },
-            { key: 'weeklyReports', label: 'Weekly Reports', description: 'Summary of your weekly activity' },
+            //no need for weekly reports
+            //  { key: 'weeklyReports', label: 'Weekly Reports', description: 'Summary of your weekly activity' },
             { key: 'invoiceAlerts', label: 'Invoice Alerts', description: 'Updates on invoicing and payments' },
           ].map((pref) => (
             <div key={pref.key} className="flex items-start justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
