@@ -77,28 +77,24 @@ export function TimelineSection({ workflow, startDate, dueDate }: TimelineSectio
     })
     cursor.setMonth(cursor.getMonth() + 1)
   }
-  const totalDays = Math.max(1, Math.ceil(totalMs / (1000 * 60 * 60 * 24)))
-  let previousPhaseEnd = start
-  const timelineRows = workflow.map((phase, index) => {
+  // const totalDays = Math.max(1, Math.ceil(totalMs / (1000 * 60 * 60 * 24)))
+  // let previousPhaseEnd = start
+  const timelineRows = workflow.map((phase) => {
     const phaseDueDate = parseDate(phase.dueDate)
-    const phaseStart = index === 0 ? start : previousPhaseEnd
-    const fallbackEnd = index === workflow.length - 1
-      ? end
-      : addDays(start, Math.round((totalDays / workflow.length) * (index + 1)))
+    const phaseStart = start
+    const fallbackEnd = end
     const candidateEnd = phaseDueDate || fallbackEnd
     const phaseEnd = candidateEnd > phaseStart ? candidateEnd : addDays(phaseStart, 1)
-    previousPhaseEnd = phaseEnd
 
-    const boundedStart = phaseStart > end ? end : phaseStart
     const boundedEnd = phaseEnd > end ? end : phaseEnd
-    const left = dateToPercent(boundedStart)
+    const left = dateToPercent(phaseStart)
     const right = dateToPercent(boundedEnd)
 
     return {
       phase,
       phaseDueDate,
       left,
-      width: Math.max(0, Math.min(100 - left, Math.max(2, right - left || 2))),
+      width: Math.max(2, right - left),
     }
   })
 

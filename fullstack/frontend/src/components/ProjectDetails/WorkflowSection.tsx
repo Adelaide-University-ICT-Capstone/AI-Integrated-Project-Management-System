@@ -24,11 +24,15 @@ interface WorkflowSectionProps {
   selectedPhaseIndex: number | null
   editingWorkflow: boolean
   newPhaseName: string
+  canEditWorkflowDates: boolean
+  savingPhaseDateId: string | null
   // Click handlers wired up by the parent route.
   onToggleEditing: () => void
   onNewPhaseNameChange: (name: string) => void
   onAddPhase: () => void
   onRemovePhase: (index: number) => void
+  onUpdatePhaseDueDate: (index: number, value: string) => void
+  onUpdatePhaseName: (index: number, value: string) => void
 }
 
 export function WorkflowSection({
@@ -36,10 +40,14 @@ export function WorkflowSection({
   selectedPhaseIndex,
   editingWorkflow,
   newPhaseName,
+  canEditWorkflowDates,
+  savingPhaseDateId,
   onToggleEditing,
   onNewPhaseNameChange,
   onAddPhase,
   onRemovePhase,
+  onUpdatePhaseDueDate,
+  onUpdatePhaseName,
 }: WorkflowSectionProps) {
   return (
     <div>
@@ -53,11 +61,12 @@ export function WorkflowSection({
             Progress is calculated from completed project tasks
           </p>
         </div>
-        <button
-          onClick={onToggleEditing}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-        >
-          {editingWorkflow ? (
+        {canEditWorkflowDates && (
+          <button
+            onClick={onToggleEditing}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            {editingWorkflow ? (
             <>
               <CheckCircle2 size={16} /> Done Editing
             </>
@@ -66,7 +75,8 @@ export function WorkflowSection({
               <Edit2 size={16} /> Edit Phases
             </>
           )}
-        </button>
+          </button>
+        )}
       </div>
 
       {/* Add Phase input — only visible while in edit mode.
@@ -111,7 +121,11 @@ export function WorkflowSection({
               phase={phase}
               isSelected={selectedPhaseIndex === index}
               editingWorkflow={editingWorkflow}
+              canEditWorkflowDates={canEditWorkflowDates}
+              isSavingDate={savingPhaseDateId === phase.id}
               onRemove={() => onRemovePhase(index)}
+              onUpdateDueDate={(value) => onUpdatePhaseDueDate(index, value)}
+              onUpdateName={(value) => onUpdatePhaseName(index, value)}
             />
           ))}
         </div>
@@ -129,15 +143,25 @@ interface PhaseRowProps {
   phase: WorkflowPhase
   isSelected: boolean
   editingWorkflow: boolean
+  canEditWorkflowDates: boolean
+  isSavingDate: boolean
   onRemove: () => void
+  onUpdateDueDate: (value: string) => void
+  onUpdateName: (value: string) => void
 }
 
 function PhaseRow({
   phase,
   isSelected,
   editingWorkflow,
+  canEditWorkflowDates,
+  isSavingDate,
   onRemove,
+  onUpdateDueDate,
+  onUpdateName
 }: PhaseRowProps) {
+  const showDateInputs = editingWorkflow && canEditWorkflowDates
+
   return (
     <div
       className={`rounded-lg border p-3 transition-all ${
@@ -167,9 +191,27 @@ function PhaseRow({
             )}
           </div>
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
-            <span className="font-medium text-gray-900 dark:text-white">
-              {phase.phase}
+            {editingWorkflow && canEditWorkflowDates ? (
+              <input
+                type="text"
+                defaultValue={phase.phase}
+                onBlur={(event) => onUpdateName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur()
+                  }
+                }}
+                className="px-2 py-1 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            ) : (
+              <span className="font-medium text-gray-900 dark:text-white">
+                {phase.phase}
+              </span>
+            )}
+            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
+              Due on {phase.dueDate}
             </span>
+
             <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
               {phase.doneTasks}/{phase.totalTasks} tasks done
             </span>
@@ -207,7 +249,25 @@ function PhaseRow({
           disabled
           className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-not-allowed accent-blue-600 opacity-80"
         />
+        {showDateInputs && (
+          <div className="mt-3 max-w-xs">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              <span className="mb-1 flex items-center gap-1.5">
+                <Clock size={14} /> Due date
+              </span>
+              <input
+                type="date"
+                value={phase.dueDate || ''}
+                disabled={isSavingDate}
+                onChange={(event) => onUpdateDueDate(event.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-60"
+              />
+            </label>
+          </div>
+        )}
       </div>
+
+      
     </div>
   )
 }

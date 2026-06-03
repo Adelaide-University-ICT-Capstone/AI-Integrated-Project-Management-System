@@ -25,6 +25,7 @@ import type { ProjectEditForm } from '@/components/ProjectDetails/types'
 import { WorkforceTab } from '@/components/ProjectDetails/WorkforceTab'
 import { AVATAR_COLORS } from '@/components/ProjectDetails/constants'
 import { calculateProgressPercent, formatRoleLabel, getWorkforceStatusColor, mapFrontendFieldToBackend, mapMilestoneToWorkflowPhase, mapStatusToFrontend } from '@/components/ProjectDetails/utils'
+import useAuth from '@/hooks/useAuth'
 const baseUrl = import.meta.env.VITE_API_URL
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
@@ -184,6 +185,7 @@ function WorkforceAllocationModal({
 function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<ProjectTab>('overview')
   const [projectStatus, setProjectStatus] = useState('')
   const [projectStatusId, setProjectStatusId] = useState('')
@@ -200,6 +202,7 @@ function ProjectDetails() {
   // Edit mode for workflow
   const [editingWorkflow, setEditingWorkflow] = useState(false)
   const [newPhaseName, setNewPhaseName] = useState('')
+  const [savingPhaseDateId, setSavingPhaseDateId] = useState<string | null>(null)
 
   // Workforce allocation management state
   const [roles, setRoles] = useState<Role[]>([])
@@ -229,6 +232,26 @@ function ProjectDetails() {
     queryKey: ['statuses'],
     queryFn: projectsApi.getProjectStatuses,
   })
+
+  const { data: currentUserDetail } = useQuery({
+    queryKey: ['user-detail', user?.id],
+    queryFn: async () => {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${baseUrl}/api/v1/users/${user?.id}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch current user detail')
+      }
+
+      return response.json()
+    },
+    enabled: Boolean(user?.id),
+  })
+
 
   useEffect(() => {
     const fetchSubcontractors = async () => {
@@ -307,6 +330,7 @@ function ProjectDetails() {
 
             return {
               userId: matchedUser?.userId ?? null,
+              employeeId: assignment.employee_id,
               name,
               role: formatRoleLabel(assignment.role_name),
               roleId: assignment.role_id,
@@ -384,7 +408,6 @@ function ProjectDetails() {
   const overallProgress = calculateProgressPercent(doneTasks, totalTasks)
   const projectStatusOptions = statusData || []
   const selectStatusValue = projectStatusId || projectStatusOptions.find((status) => status.status_name === projectStatus)?.id || ''
-
   if (loading) return <div>Loading...</div>
 
   if (!project) {
@@ -480,6 +503,68 @@ function ProjectDetails() {
     } catch (error) {
       console.error('Error removing workflow phase:', error)
       toast.error('Failed to remove workflow phase')
+    }
+  }
+
+
+  const updateWorkflowPhaseName = async (index: number, value: string) => {
+    const phase = workflow[index]
+    const nextName = value.trim()
+
+    if (!phase || !nextName || nextName === phase.phase) return
+
+    try {
+      const updated = await projectsApi.updateProjectMilestone(projectId, phase.id, {
+        milestone_name: nextName,
+      })
+
+      setWorkflow((current) =>
+        current.map((item, itemIndex) =>
+          itemIndex === index
+            ? { ...item, phase: updated.milestone_name }
+            : item,
+        ),
+      )
+
+      toast.success('Workflow phase name updated')
+    } catch (error) {
+      console.error('Error updating workflow phase name:', error)
+      toast.error(getApiErrorMessage(error) || 'Failed to update workflow phase name')
+    }
+  }
+
+
+  const updateWorkflowPhaseDueDate = async (index: number, value: string) => {
+    const phase = workflow[index]
+    if (!phase) return
+
+    if (project?.start_date && value && value < project.start_date) {
+      toast.error('Phase due date cannot be before the project start date')
+      return
+    }
+
+    setSavingPhaseDateId(phase.id)
+    try {
+      const updated = await projectsApi.updateProjectMilestone(projectId, phase.id, {
+        due_date: value || null,
+      })
+
+      setWorkflow((current) =>
+        current.map((item, itemIndex) =>
+          itemIndex === index
+            ? {
+                ...item,
+                dueDate: updated.due_date ?? null,
+              }
+            : item,
+        ),
+      )
+      toast.success('Workflow phase date updated')
+    } catch (error) {
+      console.error('Error updating workflow phase date:', error)
+      toast.error(getApiErrorMessage(error) || 'Failed to update workflow phase date')
+    } finally {
+      setSavingPhaseDateId(null)
     }
   }
 
@@ -712,6 +797,16 @@ function ProjectDetails() {
     }
   }
 
+  const currentUserIsProjectManager = workforce.some(
+    (member) =>
+      member.employeeId === currentUserDetail?.employee_id &&
+      member.role.toLowerCase().replace(/\s+/g, '_') === 'project_manager',
+  )
+
+  const canManageProject = Boolean(user?.is_superuser) || currentUserIsProjectManager
+  const canEditWorkflowDates = canManageProject
+  const canDeleteProject = canManageProject
+  
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <ProjectHeader
@@ -721,7 +816,7 @@ function ProjectDetails() {
         selectStatusValue={selectStatusValue}
         isUpdatingStatus={isUpdatingStatus}
         onBack={() => navigate({ to: '/projects' })}
-        onDelete={handleDelete}
+        onDelete={canDeleteProject ? handleDelete : undefined}
         onEdit={() => setShowEditProject(true)}
         onUpdateStatus={(statusId) => void handleUpdateProjectStatus(statusId)}
       />
@@ -734,10 +829,18 @@ function ProjectDetails() {
                 selectedPhaseIndex={null}
                 editingWorkflow={editingWorkflow}
                 newPhaseName={newPhaseName}
+                canEditWorkflowDates={canEditWorkflowDates}
+                savingPhaseDateId={savingPhaseDateId}
                 onToggleEditing={() => setEditingWorkflow((current) => !current)}
                 onNewPhaseNameChange={setNewPhaseName}
                 onAddPhase={() => void addWorkflowPhase()}
                 onRemovePhase={(index) => void removeWorkflowPhase(index)}
+                onUpdatePhaseDueDate={(index, value) => {
+                  void updateWorkflowPhaseDueDate(index, value)
+                }}
+                onUpdatePhaseName={(index, value) => {
+                  void updateWorkflowPhaseName(index, value)
+                }}
               />
 
               {/* Materials & Subcontractor Orders */}
