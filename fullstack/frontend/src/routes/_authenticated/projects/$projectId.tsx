@@ -186,7 +186,6 @@ function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const canDeleteProject = Boolean(user?.is_superuser) || user?.role_name?.trim().toLowerCase() === 'project_manager'
   const [activeTab, setActiveTab] = useState<ProjectTab>('overview')
   const [projectStatus, setProjectStatus] = useState('')
   const [projectStatusId, setProjectStatusId] = useState('')
@@ -233,6 +232,26 @@ function ProjectDetails() {
     queryKey: ['statuses'],
     queryFn: projectsApi.getProjectStatuses,
   })
+
+  const { data: currentUserDetail } = useQuery({
+    queryKey: ['user-detail', user?.id],
+    queryFn: async () => {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${baseUrl}/api/v1/users/${user?.id}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch current user detail')
+      }
+
+      return response.json()
+    },
+    enabled: Boolean(user?.id),
+  })
+
 
   useEffect(() => {
     const fetchSubcontractors = async () => {
@@ -311,6 +330,7 @@ function ProjectDetails() {
 
             return {
               userId: matchedUser?.userId ?? null,
+              employeeId: assignment.employee_id,
               name,
               role: formatRoleLabel(assignment.role_name),
               roleId: assignment.role_id,
@@ -388,9 +408,6 @@ function ProjectDetails() {
   const overallProgress = calculateProgressPercent(doneTasks, totalTasks)
   const projectStatusOptions = statusData || []
   const selectStatusValue = projectStatusId || projectStatusOptions.find((status) => status.status_name === projectStatus)?.id || ''
-  const canEditWorkflowDates =
-    Boolean(user?.is_superuser) || user?.role_name?.trim().toLowerCase() === 'project_manager'
-
   if (loading) return <div>Loading...</div>
 
   if (!project) {
@@ -780,6 +797,16 @@ function ProjectDetails() {
     }
   }
 
+  const currentUserIsProjectManager = workforce.some(
+    (member) =>
+      member.employeeId === currentUserDetail?.employee_id &&
+      member.role.toLowerCase().replace(/\s+/g, '_') === 'project_manager',
+  )
+
+  const canManageProject = Boolean(user?.is_superuser) || currentUserIsProjectManager
+  const canEditWorkflowDates = canManageProject
+  const canDeleteProject = canManageProject
+  
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <ProjectHeader

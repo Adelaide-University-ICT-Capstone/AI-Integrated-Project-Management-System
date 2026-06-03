@@ -37,6 +37,7 @@ export type Material = {
 
 export type WorkforceMember = {
   userId: string | null
+  employeeId?: string | null
   name: string
   role: string
   roleId: string | null

@@ -61,11 +61,12 @@ export function WorkflowSection({
             Progress is calculated from completed project tasks
           </p>
         </div>
-        <button
-          onClick={onToggleEditing}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-        >
-          {editingWorkflow ? (
+        {canEditWorkflowDates && (
+          <button
+            onClick={onToggleEditing}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            {editingWorkflow ? (
             <>
               <CheckCircle2 size={16} /> Done Editing
             </>
@@ -74,7 +75,8 @@ export function WorkflowSection({
               <Edit2 size={16} /> Edit Phases
             </>
           )}
-        </button>
+          </button>
+        )}
       </div>
 
       {/* Add Phase input — only visible while in edit mode.
