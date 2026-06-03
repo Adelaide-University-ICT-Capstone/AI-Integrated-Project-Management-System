@@ -116,6 +116,21 @@ export function EditProjectModal({
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Fee Estimate
+            </label>
+            <input
+              type="text"
+              value={editForm.fee_estimate}
+              onChange={(e) =>
+                onChange({ ...editForm, fee_estimate: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              placeholder="e.g., 15000"
+            />
+          </div>
+
           {/* Start + Due dates side by side — both are small enough to
               fit in a two-column row and they're conceptually paired. */}
           <div className="grid grid-cols-2 gap-3">

@@ -1,5 +1,5 @@
 import type { ProjectStatusType } from '@/api/project'
-import { ArrowLeft, Building2, Calendar, Clock, Edit2, Loader2, MapPin, Trash2 } from 'lucide-react'
+import { ArrowLeft, Building2, Calendar, Clock, DollarSign, Edit2, Loader2, MapPin, Trash2, User } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Project } from './types'
 import { getProgressCircleColor } from './utils'
@@ -38,14 +38,15 @@ export function ProjectHeader({
           <span>Back to Projects</span>
         </button>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
-          >
-            <Edit2 size={16} />
-            Edit Project
-          </button>
           {onDelete && (
+            <>
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
+            >
+              <Edit2 size={16} />
+              Edit Project
+            </button>
             <button
               onClick={onDelete}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
@@ -53,6 +54,7 @@ export function ProjectHeader({
               <Trash2 size={16} />
               Delete Project
             </button>
+            </>
           )}
         </div>
       </div>
@@ -66,7 +68,9 @@ export function ProjectHeader({
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{project.project_name}</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <ProjectMeta icon={<Building2 size={18} />} text={project.company_name} />
+              <ProjectMeta icon={<User size={18} />} text={`Client: ${project.client_name || 'N/A'}`} />
               <ProjectMeta icon={<MapPin size={18} />} text={project.company_address} />
+              <ProjectMeta icon={<DollarSign size={18} />} text={`Fee Estimate: ${project.fee_estimate || 'N/A'}`} />
               <ProjectMeta icon={<Calendar size={18} />} text={`Start: ${project.start_date}`} />
               <ProjectMeta icon={<Clock size={18} />} text={`Delivery: ${project.due_date}`} />
             </div>

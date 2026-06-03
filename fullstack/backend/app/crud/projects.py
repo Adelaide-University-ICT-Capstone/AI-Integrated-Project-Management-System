@@ -112,6 +112,7 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
         full_address=project_data.address or project_data.client_address,
         date_received=project_data.date_received,
         fee_final=project_data.fee_estimate,
+        invoice_amount=project_data.fee_estimate,
         start_date=project_data.start_date,
         due_date=project_data.due_date,
     )
@@ -569,7 +570,7 @@ def update_project(*, session: Session, project: Project, updates: dict) -> Proj
         project.client.contact_email = client_contact
 
     if fee_estimate is not None:
-        project.invoice_amount = fee_estimate
+        project.invoice_amount = project.fee_final = fee_estimate
 
     if project_types is not None:
         project.project_type = project_types

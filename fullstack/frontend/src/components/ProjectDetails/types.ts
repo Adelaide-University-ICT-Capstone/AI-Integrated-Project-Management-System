@@ -10,6 +10,7 @@ export type Project = {
   current_status_id?: string | null
   start_date: string
   due_date: string
+  fee_estimate: string
   days_elapsed: number
 }
 
@@ -67,7 +68,7 @@ export type WorkforceAllocationRole = Role
 
 export type ProjectEditForm = Pick<
   Project,
-  'project_name' | 'company_name' | 'company_address' | 'start_date' | 'due_date' | 'client_name'
+  'project_name' | 'company_name' | 'company_address' | 'start_date' | 'due_date' | 'client_name' | 'fee_estimate'
 >
 
 export type SubtaskPriority = 'low' | 'medium' | 'high' | 'urgent'

@@ -123,7 +123,7 @@ export type ProjectUpdatePayload = {
   date_received?: string | null
   start_date?: string | null
   due_date?: string | null
-  fee_estimate?: string | null
+  invoice_amount?: string | null
 }
 
 export type ProjectCreatePayload = {

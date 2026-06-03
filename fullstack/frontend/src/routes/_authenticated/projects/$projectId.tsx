@@ -222,6 +222,7 @@ function ProjectDetails() {
     company_name: '',
     company_address: '',
     client_name: '',
+    fee_estimate: '',
     start_date: '',
     due_date: '',
   })
@@ -294,6 +295,7 @@ function ProjectDetails() {
           company_name: result.company_name || '',
           company_address: result.company_address || '',
           client_name: result.client_name || '',
+          fee_estimate: result.fee_estimate?.toString() || '',
           start_date: result.start_date || '',
           due_date: result.due_date || '',
         });
@@ -767,6 +769,7 @@ function ProjectDetails() {
         client_company: editForm.company_name,
         client_address: editForm.company_address,
         client_name: editForm.client_name,
+        fee_estimate: editForm.fee_estimate,
         start_date: editForm.start_date,
         due_date: editForm.due_date,
       })
@@ -781,6 +784,7 @@ function ProjectDetails() {
               company_name: updated.company_name ?? editForm.company_name,
               company_address: updated.company_address ?? editForm.company_address,
               client_name: updated.client_name ?? editForm.client_name,
+              fee_estimate: updated.fee_estimate?.toString() ?? editForm.fee_estimate,
               start_date: updated.start_date ?? editForm.start_date,
               due_date: updated.due_date ?? editForm.due_date,
             }
