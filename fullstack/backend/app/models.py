@@ -68,16 +68,11 @@ class ProjectStatusTypeBase(SQLModel):
 
 
 class ProjectStatus(str, Enum):
-    proposal = "proposal"
     prelim = "prelim"
-    design_doc = "design & doc"
-    amendment = "amendment"
-    hold = "hold"
-    to_be_invoiced = "to be invoiced"
-    completed_invoiced = "completed & invoiced"
-    eng_qa = "Eng/QA Review"
-    construction = "construction"
-    blank = "-"
+    to_be_invoiced = "to_be_invoiced"
+    in_progress = "in_progress"
+    completed = "completed"
+    on_hold = "on_hold"
 
 
 class SubcontractorStatus(str, Enum):
