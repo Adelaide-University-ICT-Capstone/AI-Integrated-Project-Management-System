@@ -1,5 +1,4 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import { Toaster } from "@/components/ui/sonner"
@@ -11,15 +10,14 @@ import {
 import { isLoggedIn } from "@/hooks/useAuth"
 import "react-toastify/dist/ReactToastify.css";
 
-
 export const Route = createFileRoute("/_authenticated")({
   component: Layout,
   beforeLoad: async () => {
     if (!isLoggedIn()) {
-     throw redirect({
-       to: "/login",
-     })
-   }
+      throw redirect({
+        to: "/login",
+      })
+    }
   },
 })
 

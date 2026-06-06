@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from app.models import (
     AuditLog,
+    Project,
     ProjectAssignment,
     Role,
     User,
@@ -58,6 +59,10 @@ def create_assignment(
     employee_id: uuid.UUID,
     role_id: uuid.UUID,
 ) -> ProjectAssignment:
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
     assignment = ProjectAssignment(
         project_id=project_id,
         employee_id=employee_id,

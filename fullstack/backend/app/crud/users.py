@@ -10,7 +10,6 @@ from app.models import (
     AdminUserCreate,
     Employee,
     EmployeeHoursDetail,
-    Role,
     TimeLog,
     User,
     UserCreate,
@@ -82,9 +81,8 @@ def get_users(*, session: Session, skip: int = 0, limit: int = 100) -> tuple[lis
 
 def get_all_users_with_roles(*, session: Session) -> list[tuple[User, str | None]]:
     rows = session.exec(
-        select(User, Role.role_name)
+        select(User, Employee.role_title)
         .outerjoin(Employee, User.employee_id == Employee.id)
-        .outerjoin(Role, Employee.role_id == Role.id)
         .order_by(col(User.created_at).desc())
     ).all()
     return list(rows)
@@ -124,10 +122,6 @@ def create_user_with_employee(
 
 def get_user_profile(*, session: Session, user: User) -> UserProfile:
     employee = session.get(Employee, user.employee_id) if user.employee_id else None
-    role_name = None
-    if employee and employee.role_id:
-        role = session.get(Role, employee.role_id)
-        role_name = role.role_name if role else None
     return UserProfile(
         id=user.id,
         email=user.email,
@@ -135,24 +129,21 @@ def get_user_profile(*, session: Session, user: User) -> UserProfile:
         first_name=employee.first_name if employee else None,
         last_name=employee.last_name if employee else None,
         full_name=employee.full_name if employee else None,
-        role_name=role_name,
+        role_name=employee.role_title if employee else None,
         is_active=employee.is_active if employee else user.is_active,
     )
 
 
 def update_employee_role(
     *, session: Session, employee_id: uuid.UUID, role_name: str
-) -> Role | None:
+) -> Employee | None:
     employee = session.get(Employee, employee_id)
     if not employee:
         return None
-    role = session.exec(select(Role).where(Role.role_name == role_name)).first()
-    if not role:
-        return None
-    employee.role_id = role.id
+    employee.role_title = role_name
     session.add(employee)
     session.commit()
-    return role
+    return employee
 
 
 def delete_user_and_employee(*, session: Session, user: User) -> None:
@@ -170,11 +161,10 @@ def get_employee_hours_since(
     *, session: Session, since: date, user_ids: list[uuid.UUID] | None = None
 ) -> list[EmployeeHoursDetail]:
     query = (
-        select(Employee, func.sum(TimeLog.hours_worked), Role.role_name)
+        select(Employee, func.sum(TimeLog.hours_worked))
         .join(TimeLog, TimeLog.employee_id == Employee.id)
-        .outerjoin(Role, Employee.role_id == Role.id)
         .where(TimeLog.log_date >= since)
-        .group_by(Employee.id, Role.role_name)
+        .group_by(Employee.id)
     )
 
     if user_ids:
@@ -193,7 +183,7 @@ def get_employee_hours_since(
             employee_id=emp.id,
             name=emp.full_name or f"{emp.first_name} {emp.last_name}".strip(),
             working_hours=total_hours or Decimal("0"),
-            role=role_name,
+            role=emp.role_title,
         )
-        for emp, total_hours, role_name in rows
+        for emp, total_hours in rows
     ]
