@@ -10,4 +10,4 @@ python app/backend_pre_start.py
 # To apply new migrations, uncomment the line below and redeploy once.
 # alembic upgrade head
 
-exec fastapi run --workers 4 --host 0.0.0.0 --port "${PORT:-8000}" app/main.py
+exec fastapi run --workers 2 --host 0.0.0.0 --port "${PORT:-8000}" app/main.py
