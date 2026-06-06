@@ -1,17 +1,17 @@
 """initial_schema
 
-Revision ID: c069018ea5e2
+Revision ID: 073b91b53e02
 Revises: 
-Create Date: 2026-04-03 12:12:17.630526
+Create Date: 2026-05-28 00:02:36.091875
 
 """
 from alembic import op
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'c069018ea5e2'
+revision = '073b91b53e02'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -30,12 +30,26 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('employees',
+    sa.Column('first_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+    sa.Column('last_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+    sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('phone', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
+    sa.Column('role_title', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('project_status_types',
     sa.Column('status_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('status_name')
     )
     op.create_table('roles',
     sa.Column('role_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
@@ -46,19 +60,16 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('role_name')
     )
-    op.create_table('employees',
-    sa.Column('first_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
-    sa.Column('last_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
-    sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('phone', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
-    sa.Column('role_title', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
-    sa.Column('role_id', sa.Uuid(), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
+    op.create_table('notification_preferences',
+    sa.Column('employee_id', sa.Uuid(), nullable=False),
+    sa.Column('notification_type', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+    sa.Column('channel', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
+    sa.Column('is_enabled', sa.Boolean(), nullable=False),
+    sa.Column('frequency', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
+    sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('projects',
@@ -66,7 +77,9 @@ def upgrade():
     sa.Column('client_id', sa.Uuid(), nullable=False),
     sa.Column('current_status_id', sa.Uuid(), nullable=True),
     sa.Column('project_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('sector', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+    sa.Column('contract_title', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('agent', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('job_title', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
     sa.Column('project_type', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('full_address', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
     sa.Column('date_received', sa.Date(), nullable=True),
@@ -103,6 +116,32 @@ def upgrade():
     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('users',
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('is_superuser', sa.Boolean(), nullable=False),
+    sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('hashed_password', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('employee_id', sa.Uuid(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    op.create_table('audit_logs',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('action', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+    sa.Column('project_id', sa.Uuid(), nullable=False),
+    sa.Column('target_user_ids', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('performed_by', sa.Uuid(), nullable=False),
+    sa.Column('timestamp', sa.DateTime(), nullable=False),
+    sa.Column('changes', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.ForeignKeyConstraint(['performed_by'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('invoices',
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('invoice_number', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
@@ -113,7 +152,7 @@ def upgrade():
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('materials',
@@ -123,29 +162,18 @@ def upgrade():
     sa.Column('unit', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
     sa.Column('quantity', sa.Numeric(precision=10, scale=3), nullable=True),
     sa.Column('unit_cost', sa.Numeric(precision=10, scale=2), nullable=True),
-    sa.Column('total_cost', sa.Numeric(precision=12, scale=2), nullable=True),
     sa.Column('supplier_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
     sa.Column('order_reference', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('ordered_date', sa.Date(), nullable=True),
     sa.Column('received_date', sa.Date(), nullable=True),
-    sa.Column('status', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+    sa.Column('subcontractor_id', sa.Uuid(), nullable=True),
+    sa.Column('status', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('notification_preferences',
-    sa.Column('employee_id', sa.Uuid(), nullable=False),
-    sa.Column('notification_type', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
-    sa.Column('channel', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
-    sa.Column('is_enabled', sa.Boolean(), nullable=False),
-    sa.Column('frequency', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['subcontractor_id'], ['subcontractors.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('order_types',
@@ -161,7 +189,7 @@ def upgrade():
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('project_assignments',
@@ -170,15 +198,13 @@ def upgrade():
     sa.Column('subcontractor_id', sa.Uuid(), nullable=True),
     sa.Column('role_id', sa.Uuid(), nullable=True),
     sa.Column('allocation_notes', sa.Text(), nullable=True),
-    sa.Column('actual_hours', sa.Numeric(precision=8, scale=2), nullable=True),
     sa.Column('start_date', sa.Date(), nullable=True),
     sa.Column('completion_date', sa.Date(), nullable=True),
-    sa.Column('manual_progress_percent', sa.Numeric(precision=5, scale=2), nullable=True),
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
     sa.ForeignKeyConstraint(['subcontractor_id'], ['subcontractors.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -190,26 +216,13 @@ def upgrade():
     sa.Column('due_date', sa.Date(), nullable=True),
     sa.Column('completion_date', sa.Date(), nullable=True),
     sa.Column('is_complete', sa.Boolean(), nullable=False),
+    sa.Column('progress', sa.Integer(), nullable=False),
     sa.Column('display_order', sa.Integer(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('users',
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('is_superuser', sa.Boolean(), nullable=False),
-    sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('hashed_password', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('employee_id', sa.Uuid(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_table('customers',
     sa.Column('contact_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
     sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
@@ -217,7 +230,6 @@ def upgrade():
     sa.Column('remarks', sa.Text(), nullable=True),
     sa.Column('order_type_id', sa.Uuid(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('executed_at', sa.Date(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['order_type_id'], ['order_types.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -226,8 +238,12 @@ def upgrade():
     sa.Column('milestone_id', sa.Uuid(), nullable=False),
     sa.Column('task_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
     sa.Column('task_description', sa.Text(), nullable=True),
+    sa.Column('parent_task_id', sa.Uuid(), nullable=True),
+    sa.Column('due_date', sa.Date(), nullable=True),
     sa.Column('milestone_status', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('core_phase_name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
+    sa.Column('assigned_employee_id', sa.Uuid(), nullable=True),
+    sa.Column('allocated_hours', sa.Numeric(precision=8, scale=2), nullable=True),
     sa.Column('completion_date', sa.Date(), nullable=True),
     sa.Column('invoice_amount', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('fee_final', sa.Numeric(precision=10, scale=2), nullable=True),
@@ -236,7 +252,9 @@ def upgrade():
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['milestone_id'], ['project_milestones.id'], ),
+    sa.ForeignKeyConstraint(['assigned_employee_id'], ['employees.id'], ),
+    sa.ForeignKeyConstraint(['milestone_id'], ['project_milestones.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['parent_task_id'], ['project_tasks.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('project_task_orders',
@@ -255,19 +273,15 @@ def upgrade():
     sa.Column('task_id', sa.Uuid(), nullable=True),
     sa.Column('log_date', sa.Date(), nullable=False),
     sa.Column('hours_worked', sa.Numeric(precision=6, scale=2), nullable=False),
-    sa.Column('hourly_rate', sa.Numeric(precision=8, scale=2), nullable=True),
-    sa.Column('cost', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('activity_type', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_billable', sa.Boolean(), nullable=False),
     sa.Column('is_approved', sa.Boolean(), nullable=False),
-    sa.Column('approved_by_id', sa.Uuid(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['approved_by_id'], ['employees.id'], ),
     sa.ForeignKeyConstraint(['employee_id'], ['employees.id'], ),
-    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+    sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['subcontractor_id'], ['subcontractors.id'], ),
     sa.ForeignKeyConstraint(['task_id'], ['project_tasks.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -281,18 +295,19 @@ def downgrade():
     op.drop_table('project_task_orders')
     op.drop_table('project_tasks')
     op.drop_table('customers')
-    op.drop_index(op.f('ix_users_email'), table_name='users')
-    op.drop_table('users')
     op.drop_table('project_milestones')
     op.drop_table('project_assignments')
     op.drop_table('order_types')
-    op.drop_table('notification_preferences')
     op.drop_table('materials')
     op.drop_table('invoices')
+    op.drop_table('audit_logs')
+    op.drop_index(op.f('ix_users_email'), table_name='users')
+    op.drop_table('users')
     op.drop_table('subcontractors')
     op.drop_table('projects')
-    op.drop_table('employees')
+    op.drop_table('notification_preferences')
     op.drop_table('roles')
     op.drop_table('project_status_types')
+    op.drop_table('employees')
     op.drop_table('clients')
     # ### end Alembic commands ###
