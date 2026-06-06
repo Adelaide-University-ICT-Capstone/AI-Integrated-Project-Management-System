@@ -244,12 +244,80 @@ def get_material(*, session: Session, material_id: uuid.UUID) -> Material | None
 def get_materials_by_project_id(*, session: Session, project_id: uuid.UUID) -> list[Material]:
     return list(session.exec(select(Material).where(Material.project_id == project_id)).all())
 
+def _completion_percent(
+    *, project: Project, tasks: list[ProjectTask], milestones: list[ProjectMilestone]
+) -> Decimal:
+    if project.completion_date:
+        return Decimal("100")
+    if tasks:
+        completed = sum(
+            1 for t in tasks
+            if t.completion_date or (t.milestone_status or "").strip().lower() in COMPLETED_TASK_STATUSES
+        )
+        return percent_complete(completed, len(tasks))
+    if milestones:
+        completed = sum(1 for m in milestones if m.is_complete or m.completion_date)
+        return percent_complete(completed, len(milestones))
+    return Decimal("0")
+
+
+def _is_invoiced(*, project: Project, invoice_count: int) -> bool:
+    status_name = project.current_status.status_name if project.current_status else None
+    if status_name == "completed & invoiced":
+        return True
+    if project.invoice_amount and project.invoice_amount > 0:
+        return True
+    return invoice_count > 0
+
+
 def build_project_details(*, session: Session, projects: list[Project]) -> list[ProjectDetail]:
+    if not projects:
+        return []
+
     today = date.today()
+    project_ids = [p.id for p in projects]
+
+    all_milestones = list(session.exec(
+        select(ProjectMilestone).where(col(ProjectMilestone.project_id).in_(project_ids))
+    ).all())
+    milestones_by_project: dict[uuid.UUID, list[ProjectMilestone]] = {}
+    milestone_to_project: dict[uuid.UUID, uuid.UUID] = {}
+    for m in all_milestones:
+        milestones_by_project.setdefault(m.project_id, []).append(m)
+        milestone_to_project[m.id] = m.project_id
+
+    tasks_by_project: dict[uuid.UUID, list[ProjectTask]] = {}
+    if milestone_to_project:
+        for task in session.exec(
+            select(ProjectTask)
+            .where(col(ProjectTask.milestone_id).in_(list(milestone_to_project.keys())))
+            .where(ProjectTask.is_excluded == False)  # noqa: E712
+        ).all():
+            tasks_by_project.setdefault(milestone_to_project[task.milestone_id], []).append(task)
+
+    invoice_counts: dict[uuid.UUID, int] = {pid: 0 for pid in project_ids}
+    for pid, count in session.exec(
+        select(Invoice.project_id, func.count())
+        .where(col(Invoice.project_id).in_(project_ids))
+        .group_by(Invoice.project_id)
+    ).all():
+        invoice_counts[pid] = count
+
     result = []
     for p in projects:
-        client = session.get(Client, p.client_id) if p.client_id else None
+        client = p.client
         days = (today - p.start_date).days if p.start_date else None
+        completion = _completion_percent(
+            project=p,
+            tasks=tasks_by_project.get(p.id, []),
+            milestones=milestones_by_project.get(p.id, []),
+        )
+        invoiced = _is_invoiced(project=p, invoice_count=invoice_counts.get(p.id, 0))
+        tab = (
+            PROJECT_TAB_COMPLETED if completion >= Decimal("100") and invoiced
+            else PROJECT_TAB_TO_BE_INVOICED if completion >= Decimal("100")
+            else PROJECT_TAB_IN_PROGRESS
+        )
         result.append(
             ProjectDetail(
                 project_id=p.id,
@@ -259,17 +327,17 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 agent=p.agent,
                 job_title=p.job_title,
                 address=p.full_address,
-                company_name=p.client.company_name if client else None,
-                company_address=p.client.billing_address if client else None,
-                client_name=p.client.client_name if client else None,
+                company_name=client.company_name if client else None,
+                company_address=client.billing_address if client else None,
+                client_name=client.client_name if client else None,
                 status=p.current_status.status_name if p.current_status else None,
                 start_date=p.start_date,
                 due_date=p.due_date,
                 date_received=p.created_at.date() if p.created_at else None,
                 days_elapsed=days,
-                completion_percent=calculate_project_completion_percent(session=session, project=p),
-                is_invoiced=is_project_invoiced(session=session, project=p),
-                project_tab=get_project_tab(session=session, project=p),
+                completion_percent=completion,
+                is_invoiced=invoiced,
+                project_tab=tab,
                 fee_estimate=p.fee_final,
             )
         )
@@ -478,14 +546,6 @@ def delete_all_projects(*, session: Session) -> int:
     return count
 
 
-# def update_material(*, session: Session, material: Material, updates: dict) -> Material:
-#     material.sqlmodel_update(updates)
-#     session.add(material)
-#     session.commit()
-#     session.refresh(material)
-#     return material
-
-
 def update_project(*, session: Session, project: Project, updates: dict) -> Project:
     project.sqlmodel_update(updates)
     session.add(project)
@@ -493,46 +553,6 @@ def update_project(*, session: Session, project: Project, updates: dict) -> Proj
     session.refresh(project)
     return project
 
-
-# def update_project_new(*, session: Session, project_id: uuid.UUID, project_data: ProjectUpdateRequest) -> Project | None:
-#     project = session.get(Project, project_id)
-#     if not project:
-#         return None
-
-#     if project_data.status is not None:
-#         status_type = get_status_type(session=session, status_name=project_data.status)
-
-#         if not status_type:
-#             raise ValueError(f"Status type '{project_data.status}' does not exist.")
-#         project.current_status_id = status_type.id
-
-#     if project_data.project_name is not None:
-#         project.project_name = project_data.project_name
-#     if project_data.contract_title is not None:
-#         project.contract_title = project_data.contract_title
-#     if project_data.agent is not None:
-#         project.agent = project_data.agent
-#     if project_data.job_title is not None:
-#         project.job_title = project_data.job_title
-#     if project_data.address is not None:
-#         project.full_address = project_data.address
-#     if project_data.project_types is not None:
-#         project.project_type = project_data.project_types
-#     if project_data.date_received is not None:
-#         project.date_received = project_data.date_received
-#     if project_data.start_date is not None:
-#         project.start_date = project_data.start_date
-#     if project_data.due_date is not None:
-#         project.due_date = project_data.due_date
-#     if project_data.fee_estimate is not None:
-#         project.fee_final = project_data.fee_estimate
-
-#     session.add(project)
-#     session.commit()
-#     session.refresh(project)
-#     return project
-
-# --------------------------------
 
 def month_bounds(year: int, month: int) -> tuple[date, date]:
     _, last_day = monthrange(year, month)

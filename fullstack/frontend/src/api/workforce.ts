@@ -1,7 +1,7 @@
 export const assignWorker = async (workerId: number) => {
   const token = localStorage.getItem("access_token")
 
-  const res = await fetch(`http://localhost:8001/api/v1/workforce/${workerId}/assign`, {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/workforce/${workerId}/assign`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

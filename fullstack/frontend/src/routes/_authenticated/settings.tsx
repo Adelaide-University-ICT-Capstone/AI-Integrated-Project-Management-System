@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createFileRoute, Link, useRouterState } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import useAuth from '@/hooks/useAuth'
 import { usersApi } from '@/api/users'
+import { useTheme } from '@/components/theme-provider'
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: Settings,
@@ -47,6 +48,14 @@ export function Settings() {
   const [username, setUsername] = useState(user?.full_name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [role, setRole] = useState(user?.role_name || '')
+
+  useEffect(() => {
+    if (user) {
+      setUsername(user.full_name || '')
+      setEmail(user.email || '')
+      setRole(user.role_name || '')
+    }
+  }, [user])
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [showAvatarOptions, setShowAvatarOptions] = useState(false)
   const [selectedAvatarColor, setSelectedAvatarColor] = useState('bg-blue-500')
@@ -60,7 +69,7 @@ export function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isEditingPassword, setIsEditingPassword] = useState(false)
 
-  const [theme, setThemeState] = useState<'light' | 'dark'>('light')
+  const { resolvedTheme, setTheme } = useTheme()
 
   const [emailPreferences, setEmailPreferences] = useState({
     projectUpdates: true,
@@ -113,8 +122,7 @@ export function Settings() {
   }
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
-    setThemeState(newTheme)
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
+    setTheme(newTheme)
     toast.success(`Switched to ${newTheme} mode`)
   }
 
@@ -251,17 +259,14 @@ export function Settings() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role</label>
-            <select
+            <input
+              type="text"
               value={role}
               onChange={(e) => setRole(e.target.value)}
               disabled={!isEditingProfile}
+              placeholder="e.g. Engineer, Project Manager…"
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
-            >
-              <option value="">— No role —</option>
-              <option value="drafter">Drafter</option>
-              <option value="engineer">Engineer</option>
-              <option value="project_manager">Project Manager</option>
-            </select>
+            />
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -378,14 +383,14 @@ export function Settings() {
               key={t}
               onClick={() => handleThemeChange(t)}
               className={`p-4 rounded-lg border-2 transition-all ${
-                theme === t
+                resolvedTheme === t
                   ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-gray-900 dark:text-white capitalize">{t}</span>
-                {theme === t && (
+                {resolvedTheme === t && (
                   <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -439,13 +444,18 @@ export function Settings() {
       )}
 
       {/* Email Preferences Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 opacity-75">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
             <Mail className="text-green-600 dark:text-green-400" size={20} />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Email Preferences</h2>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Email Preferences</h2>
+              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full">
+                Coming Soon
+              </span>
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Choose what emails you want to receive</p>
           </div>
         </div>
@@ -457,19 +467,24 @@ export function Settings() {
             { key: 'weeklyReports', label: 'Weekly Reports', description: 'Summary of your weekly activity' },
             { key: 'invoiceAlerts', label: 'Invoice Alerts', description: 'Updates on invoicing and payments' },
           ].map((pref) => (
-            <div key={pref.key} className="flex items-start justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
+            <div
+              key={pref.key}
+              className="flex items-start justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0 cursor-not-allowed"
+              onClick={() => toast.info('Email preferences are coming soon!')}
+            >
               <div className="flex-1">
                 <div className="font-medium text-gray-900 dark:text-white">{pref.label}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">{pref.description}</div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center pointer-events-none">
                 <input
                   type="checkbox"
                   checked={emailPreferences[pref.key as keyof typeof emailPreferences]}
-                  onChange={(e) => handleEmailPreferenceChange(pref.key, e.target.checked)}
+                  onChange={() => {}}
+                  disabled
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
               </label>
             </div>
           ))}

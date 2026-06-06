@@ -2,7 +2,7 @@ export const getWorkforce = async () => {
   const token = localStorage.getItem("access_token")
 
   try {
-    const res = await fetch("http://localhost:8001/api/v1/workforce", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/workforce`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

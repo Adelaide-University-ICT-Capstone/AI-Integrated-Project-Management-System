@@ -50,25 +50,13 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
-    # POSTGRES_SERVER: str
-    # POSTGRES_PORT: int = 5432
-    # POSTGRES_USER: str
-    # POSTGRES_PASSWORD: str = ""
-    # POSTGRES_DB: str = ""
     SQLALCHEMY_URI: PostgresDsn | None = None
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
         if self.SQLALCHEMY_URI:
             return self.SQLALCHEMY_URI
-        # return PostgresDsn.build(
-        #     scheme="postgresql+psycopg",
-        #     username=self.POSTGRES_USER,
-        #     password=self.POSTGRES_PASSWORD,
-        #     host=self.POSTGRES_SERVER,
-        #     port=self.POSTGRES_PORT,
-        #     path=self.POSTGRES_DB,
-        # )
 
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
@@ -110,7 +98,6 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
-        # self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
         self._check_default_secret(
             "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
         )

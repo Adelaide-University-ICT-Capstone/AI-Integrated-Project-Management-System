@@ -7,8 +7,6 @@ from app.crud.project_statuses import (
     get_all_status_types,
     get_status_type,
 )
-
-
 from app.crud.users import (
     authenticate,
     create_user,
@@ -50,13 +48,9 @@ from app.crud.projects import (
     get_overdue_projects,
     get_projects_expected_by_date,
     get_project_manager,
-    month_bounds,
-    prev_month,
-    sum_invoices,
     get_or_create_client,
     get_project_by_id,
     get_project_by_job_number,
-    get_project_manager,
     get_project_milestone,
     get_project_tab,
     get_project_task,
@@ -74,35 +68,15 @@ from app.crud.projects import (
     update_project_milestone,
     update_project_task,
 )
-from app.crud.users import (
-    DUMMY_HASH,
-    authenticate,
-    create_user,
-    create_user_with_employee,
-    delete_user_and_employee,
-    get_all_users_with_roles,
-    get_user_by_email,
-    get_user_profile,
-    get_users,
-    update_employee_role,
-    update_user,
-)
-
-from app.crud.project_statuses import (
-    get_status_type,
-    create_status_type,
-    get_all_status_types,
-)
 
 from app.crud.invoices import (
     get_finished_invoices_since,
     get_expected_invoices_before,
 )
 
-
 from app.crud.subcontractors import (
     get_subcontractors,
-    create_subcontractor
+    create_subcontractor,
 )
 
 __all__ = [
@@ -165,19 +139,18 @@ __all__ = [
     # invoices
     "get_finished_invoices_since",
     "get_expected_invoices_before",
-    #tasks
+    # tasks
     "get_tasks",
     "delete_project_task",
-    #materials,
+    # materials
     "update_material",
     "create_material",
     "get_material",
     "delete_material",
     "get_material_statuses",
     "get_materials_by_project_id",
-    "get_materials_by_due_date_and_status"
-
+    "get_materials_by_due_date_and_status",
     # subcontractors
     "get_subcontractors",
-    "create_subcontractor"
+    "create_subcontractor",
 ]
