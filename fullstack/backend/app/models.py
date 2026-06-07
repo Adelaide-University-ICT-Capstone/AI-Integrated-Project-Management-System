@@ -72,12 +72,12 @@ class ProjectStatus(str, Enum):
     prelim = "prelim"
     design_doc = "design & doc"
     amendment = "amendment"
-    hold = "hold"
-    to_be_invoiced = "to be invoiced"
-    completed_invoiced = "completed & invoiced"
+    to_be_invoiced = "to_be_invoiced"
+    completed = "completed"
     eng_qa = "Eng/QA Review"
     construction = "construction"
-    blank = "-"
+    on_hold = "on_hold"
+    
 
 
 class SubcontractorStatus(str, Enum):
@@ -301,6 +301,13 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+
+    # ==== Added: Email preference switches for frontend preference sync ====
+    pref_project_updates: bool = Field(default=True, description="Toggle for project status change notifications")
+    pref_task_assignments: bool = Field(default=True, description="Toggle for new task assignment notifications")
+    pref_deadline_reminders: bool = Field(default=True, description="Toggle for upcoming due date reminders")
+    pref_weekly_reports: bool = Field(default=True, description="Toggle for weekly activity reports summary")
+    pref_invoice_alerts: bool = Field(default=True, description="Toggle for invoicing and payment alerts")
 
 
 class UserCreate(UserBase):
@@ -1212,7 +1219,7 @@ class ProjectUpdateRequest(SQLModel):
     agent: str | None = None
     job_title: str | None = None
     address: str | None = None
-    status: str | None = None
+    current_status_id: uuid.UUID | None = None
     date_received: date | None = None
     start_date: date | None = None
     due_date: date | None = None
@@ -1235,6 +1242,7 @@ class ProjectDetail(SQLModel):
     company_address: str | None = None
     client_name: str | None = None
     status: str | None = None
+    current_status_id: uuid.UUID | None = None
     start_date: date | None = None
     due_date: date | None = None
     days_elapsed: int | None = None

@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from sqlalchemy import false
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, func, or_, select
 
@@ -111,6 +112,7 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
         full_address=project_data.address or project_data.client_address,
         date_received=project_data.date_received,
         fee_final=project_data.fee_estimate,
+        invoice_amount=project_data.fee_estimate,
         start_date=project_data.start_date,
         due_date=project_data.due_date,
     )
@@ -119,6 +121,35 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
     session.refresh(project)
     create_default_project_task_structure(session=session, project=project, project_data=project_data)
     return project
+
+def get_visible_projects(
+    *,
+    session: Session,
+    employee_id: uuid.UUID | None,
+    is_superuser: bool,
+    status: str | None = None,
+) -> list[Project]:
+    query = select(Project)
+
+    if status:
+        query = query.join(ProjectStatusType).where(
+            ProjectStatusType.status_name == status
+        )
+
+    if not is_superuser:
+        if not employee_id:
+            return []
+
+        query = (
+            query.join(ProjectAssignment)
+            .where(ProjectAssignment.employee_id == employee_id)
+        )
+
+    return list(
+        session.exec(
+            query.order_by(col(Project.created_at).desc()).distinct()
+        ).all()
+    )
 
 
 def percent_complete(completed: int, total: int) -> Decimal:
@@ -327,6 +358,7 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
                 contract_title=p.contract_title,
                 agent=p.agent,
                 job_title=p.job_title,
+                current_status_id=p.current_status_id,
                 address=p.full_address,
                 company_name=client.company_name if client else None,
                 company_address=client.billing_address if client else None,
@@ -410,6 +442,8 @@ def get_tasks(
     start: date | None = None,
     end: date | None = None,
     status: str | None = None,
+    employee_id: uuid.UUID | None = None,
+    filter_by_employee: bool = False,
 ) -> list[ProjectTask]:
     query = select(ProjectTask)
     if start is not None:
@@ -418,6 +452,11 @@ def get_tasks(
         query = query.where(ProjectTask.due_date <= end)
     if status is not None:
         query = query.where(func.lower(ProjectTask.milestone_status) == status.lower())
+    if filter_by_employee:
+        employee_filter = (
+            ProjectTask.assigned_employee_id == employee_id if employee_id else false()
+        )
+        query = query.where(employee_filter)
 
     return list(
         session.exec(
@@ -473,7 +512,13 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     return roots
 
 
-def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> list[ProjectMilestoneNode]:
+def get_project_task_management(
+    *,
+    session: Session,
+    project_id: uuid.UUID,
+    employee_id: uuid.UUID | None = None,
+    filter_by_employee: bool = False,
+) -> list[ProjectMilestoneNode]:
     milestones = list(
         session.exec(
             select(ProjectMilestone)
@@ -485,15 +530,20 @@ def get_project_task_management(*, session: Session, project_id: uuid.UUID) -> l
         ).all()
     )
 
-    task_rows = list(
-        session.exec(
-            select(ProjectTask)
-            .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
-            .where(ProjectMilestone.project_id == project_id)
-            .options(selectinload(ProjectTask.assigned_employee))  # type: ignore[arg-type]
-            .order_by(col(ProjectTask.created_at))
-        ).all()
+    task_query = (
+        select(ProjectTask)
+        .join(ProjectMilestone, ProjectMilestone.id == ProjectTask.milestone_id)
+        .where(ProjectMilestone.project_id == project_id)
+        .options(selectinload(ProjectTask.assigned_employee))  # type: ignore[arg-type]
+        .order_by(col(ProjectTask.created_at))
     )
+    if filter_by_employee:
+        employee_filter = (
+            ProjectTask.assigned_employee_id == employee_id if employee_id else false()
+        )
+        task_query = task_query.where(employee_filter)
+
+    task_rows = list(session.exec(task_query).all())
     tasks_by_milestone: dict[uuid.UUID, list[ProjectTask]] = {}
     for task in task_rows:
         tasks_by_milestone.setdefault(task.milestone_id, []).append(task)
@@ -553,12 +603,40 @@ def delete_all_projects(*, session: Session) -> int:
 
 
 def update_project(*, session: Session, project: Project, updates: dict) -> Project:
+    client_company = updates.pop("client_company", None)
+    client_address = updates.pop("client_address", None)
+    client_name = updates.pop("client_name", None)
+    client_contact = updates.pop("client_contact", None)
+    fee_estimate = updates.pop("fee_estimate", None)
+    project_types = updates.pop("project_types", None)
+
+    if client_company is not None and project.client:
+        project.client.company_name = client_company
+
+    if client_address is not None and project.client:
+        project.client.billing_address = client_address
+
+    if client_name is not None and project.client:
+        project.client.client_name = client_name
+
+    if client_contact is not None and project.client:
+        project.client.contact_email = client_contact
+
+    if fee_estimate is not None:
+        project.invoice_amount = project.fee_final = fee_estimate
+
+    if project_types is not None:
+        project.project_type = project_types
+
     project.sqlmodel_update(updates)
+
+    if project.client:
+        session.add(project.client)
+
     session.add(project)
     session.commit()
     session.refresh(project)
     return project
-
 
 def month_bounds(year: int, month: int) -> tuple[date, date]:
     _, last_day = monthrange(year, month)

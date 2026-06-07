@@ -18,8 +18,20 @@ OpenAPI.TOKEN = async () => {
   return localStorage.getItem("access_token") || ""
 }
 
+const isAuthFailure = (error: ApiError) => {
+  if (error.status === 401) return true
+  if (error.status !== 403) return false
+
+  const detail =
+    error.body && typeof error.body === "object" && "detail" in error.body
+      ? (error.body as { detail?: unknown }).detail
+      : undefined
+
+  return detail === "Could not validate credentials"
+}
+
 const handleApiError = (error: Error) => {
-  if (error instanceof ApiError && [401, 403].includes(error.status)) {
+  if (error instanceof ApiError && isAuthFailure(error)) {
     localStorage.removeItem("access_token")
     window.location.href = "/login"
   }

@@ -1,11 +1,33 @@
+import { AddSubcontractorModal } from '@/components/Subcontractors/AddSubcontractorModal'
+import { NewOrderModal } from '@/components/Subcontractors/NewOrderModal'
+import { OrderRow } from '@/components/Subcontractors/OrderRow'
+import type { Order, ServiceType, Subcontractor } from '@/components/Subcontractors/types'
 import { useEffect, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  SERVICE_TYPES,
+  ROW_COLS_BY_SC,
+  ROW_COLS_BY_SVC,
+  servicePillClass,
+} from '@/components/Subcontractors/constants'
+
+import {
+  avatarColorFromName,
+  daysBetween,
+  getOrderAlert,
+  initials,
+  mapMaterialStatus,
+  mapStringToServiceType,
+  mapStatus,
+} from '@/components/Subcontractors/utils'
+import EditSubcontractorPanel from '@/components/Subcontractors/EditSubcontractorPanel'
+
+
+import { createFileRoute } from '@tanstack/react-router'
 import {
   Plus,
   Search,
   Building2,
   Mail,
-  X,
   Send,
   Edit2,
   Trash2,
@@ -14,472 +36,23 @@ import {
 import { toast } from 'sonner'
 import { subcontractorsApi } from '@/api/subcontractors'
 import { materialsApi } from '@/api/materials'
-import { Project, projectsApi } from '@/api/project'
-import { set } from 'zod'
+import type { Material } from '@/api/materials'
+import { projectsApi } from '@/api/project'
+import type { Project } from '@/api/project'
 
 export const Route = createFileRoute('/_authenticated/subcontractors')({
   component: Subcontractors,
 })
 
-// ----- Data types -----
 
-type ServiceType = 'Survey' | 'Soil Testing' | 'Timber Framing' | 'Other'
-type OrderStatus = 'N/A' | 'Ordered' | 'Received' | 'By Client'
-
-interface Subcontractor {
-  id: string
-  name: string
-  email: string
-  phone: string
-  services: ServiceType[]
-}
-
-interface Order {
-  id: string
-  subcontractorId: string
-  service: ServiceType
-  projectId: string
-  orderedDate: string
-  status: OrderStatus
-}
-
-
-const mapStringToServiceType = (service: string): ServiceType => {
-  switch (service.toLowerCase()) {
-    case 'survey':
-      return 'Survey'
-    case 'soil testing':
-      return 'Soil Testing'
-    case 'timber framing':
-      return 'Timber Framing'
-    default:
-      return 'Other'
-  }
-}
-
-const mapMaterialStatus = (status: string | null | undefined): OrderStatus => {
-  if (!status) return 'N/A'
-  switch (status.toLowerCase()) {
-    case 'ordered':
-      return 'Ordered'
-    case 'received':
-      return 'Received'
-    case 'by client':
-    case 'by_client':
-      return 'By Client'
-    default:
-      return 'N/A'
-  }
-}
-
-const mapStatus = (status: OrderStatus) => {
-  switch (status) {
-    case 'Ordered':
-      return 'ordered'
-    case 'Received':
-      return 'received'
-    case 'By Client':
-      return 'by_client'
-    default:
-      return 'N/A'
-  }
-}
-
-
-const getServicePillClass = (service: string) =>
-  SERVICE_TYPES.includes(service as ServiceType)
-    ? servicePillClass[service as ServiceType]
-    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-
-// ----- Mock data -----
-
-const initialSubcontractors: Subcontractor[] = [
-  { id: 'sc1', name: 'Big Wood Suppliers', email: 'orders@bigwood.com', phone: '+1 (555) 100-2001', services: ['Timber Framing'] },
-  { id: 'sc2', name: 'GeoCon Labs', email: 'contact@geoconlabs.com', phone: '+1 (555) 100-2002', services: ['Soil Testing'] },
-  { id: 'sc3', name: 'ABC Surveyors', email: 'info@abcsurveyors.com', phone: '+1 (555) 100-2003', services: ['Survey'] },
-  { id: 'sc4', name: 'Steel Supply Co', email: 'orders@steelsupply.com', phone: '+1 (555) 100-2004', services: ['Other'] },
-  { id: 'sc5', name: 'TimberFrame Pro', email: 'sales@timberframepro.com', phone: '+1 (555) 100-2005', services: ['Timber Framing'] },
-]
-
-const today = new Date()
-const daysAgo = (n: number) => {
-  const d = new Date(today)
-  d.setDate(d.getDate() - n)
-  return d.toISOString().split('T')[0]
-}
-
-// const initialOrders: Order[] = [
-//   { id: 'o1', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(12), status: 'Ordered' },
-//   { id: 'o2', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(3), status: 'Ordered' },
-//   { id: 'o3', subcontractorId: 'sc1', service: 'Timber Framing', projectId: 'PRJ-2023-012', projectName: 'Residential Tower Foundation', orderedDate: daysAgo(28), status: 'Ordered' },
-//   { id: 'o4', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-001', projectName: 'Downtown Office Complex', orderedDate: daysAgo(2), status: 'Received' },
-//   { id: 'o5', subcontractorId: 'sc2', service: 'Soil Testing', projectId: 'PRJ-2024-002', projectName: 'Highway Bridge Restoration', orderedDate: daysAgo(35), status: 'Ordered' },
-//   { id: 'o6', subcontractorId: 'sc3', service: 'Survey', projectId: 'PRJ-2024-003', projectName: 'Bridge Renovation Project', orderedDate: daysAgo(5), status: 'By Client' },
-//   { id: 'o7', subcontractorId: 'sc5', service: 'Timber Framing', projectId: 'PRJ-2024-004', projectName: 'Shopping Mall Expansion', orderedDate: daysAgo(9), status: 'Ordered' },
-// ]
-
-const PROJECT_OPTIONS = [
-  { id: 'PRJ-2024-001', name: 'Downtown Office Complex' },
-  { id: 'PRJ-2024-002', name: 'Highway Bridge Restoration' },
-  { id: 'PRJ-2024-003', name: 'Bridge Renovation Project' },
-  { id: 'PRJ-2024-004', name: 'Shopping Mall Expansion' },
-  { id: 'PRJ-2023-012', name: 'Residential Tower Foundation' },
-]
-
-const SERVICE_TYPES: ServiceType[] = ['Survey', 'Soil Testing', 'Timber Framing', 'Other']
-
-// ----- Helpers -----
-
-const daysBetween = (dateStr: string) => {
-  if (!dateStr) return 0
-  const d = new Date(dateStr)
-  d.setHours(0, 0, 0, 0)
-  const t = new Date()
-  t.setHours(0, 0, 0, 0)
-  return Math.floor((t.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-const getOrderAlert = (order: Order): { label: string; tone: 'green' | 'yellow' | 'red' | 'gray' } => {
-  if (order.status === 'Received') return { label: '✓ Done', tone: 'green' }
-  if (order.status === 'By Client') return { label: '✓ N/A', tone: 'green' }
-  if (order.status === 'N/A') return { label: '—', tone: 'gray' }
-  const days = daysBetween(order.orderedDate)
-  if (days >= 30) return { label: '🚨 >30d follow-up', tone: 'red' }
-  if (days >= 21) return { label: '🚨 >21d follow-up', tone: 'red' }
-  if (days >= 7) return { label: '⏰ >7d', tone: 'yellow' }
-  return { label: '✓ On track', tone: 'green' }
-}
-
-const alertToneClass = {
-  green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  gray: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-}
-
-const statusPillClass: Record<OrderStatus, string> = {
-  'N/A': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  'Ordered': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  'Received': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'By Client': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-}
-
-
-
-const servicePillClass: Record<ServiceType, string> = {
-  'Survey': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  'Soil Testing': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  'Timber Framing': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  'Other': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
-}
-
-const avatarColorFromName = (name: string) => {
-  const colors = ['bg-blue-600', 'bg-purple-600', 'bg-orange-600', 'bg-teal-600', 'bg-pink-600', 'bg-green-600', 'bg-indigo-600']
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length]
-}
-
-const initials = (name: string) =>
-  name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-
-const formatDaysAgo = (dateStr: string) => {
-  if (!dateStr) return '—'
-  const d = daysBetween(dateStr)
-  if (d === 0) return 'today'
-  if (d === 1) return 'yesterday'
-  return `${d} days ago`
-}
-
-// ----- Grid column definitions (kept identical between header + row) -----
-
-const ROW_COLS_BY_SC = 'grid-cols-[1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
-const ROW_COLS_BY_SVC = 'grid-cols-[1.2fr_1.4fr_1.1fr_1fr_1fr_1.1fr_36px]'
-
-// ----- New Order Modal -----
-
-function NewOrderModal({
-  projects,
-  subcontractor,
-  onClose,
-  onSave,
-}: {
-  projects: Project[]
-  subcontractor: Subcontractor
-  onClose: () => void
-  onSave: (order: Omit<Order, 'projectName'>) => void
-}) {
-  const [formData, setFormData] = useState({
-    service: subcontractor.services[0] as ServiceType,
-    projectId: projects?.[0]?.project_id,
-    orderedDate: new Date().toISOString().split('T')[0],
-    status: 'Ordered' as OrderStatus,
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      id: formData.projectId,
-      subcontractorId: subcontractor.id,
-      service: formData.service,
-      projectId: formData.projectId,
-      orderedDate: formData.orderedDate,
-      status: formData.status,
-    })
-
-    // send order to backend 
-      
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">New Order</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">For {subcontractor.name}</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <X size={20} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service</label>
-            <select
-              value={formData.service}
-              onChange={(e) => setFormData({ ...formData, service: e.target.value as ServiceType })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            >
-              {SERVICE_TYPES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</label>
-            <select
-              value={formData.projectId}
-              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            >
-              {projects.map((p) => (
-                <option key={p.project_id} value={p.project_id}>{p.job_number} — {p.project_name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ordered Date</label>
-            <input
-              type="date"
-              value={formData.orderedDate}
-              onChange={(e) => setFormData({ ...formData, orderedDate: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as OrderStatus })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            >
-              <option value="N/A">N/A</option>
-              <option value="Ordered">Ordered</option>
-              <option value="Received">Received</option>
-              <option value="By Client">By Client</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
-              Create Order
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ----- Add Subcontractor Modal -----
-
-function AddSubcontractorModal({
-  onClose,
-  onSave,
-}: {
-  onClose: () => void
-  onSave: (sc: Omit<Subcontractor, 'id'>) => void
-}) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    services: [] as ServiceType[],
-  })
-
-  const toggleService = (s: ServiceType) => {
-    setFormData((prev) => ({
-      ...prev,
-      services: prev.services.includes(s)
-        ? prev.services.filter((x) => x !== s)
-        : [...prev.services, s],
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name.trim() || !formData.email.trim()) {
-      toast.error('Please fill in name and email')
-      return
-    }
-    if (formData.services.length === 0) {
-      toast.error('Pick at least one service')
-      return
-    }
-    onSave(formData)
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Subcontractor</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <X size={20} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Big Wood Suppliers"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="contact@example.com"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+1 (555) 000-0000"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Services Provided</label>
-            <div className="flex flex-wrap gap-2">
-              {SERVICE_TYPES.map((s) => (
-                <button
-                  type="button"
-                  key={s}
-                  onClick={() => toggleService(s)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    formData.services.includes(s)
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
-              Add Subcontractor
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ----- Order Row Component -----
-
-function OrderRow({
-  order,
-  showSubcontractor = false,
-  subcontractorName = '',
-  onDelete,
-}: {
-  order: Order
-  showSubcontractor?: boolean
-  subcontractorName?: string
-  onDelete: () => void
-}) {
-  const navigate = useNavigate();
-  const alert = getOrderAlert(order)
-  const cols = showSubcontractor ? ROW_COLS_BY_SVC : ROW_COLS_BY_SC
-
-  const handleRowClick = () => {
-    navigate({ to: `/projects/${order.projectId}` });
-  }
-
-
-  return (
-    <div 
-      onClick={handleRowClick}
-      className={`grid ${cols} gap-2 px-4 py-2 items-center text-xs border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors`}
-    >
-      {showSubcontractor && (
-        <span className="font-medium text-gray-900 dark:text-white truncate text-xs">{subcontractorName}</span>
-      )}
-      <span className="font-mono text-blue-700 dark:text-blue-400 text-[11px] truncate">{order.projectId}</span>
-      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${getServicePillClass(order.service)}`}>
-        {order.service}
-      </span>
-      <span className="justify-self-center text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatDaysAgo(order.orderedDate)}</span>
-      <span className={`justify-self-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusPillClass[mapMaterialStatus(order.status)]}`}>
-        {order.status}
-      </span>
-      <span className={`justify-self-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${alertToneClass[alert.tone]}`}>
-        {alert.label}
-      </span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onDelete()
-        }}
-        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded justify-self-center"
-      >
-        <Trash2 size={14} />
-      </button>
-    </div>
-  )
-}
+const mapMaterialToOrder = (material: Material): Order => ({
+  id: material.id,
+  projectId: material.project_id || '',
+  subcontractorId: material.subcontractor_id || '',
+  service: material.name || '',
+  orderedDate: material.ordered_date || '',
+  status: mapMaterialStatus(material.status),
+})
 
 // ----- Main Component -----
 
@@ -490,33 +63,26 @@ function Subcontractors() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddSubcontractor, setShowAddSubcontractor] = useState(false)
   const [newOrderForSc, setNewOrderForSc] = useState<Subcontractor | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [, setIsLoading] = useState(false)
   const totalActiveOrders = orders.length
   const followUpCount = orders.filter((o) => getOrderAlert(o).tone === 'red').length
   const overSevenDaysCount = orders.filter((o) => o.status === 'Ordered' && daysBetween(o.orderedDate) >= 7).length
   const [projects, setProjects] = useState<Project[]>([])
+  const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null)
 
-
-  // Fetch subcontractors on mount
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const data = await projectsApi.getAllProjects();
-        setProjects(data.data);
-        // console.log('Raw projects data:', data)
-      } catch (error) {
-        toast.error('Failed to load projects')
-        console.error(error)
-      }
-    }
 
-    const fetchSubcontractors = async () => {
+    const fetchSubcontractorData = async () => {
       try {
         setIsLoading(true)
-        const data = await subcontractorsApi.getSubcontractors();
-        // console.log('Raw subcontractors data:', data)
+        const [projectsData, subcontractorsData] = await Promise.all([
+          projectsApi.getAllProjects(),
+          subcontractorsApi.getSubcontractors(),
+        ])
 
-        const subcontractorsResult: Subcontractor[] = data.map((m: any) => ({
+        setProjects(projectsData.data)
+
+        const subcontractorsResult: Subcontractor[] = subcontractorsData.map((m: any) => ({
             id: m.id,
             name: m.company_name || '',
             email: m.contact_email || '',
@@ -524,8 +90,24 @@ function Subcontractors() {
             services: (m.specialty || '').split(',').map((s: string) => s.trim() as ServiceType).filter((s: ServiceType) => SERVICE_TYPES.includes(s)) || [],
           }))
         setSubcontractors(subcontractorsResult);
-        // console.log('Fetched subcontractors:', subcontractorsResult)
 
+
+        // fetch all materials already scoped server-side to projects current user is assigned to
+        const visibleMaterials = await materialsApi.getOrders()
+        const visibleSubcontractorIds = new Set(subcontractorsResult.map((subcontractor) => subcontractor.id))
+        // map API Material -> shared lightweight Order then convert fields to local UI types
+        const uiOrders: Order[] = visibleMaterials
+          .map(mapMaterialToOrder)
+          .map((m) => ({
+            id: m.id,
+            subcontractorId: m.subcontractorId || '',
+            service: (m.service ?? '') as string,
+            projectId: m.projectId,
+            orderedDate: m.orderedDate ?? '',
+            status: mapMaterialStatus(m.status as any),
+          }))
+          .filter((order) => visibleSubcontractorIds.has(order.subcontractorId))
+        setOrders(uiOrders)
       } catch (error) {
         toast.error('Failed to load subcontractors')
         console.error(error)
@@ -534,34 +116,39 @@ function Subcontractors() {
       }
     }
 
-    const fetchOrders = async () => {
-      try {
-        setIsLoading(true)
-        const data = await materialsApi.getUnreceivedOrders()
-        const ordersResult: Order[] = data.map((m: any) => ({
-          id: m.id,
-          projectName: m.project_name || '',
-          projectId: m.project_id || '',
-          subcontractorId: m.subcontractor_id || '',
-          service: m.name || '',
-          orderedDate: m.ordered_date || null,
-          status: m.status || '',
-        }))
-        setOrders(ordersResult);
-
-        // console.log('Fetched orders:', ordersResult)
-      } catch (error) {
-        toast.error('Failed to load orders')
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProjects()
-    fetchSubcontractors()
-    fetchOrders()
+    fetchSubcontractorData()
   }, [])
+
+  const handleUpdateSubcontractor = async (updated: Subcontractor) => {
+    try {
+      const saved = await subcontractorsApi.updateSubcontractor(updated.id, {
+        company_name: updated.name,
+        contact_email: updated.email,
+        phone: updated.phone,
+        specialty: updated.services.join(', '),
+      })
+
+      const frontendSc: Subcontractor = {
+        id: saved.id,
+        name: saved.company_name || '',
+        email: saved.contact_email || '',
+        phone: saved.phone || '',
+        services: (saved.specialty || '')
+          .split(',')
+          .map((s: string) => s.trim() as ServiceType)
+          .filter((s: ServiceType) => SERVICE_TYPES.includes(s)),
+      }
+
+      setSubcontractors((prev) =>
+        prev.map((s) => (s.id === frontendSc.id ? frontendSc : s)),
+      )
+      setEditingSubcontractor(null)
+      toast.success(`${frontendSc.name} updated`)
+    } catch (error) {
+      toast.error('Failed to update subcontractor')
+      console.error(error)
+    }
+  }
 
   
   const matchSearch = (text: string) => text.toLowerCase().includes(searchTerm.toLowerCase())
@@ -601,17 +188,16 @@ function Subcontractors() {
         ordered_date: order.orderedDate,
       })
 
+      // map returned material -> UI order using shared mapper then normalize UI fields
+      const mapped = mapMaterialToOrder(material)
       const newOrder: Order = {
-        id: material.id,
-        subcontractorId: material.subcontractor_id ?? '',
-        service: material.name as ServiceType,
-        projectId: material.project_id,
-        orderedDate: material.ordered_date ?? '',
-        status: mapMaterialStatus(material.status),
+        id: mapped.id,
+        subcontractorId: mapped.subcontractorId ?? '',
+        service: mapStringToServiceType((mapped.service ?? '') as string),
+        projectId: mapped.projectId,
+        orderedDate: mapped.orderedDate ?? '',
+        status: mapMaterialStatus(mapped.status as any),
       }
-
-      // console.log('Created material:', material)
-
       setOrders((prev) => [...prev, newOrder])
       toast.success('Order created')
     } catch (error) {
@@ -622,16 +208,30 @@ function Subcontractors() {
     }
   }
 
-  const handleDeleteOrder = (id: string) => {
-    setOrders(orders.filter((o) => o.id !== id))
-    toast.success('Order removed')
+  const handleDeleteOrder = async (order: Order) => {
+    try {
+      await materialsApi.deleteOrder(order.projectId, order.id)
+
+      setOrders((prev) => prev.filter((o) => o.id !== order.id))
+      toast.success('Order removed')
+    } catch (error) {
+      toast.error('Failed to remove order')
+      console.error(error)
+    }
   }
 
-  const handleDeleteSubcontractor = (id: string) => {
-    if (window.confirm('Remove this subcontractor and all their orders?')) {
-      setSubcontractors(subcontractors.filter((s) => s.id !== id))
-      setOrders(orders.filter((o) => o.subcontractorId !== id))
+  const handleDeleteSubcontractor = async (id: string) => {
+    if (!window.confirm('Remove this subcontractor?')) return
+
+    try {
+      await subcontractorsApi.deleteSubcontractor(id)
+
+      setSubcontractors((prev) => prev.filter((s) => s.id !== id))
+      setOrders((prev) => prev.filter((o) => o.subcontractorId !== id))
       toast.success('Subcontractor removed')
+    } catch (error) {
+      toast.error('Failed to remove subcontractor')
+      console.error(error)
     }
   }
 
@@ -639,11 +239,29 @@ function Subcontractors() {
     matchSearch(sc.name) || sc.services.some((s) => matchSearch(s)),
   )
 
+  const getProjectJobNumber = (projectId: string) =>
+    projects.find((project) => project.project_id === projectId)?.job_number ?? projectId
+
+  const getRowsForSubcontractor = (subcontractor: Subcontractor) => {
+    const scOrders = orders
+      .filter((o) => o.subcontractorId === subcontractor.id)
+      .map((order) => ({
+        ...order,
+        projectJobNumber: getProjectJobNumber(order.projectId),
+      }))
+    return [...scOrders]
+  }
+
+  const visibleOrderRows = subcontractors.flatMap((subcontractor) =>
+    getRowsForSubcontractor(subcontractor),
+  )
+
   const ordersByService = SERVICE_TYPES.reduce((acc, service) => {
-    acc[service] = orders.filter((o) => {
+    acc[service] = visibleOrderRows.filter((o) => {
       const sc = subcontractors.find((s) => s.id === o.subcontractorId)
       const matches =
         matchSearch(o.projectId) ||
+        matchSearch(o.projectJobNumber || '') ||
         (sc && matchSearch(sc.name)) ||
         matchSearch(o.service)
       return mapStringToServiceType(o.service) === service && matches
@@ -782,7 +400,7 @@ function Subcontractors() {
                 </div>
               ) : (
                 filteredSubcontractors.map((sc) => {
-                  const scOrders = orders.filter((o) => o.subcontractorId === sc.id)
+                  const scOrders = getRowsForSubcontractor(sc)
                   return (
                     <div key={sc.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700">
@@ -801,7 +419,7 @@ function Subcontractors() {
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button
-                            onClick={() => toast.info('Edit subcontractor coming soon')}
+                            onClick={() => setEditingSubcontractor(sc)}
                             className="p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                             title="Edit"
                           >
@@ -825,7 +443,7 @@ function Subcontractors() {
 
                       {scOrders.length === 0 ? (
                         <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400 italic">
-                          No orders yet — click "New Order" to create one
+                          No assigned projects yet
                         </div>
                       ) : (
                         <>
@@ -842,7 +460,7 @@ function Subcontractors() {
                             <OrderRow
                               key={order.id}
                               order={order}
-                              onDelete={() => handleDeleteOrder(order.id)}
+                              onDelete={() => handleDeleteOrder(order)}
                             />
                           ))}
                         </>
@@ -893,7 +511,7 @@ function Subcontractors() {
                               order={order}
                               showSubcontractor
                               subcontractorName={sc?.name || 'Unknown'}
-                              onDelete={() => handleDeleteOrder(order.id)}
+                              onDelete={() => handleDeleteOrder(order)}
                             />
                           )
                         })}
@@ -919,6 +537,13 @@ function Subcontractors() {
           subcontractor={newOrderForSc}
           onClose={() => setNewOrderForSc(null)}
           onSave={handleAddOrder}
+        />
+      )}
+      {editingSubcontractor && (
+        <EditSubcontractorPanel
+          subcontractor={editingSubcontractor}
+          onClose={() => setEditingSubcontractor(null)}
+          onSave={handleUpdateSubcontractor}
         />
       )}
     </div>

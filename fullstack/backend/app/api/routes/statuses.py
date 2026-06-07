@@ -16,6 +16,7 @@ from app.models import (
     ProjectCreateRequest,
     ProjectCreateResponse,
     ProjectDetail,
+    ProjectStatusTypePublic,
     Message
 )
 
@@ -24,8 +25,8 @@ router = APIRouter(prefix="/statuses", tags=["statuses"])
 
 @router.get(
     "",
-    response_model=list[str],
+    response_model=list[ProjectStatusTypePublic],
 )
-def get_project_statuses(session: SessionDep) -> list[str]:
+def get_project_statuses(session: SessionDep) -> list[ProjectStatusTypePublic]:
     status_types = crud.get_all_status_types(session=session)
-    return [status_type.status_name for status_type in status_types]
+    return [ProjectStatusTypePublic.model_validate(status_type) for status_type in status_types]

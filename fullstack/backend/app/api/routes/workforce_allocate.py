@@ -1,7 +1,7 @@
 # ---- Igie -----
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 
 from app.api.deps import CurrentUser, SessionDep
 from app.crud.workforce_allocate import (
@@ -25,6 +25,8 @@ from app.models import (
     WorkforcePatchResponse,
     WorkforcePostResponse,
 )
+
+from app.api.routes.notifications import send_task_assignment_notification, send_task_removal_notification
 
 router = APIRouter(tags=["workforce allocation"])
 
@@ -123,8 +125,9 @@ def assign_workforce(
     data: list[WorkforceAssignmentRequest],
     session: SessionDep,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ):
-    check_project_permission(session, project_id, current_user)
+    project = check_project_permission(session, project_id, current_user)
 
     if not data:
         raise HTTPException(status_code=400, detail="Request body cannot be empty")
@@ -177,6 +180,15 @@ def assign_workforce(
 
     for assignment in created_assignments:
         session.refresh(assignment)
+    
+    #Email
+    for item in data:
+        send_task_assignment_notification(
+            db=session,
+            background_tasks=background_tasks,
+            user_id=item.user_id,
+            task_name=project.project_name or project.job_number
+        )
 
     return WorkforcePostResponse(
         assigned=len(created_assignments),
@@ -262,8 +274,9 @@ def remove_workforce(
     data: WorkforceDeleteRequest,
     session: SessionDep,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ):
-    check_project_permission(session, project_id, current_user)
+    project = check_project_permission(session, project_id, current_user)
 
     if not data.user_ids:
         raise HTTPException(status_code=400, detail="user_ids cannot be empty")
@@ -300,6 +313,16 @@ def remove_workforce(
     )
 
     session.commit()
+
+    #EMail
+    for user_id in data.user_ids:
+        send_task_removal_notification(
+            db=session,
+            background_tasks=background_tasks,
+            user_id=user_id,
+            task_name=project.project_name or project.job_number
+        )
+
 
     return WorkforceDeleteResponse(
         removed=removed_count,

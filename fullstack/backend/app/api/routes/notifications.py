@@ -1,5 +1,7 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+import zoneinfo
 from typing import Any
+import uuid
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlmodel import Session, select
@@ -12,10 +14,15 @@ from app.models import (
     Project, 
     ProjectMilestone, 
     ProjectTask, 
-    ProjectStatus
+    ProjectStatus,
+    User,
+    Employee, 
+    ProjectAssignment
 )
-# Ensure we are importing from the correct logic file
 from app.utils import send_email, render_email_template, EmailData
+
+from sqlalchemy import event
+from app.models import Project
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -41,7 +48,7 @@ def generate_due_reminder_email(
     html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>{project_name} Due Date Reminders</h2>
+            <h2>Gama Consulting Due Date Reminders</h2>
             <p>The following items are approaching their deadlines (14, 7, 3, or 0 days remaining):</p>
             <table style='border-collapse: collapse; width: 100%; border: 1px solid #ddd;'>
                 <thead>
@@ -59,6 +66,11 @@ def generate_due_reminder_email(
     """
     return EmailData(html_content=html_content, subject=subject)
 
+
+
+# =========================================================================
+# 1. Deadline Reminders (Refactored to loop through users and check toggle)
+# =========================================================================
 @router.post(
     "/trigger-reminders/",
     dependencies=[Depends(get_current_active_superuser)],
@@ -70,65 +82,373 @@ def trigger_due_reminders(
     db: Session = Depends(get_db)
 ) -> Message:
     """
-    Detect upcoming deadlines and trigger notifications via background tasks.
+    Detect upcoming deadlines and queue personalised reminders strictly for users 
+    assigned to those specific projects and who have enabled notifications.
     """
     try:
-        today = date.today()
+        from app.models import ProjectAssignment, ProjectStatus, Project, User, Employee
+        
+        adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
+        today = datetime.now(adelaide_tz).date()
         target_dates = [today + timedelta(days=i) for i in [0, 3, 7, 14]]
-        reminder_list = []
 
-        # 1. Projects
+        # 1. Evaluate Project Due Dates to build a map of user_email -> list of their due projects
         excluded_statuses = [ProjectStatus.completed_invoiced.value, ProjectStatus.hold.value]
         project_stmt = select(Project).where(
             Project.due_date.in_(target_dates),
             Project.is_active == True
         )
-        for p in db.exec(project_stmt).all():
+        due_projects = db.exec(project_stmt).all()
+        
+        if not due_projects:
+            return Message(message="No items matching the scheduled intervals for today.")
+
+        # Dictionary to group personalized items: { user_email: [project_item_1, project_item_2] }
+        user_reminders_map = {}
+
+        for p in due_projects:
             if p.current_status and p.current_status.status_name not in excluded_statuses:
-                reminder_list.append({
+                project_item = {
                     "name": p.project_name or p.job_number,
                     "category": "Project",
                     "date": str(p.due_date),
                     "days_left": (p.due_date - today).days
-                })
+                }
+                
+                # 🔔 Core Logic: Track down stakeholders assigned to this specific project
+                assignment_stmt = select(User).join(
+                    Employee, User.employee_id == Employee.id
+                ).join(
+                    ProjectAssignment, ProjectAssignment.employee_id == Employee.id
+                ).where(
+                    ProjectAssignment.project_id == p.id,
+                    User.is_active == True,
+                    User.pref_deadline_reminders == True  # Check their notification toggle loop
+                )
+                assigned_users = db.exec(assignment_stmt).all()
+                
+                # Group the project item under each assigned user's email account
+                for user in assigned_users:
+                    user_reminders_map.setdefault(user.email, []).append(project_item)
 
-        # 2. Milestones
-        #ms_stmt = select(ProjectMilestone).where(
-        #    ProjectMilestone.due_date.in_(target_dates),
-        #    ProjectMilestone.is_complete == False
-        #)
-        #for m in db.exec(ms_stmt).all():
-        #    reminder_list.append({
-        #        "name": m.milestone_name, "category": "Milestone",
-        #        "date": str(m.due_date), "days_left": (m.due_date - today).days
-        #    })
-
-        # 3. Tasks
-        #task_stmt = select(ProjectTask).where(
-        #    ProjectTask.due_date.in_(target_dates),
-        #    ProjectTask.completion_date == None
-        #)
-        #for t in db.exec(task_stmt).all():
-        #    reminder_list.append({
-        #        "name": t.task_name, "category": "Task",
-        #        "date": str(t.due_date), "days_left": (t.due_date - today).days
-        #    })
-
-        if not reminder_list:
-            return Message(message="No items matching the scheduled intervals for today.")
+        if not user_reminders_map:
+            return Message(message="Reminders detected, but no assigned users have enabled Deadline Reminders.")
 
         if settings.emails_enabled:
-            email_data = generate_due_reminder_email(items_data=reminder_list)
-            background_tasks.add_task(
-                send_email,
-                email_to=settings.FIRST_SUPERUSER,
-                subject=email_data.subject,
-                html_content=email_data.html_content
-            )
-            return Message(message=f"Success: {len(reminder_list)} reminders queued.")
+            # 2. Dispatch customized layouts tailored strictly to each individual user's workload
+            for email_recipient, items in user_reminders_map.items():
+                email_data = generate_due_reminder_email(items_data=items)
+                if background_tasks is not None:
+                    background_tasks.add_task(
+                        send_email,
+                        email_to=email_recipient,
+                        subject=email_data.subject,
+                        html_content=email_data.html_content
+                    )
+                else:
+                    # Execute direct call when background_tasks parameter is explicitly passed as None
+                    send_email(
+                        email_to=email_recipient,
+                        subject=email_data.subject,
+                        html_content=email_data.html_content
+                    )
+            return Message(message=f"Success: Dispatched personalized reminders to {len(user_reminders_map)} distinct users.")
         
-        return Message(message=f"Found {len(reminder_list)} items, but email service is disabled.")
+        return Message(message="Found items, but email service is globally disabled.")
 
     except Exception as e:
-        # Catch unexpected errors to prevent silent 500s
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+# =========================================================================
+# Weekly Invoice Alerts (Scans completed projects without invoices)
+# =========================================================================
+@router.post(
+    "/trigger-invoice-reminders/",
+    dependencies=[Depends(get_current_active_superuser)],
+    status_code=202,
+    response_model=Message
+)
+def trigger_invoice_reminders(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+) -> Message:
+    """
+    Scan for completed or fully delivered projects missing invoices,
+    routing personalised summaries directly to assigned staff members.
+    """
+    try:
+        from app.models import ProjectAssignment, User, Employee, Project
+        from app import crud
+
+        StatusModel = Project.current_status.property.mapper.class_
+        target_names = ["to_be_invoiced", "to be invoiced"]
+        stmt = select(Project).join(StatusModel).where(
+            StatusModel.status_name.in_(target_names),
+            Project.is_active == True
+        )
+        candidate_projects = db.exec(stmt).all()
+        user_reminders_map = {}
+
+        for p in candidate_projects:
+            if not crud.is_project_invoiced(session=db, project=p):
+                project_item = {
+                    "job_number": p.job_number,
+                    "name": p.project_name or "Unnamed Project",
+                    "status": p.current_status.status_name if p.current_status else "Unknown"
+                }
+                
+                assignment_stmt = select(User).join(
+                    Employee, User.employee_id == Employee.id
+                ).join(
+                    ProjectAssignment, ProjectAssignment.employee_id == Employee.id
+                ).where(
+                    ProjectAssignment.project_id == p.id,
+                    User.is_active == True,
+                    User.pref_invoice_alerts == True
+                )
+                assigned_users = db.exec(assignment_stmt).all()
+                
+                for user in assigned_users:
+                    user_reminders_map.setdefault(user.email, []).append(project_item)
+
+        if not user_reminders_map:
+            return Message(message="No un-invoiced completed projects detected for active subscribers.")
+
+        if settings.emails_enabled:
+            project_name_app = settings.PROJECT_NAME
+            for email_recipient, items in user_reminders_map.items():
+                table_rows = "".join([
+                    f"<tr>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['job_number']}</td>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['name']}</td>"
+                    f"<td style='padding:8px; border:1px solid #ddd;'>{item['status']}</td>"
+                    f"</tr>" for item in items
+                ])
+
+                html_content = f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif; color: #333;">
+                        <h2>Gama Consulting Pending Invoice Reminders</h2>
+                        <p>The following projects are completed but have <strong style="color: red;">NOT</strong> been invoiced yet:</p>
+                        <table style='border-collapse: collapse; width: 100%; border: 1px solid #ddd;'>
+                            <thead>
+                                <tr style='background-color: #f2f2f2;'>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Job Number</th>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Project Name</th>
+                                    <th style='padding:8px; border:1px solid #ddd; text-align:left;'>Current Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>{table_rows}</tbody>
+                        </table>
+                    </body>
+                </html>
+                """
+                background_tasks.add_task(
+                    send_email,
+                    email_to=email_recipient,
+                    subject=f"{project_name_app} - Weekly Pending Invoice Alert",
+                    html_content=html_content
+                )
+            return Message(message=f"Success: Dispatched invoice reminders to {len(user_reminders_map)} distinct users.")
+        
+        return Message(message="Pending items found, but email system is disabled.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+
+
+
+
+
+# =========================================================================
+# 2. REAL INTEGRATION CORE FUNCTIONS (Invoked by Extension Handlers)
+# =========================================================================
+
+def send_project_update_notification(
+    db: Session, 
+    background_tasks: BackgroundTasks, 
+    project_name: str, 
+    job_number: str,
+    project_id: uuid.UUID | None = None
+):
+    """
+    Core sender for Project Status Updates. 
+    Strictly queries active users assigned to this specific project who have enabled updates.
+    """
+    if not settings.emails_enabled:
+        return
+        
+    print(f"[Event Trigger] Project status update detected for {job_number}. Preparing notifications...")
+    
+    stmt = select(User).join(
+        Employee, User.employee_id == Employee.id
+    ).join(
+        ProjectAssignment, ProjectAssignment.employee_id == Employee.id
+    ).where(
+        ProjectAssignment.project_id == project_id,
+        User.is_active == True,
+        User.pref_project_updates == True
+    )
+
+    users = db.exec(stmt).all()
+    
+    if not users:
+        print("[Event Trigger] No users have enabled pref_project_updates notification toggle.")
+        return
+
+    project_name_app = settings.PROJECT_NAME
+    subject = f"{project_name_app} - Project Tracking Metrics Updated [{job_number}]"
+    
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 5px;">
+                <h2 style="color: #2c3e50; border-bottom: 2px solid #34495e; padding-bottom: 10px;">
+                    📋 Project Status Updated
+                </h2>
+                <p>Hello Team Member,</p>
+                <p>Please be informed that the operational metrics or status tracking of a project has been updated:</p>
+                
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold; width: 30%;">Project Name:</td>
+                        <td style="padding: 8px;">{project_name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold;">Job Number:</td>
+                        <td style="padding: 8px;"><code>{job_number}</code></td>
+                    </tr>
+                </table>
+                
+                <p style="font-size: 0.9em; color: #7f8c8d; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+                    This is an automated operational alert generated by {project_name_app}. If you wish to unsubscribe, please adjust your profile notification preferences.
+                </p>
+            </div>
+        </body>
+    </html>
+    """
+
+    for user in users:
+        background_tasks.add_task(
+            send_email,
+            email_to=user.email,
+            subject=subject,
+            html_content=html_content
+        )
+    print(f"[Event Trigger] Successfully queued project update notification for {len(users)} users.")
+
+
+def send_task_assignment_notification(
+    db: Session, 
+    background_tasks: BackgroundTasks, 
+    user_id: uuid.UUID, 
+    task_name: str
+):
+    """
+    Core sender for Task/Workforce Assignments. 
+    Verifies target user toggle preferences before packaging and dispatching email payloads.
+    """
+    if not settings.emails_enabled:
+        return
+        
+    print(f"[Event Trigger] Checking task assignment eligibility for User ID: {user_id}...")
+    
+    # Verify the specific user exists, is active, and wants assignment alerts
+    user = db.get(User, user_id)
+    if not (user and user.is_active and user.pref_task_assignments):
+        print(f"[Event Trigger] User {user_id} is inactive or has disabled pref_task_assignments.")
+        return
+        
+    project_name_app = settings.PROJECT_NAME
+    subject = f"{project_name_app} - New Project Allocation Registered"
+    
+    # 🚀 REAL CONTENT UPGRADE: Beautiful, professional full HTML email layout
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 5px;">
+                <h2 style="color: #27ae60; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">
+                    🚀 Workforce Allocation Update
+                </h2>
+                <p>Hello {user.full_name or 'Team Member'},</p>
+                <p>You have been officially allocated onto a new professional tracking workflow inside the system:</p>
+                
+                <div style="background-color: #f9f9f9; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                    <strong>Allocation Context:</strong><br>
+                    <span style="color: #27ae60; font-size: 1.1em;">{task_name}</span>
+                </div>
+                
+                <p>Please log into your dashboard to inspect your tracking metrics, project milestones, and log your daily work hours.</p>
+                
+                <p style="font-size: 0.9em; color: #7f8c8d; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+                    This is an automated operational alert generated by {project_name_app}. If you wish to opt-out of these assignment alerts, please update your profile settings.
+                </p>
+            </div>
+        </body>
+    </html>
+    """
+
+    background_tasks.add_task(
+        send_email,
+        email_to=user.email,
+        subject=subject,
+        html_content=html_content
+    )
+    print(f"[Event Trigger] Successfully queued task allocation email for {user.email}.")
+
+
+
+def send_task_removal_notification(
+    db: Session, 
+    background_tasks: BackgroundTasks, 
+    user_id: uuid.UUID, 
+    task_name: str
+):
+    """
+    Core sender for Task/Workforce Removals. 
+    Verifies target user toggle preferences before packaging and dispatching email payloads.
+    """
+    if not settings.emails_enabled:
+        return
+        
+    print(f"[Event Trigger] Checking task removal eligibility for User ID: {user_id}...")
+    
+    user = db.get(User, user_id)
+    if not (user and user.is_active and user.pref_task_assignments):
+        print(f"[Event Trigger] User {user_id} is inactive or has disabled pref_task_assignments.")
+        return
+        
+    project_name_app = settings.PROJECT_NAME
+    subject = f"{project_name_app} - Project Allocation Removed"
+    
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 5px;">
+                <h2 style="color: #c0392b; border-bottom: 2px solid #c0392b; padding-bottom: 10px;">
+                    ⚠️ Workforce Allocation Removed
+                </h2>
+                <p>Hello {user.full_name or 'Team Member'},</p>
+                <p>Your professional allocation has been removed from the following tracking workflow:</p>
+                
+                <div style="background-color: #f9f9f9; border-left: 4px solid #c0392b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                    <strong>Allocation Context:</strong><br>
+                    <span style="color: #c0392b; font-size: 1.1em;">{task_name}</span>
+                </div>
+                
+                <p>Please contact your project manager if this change was unexpected.</p>
+            </div>
+        </body>
+    </html>
+    """
+
+    background_tasks.add_task(
+        send_email,
+        email_to=user.email,
+        subject=subject,
+        html_content=html_content
+    )
+    print(f"[Event Trigger] Successfully queued task removal email for {user.email}.")
+

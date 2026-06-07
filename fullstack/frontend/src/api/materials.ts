@@ -29,16 +29,46 @@ export type CreateMaterialRequest = {
   ordered_date: string | null
 }
 
+// UI-friendly order type (thin view of Material)
+export type Order = {
+  id: string
+  projectId: string
+  subcontractorId: string
+  service: string | null
+  orderedDate: string | null
+  status: string
+  project_id?: string
+  projectJobNumber?: string
+  isPlaceholder?: boolean
+}
+
+// map API Material -> UI Order
+export const mapMaterialToOrder = (m: Material): Order => ({
+  id: m.id,
+  projectId: m.project_id,
+  subcontractorId: m.subcontractor_id ?? '',
+  service: m.name ?? null,
+  orderedDate: m.ordered_date,
+  status: m.status,
+  project_id: m.project_id,
+})
 
 export const materialsApi = {
-    getOrders: () => api.get<Material[]>('/materials').then(res => res.data),
-    getUnreceivedOrders: () => api.get<Material[]>('/materials?status=ordered').then(res => res.data),
+  getOrders: () => api.get<Material[]>('/materials').then(res => res.data),
+  getUnreceivedOrders: () => api.get<Material[]>('/materials?status=ordered').then(res => res.data),
+  getProjectOrders: (projectId: string) =>
+    api.get<Material[]>(`/projects/${projectId}/materials`).then(res => res.data),
 
-    createOrder: (
+  createOrder: (
     projectId: string,
     data: CreateMaterialRequest
   ) =>
     api
       .post<Material>(`/projects/${projectId}/materials`, data)
       .then(res => res.data),
+
+  deleteOrder: (projectId: string, materialId: string) =>
+  api
+    .delete<{ message: string }>(`/projects/${projectId}/materials/${materialId}`)
+    .then((res) => res.data),
 }

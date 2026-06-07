@@ -58,6 +58,7 @@ from app.crud.projects import (
     get_projects_by_due_date,
     get_projects_by_status,
     get_projects_by_tab,
+    get_visible_projects,
     get_tasks,
     is_project_invoiced,
     month_bounds,
@@ -75,8 +76,13 @@ from app.crud.invoices import (
 )
 
 from app.crud.subcontractors import (
+    get_visible_projects_for_subcontractor,
+    get_visible_subcontractors,
     get_subcontractors,
     create_subcontractor,
+    update_subcontractor,
+    subcontractor_usage_counts,
+    delete_subcontractor,
 )
 
 __all__ = [
@@ -132,6 +138,7 @@ __all__ = [
     "delete_all_projects",
     "update_project",
     "get_projects_by_due_date",
+    "get_visible_projects",
     # project statuses
     "get_status_type",
     "create_status_type",
@@ -151,6 +158,11 @@ __all__ = [
     "get_materials_by_project_id",
     "get_materials_by_due_date_and_status",
     # subcontractors
+    "get_visible_projects_for_subcontractor",
+    "get_visible_subcontractors",
     "get_subcontractors",
     "create_subcontractor",
+    "update_subcontractor",
+    "subcontractor_usage_counts",
+    "delete_subcontractor",
 ]

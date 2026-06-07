@@ -11,6 +11,7 @@ import {
   TrendingUp,
   CheckCircle2,
   Circle,
+  Loader2,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/projects/')({
@@ -51,27 +52,22 @@ const getDueDateLabel = (dueDate: string | undefined, status: string) => {
 }
 
 
-const IN_PROGRESS_STATUSES = ['prelim', 'proposal', 'design & doc', 'amendment', 'hold']
-const TO_BE_INVOICED_STATUSES = ['to be invoiced']
-const COMPLETED_STATUSES = ['completed & invoiced', 'Eng/QA Review', 'construction']
+const IN_PROGRESS_STATUSES = ['prelim', 'proposal', 'design & doc', 'amendment', 'hold', 'in_progress', 'on_hold']
+const TO_BE_INVOICED_STATUSES = ['to be invoiced', 'to_be_invoiced']
+const COMPLETED_STATUSES = ['completed & invoiced', 'Eng/QA Review', 'construction', 'completed']
 
 const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'prelim':
-    case 'proposal':
-    case 'design & doc':
-    case 'amendment':
-    case 'hold':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'      
-    case 'to be invoiced':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-    case 'completed & invoiced':
-    case 'Eng/QA Review':
-    case 'construction':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+
+  if (IN_PROGRESS_STATUSES.includes(status)){
+    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'   
+  } else if (TO_BE_INVOICED_STATUSES.includes(status)){   
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+  } else if (COMPLETED_STATUSES.includes(status)){
+    return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+  } else {
+    return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
   }
+  
 }
 
 const ProjectCard = ({ project }: { project: Project }) => {
@@ -162,14 +158,24 @@ const ProjectCard = ({ project }: { project: Project }) => {
 }
 
 function Projects() {
-  const { data: projectsData } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAllProjects,
+  const { data: projectsData, isLoading } = useQuery({
+     queryKey: ['projects'],
+     queryFn: projectsApi.getAllProjects,
   });
-  console.log('Fetched projects:', projectsData)
   const inProgress = projectsData?.data.filter((p) => IN_PROGRESS_STATUSES.includes(p.status)) || []
   const toBeInvoiced = projectsData?.data.filter((p) => TO_BE_INVOICED_STATUSES.includes(p.status)) || []
   const completed = projectsData?.data.filter((p) => COMPLETED_STATUSES.includes(p.status)) || []
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center">
+          <Loader2 size={40} className="animate-spin text-gray-500" />
+          <p className="mt-3 text-gray-600">Loading projects…</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

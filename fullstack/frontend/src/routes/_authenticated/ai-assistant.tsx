@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Send, Bot, User, Sparkles, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Send, Bot, User/*, Sparkles*/, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { chatbotApi } from '@/api/chatbot'
 
 export const Route = createFileRoute('/_authenticated/ai-assistant')({
   component: AIChatbot,
@@ -23,144 +25,148 @@ const initialMessages: Message[] = [
 ]
 
 const quickActions = [
-  { label: 'Project Status Summary', icon: TrendingUp },
-  { label: 'Risk Analysis', icon: AlertTriangle },
-  { label: 'Overdue Tasks', icon: CheckCircle },
-  { label: 'Revenue Insights', icon: Sparkles },
+  { label: 'Give me a project status summary', icon: TrendingUp },
+  { label: 'Show me any project risks', icon: AlertTriangle },
+  { label: 'Which projects are uninvoiced?', icon: CheckCircle },
+  // { label: 'Show revenue opportunities', icon: Sparkles },
 ]
 
-const aiResponses: Record<string, string> = {
-  'project status': `Project Status Summary (as of ${new Date().toLocaleDateString()})
+// const aiResponses: Record<string, string> = {
+//   'project status': `Project Status Summary (as of ${new Date().toLocaleDateString()})
 
-Active Projects: 12
+// Active Projects: 12
 
-High Priority:
-1. Downtown Office Complex (65% complete)
-   - Status: On track
-   - Next milestone: Steel frame design completion
-   - Due: April 15, 2026
+// High Priority:
+// 1. Downtown Office Complex (65% complete)
+//    - Status: On track
+//    - Next milestone: Steel frame design completion
+//    - Due: April 15, 2026
 
-2. Highway Bridge Restoration (42% complete)
-   - Status: At risk - Soil testing deadline approaching
-   - Action needed: Schedule GeoCon Labs by April 5
-   - Due: June 30, 2026
+// 2. Highway Bridge Restoration (42% complete)
+//    - Status: At risk - Soil testing deadline approaching
+//    - Action needed: Schedule GeoCon Labs by April 5
+//    - Due: June 30, 2026
 
-3. Residential Tower Foundation (15% complete)
-   - Status: Planning phase
-   - Next milestone: Foundation design approval
-   - Due: July 20, 2026
+// 3. Residential Tower Foundation (15% complete)
+//    - Status: Planning phase
+//    - Next milestone: Foundation design approval
+//    - Due: July 20, 2026
 
-Key Metrics:
-- Tasks completed this week: 12
-- Revenue secured (YTD): $2.4M
-- Team utilization: 87%`,
+// Key Metrics:
+// - Tasks completed this week: 12
+// - Revenue secured (YTD): $2.4M
+// - Team utilization: 87%`,
 
-  'risk': `AI Risk Analysis - Critical Items Detected
+//   'risk': `AI Risk Analysis - Critical Items Detected
 
-High Priority Risks:
+// High Priority Risks:
 
-1. Soil Testing Deadline - Highway Bridge Project
-   - Risk: Project delay of 2-3 weeks if missed
-   - Deadline: April 5, 2026 (6 days away)
-   - Action: Schedule with GeoCon Labs immediately
-   - Impact: $45K potential cost overrun
+// 1. Soil Testing Deadline - Highway Bridge Project
+//    - Risk: Project delay of 2-3 weeks if missed
+//    - Deadline: April 5, 2026 (6 days away)
+//    - Action: Schedule with GeoCon Labs immediately
+//    - Impact: $45K potential cost overrun
 
-2. Uninvoiced Milestone - Downtown Office Complex
-   - Risk: Revenue leakage of $95,000
-   - Milestone: Steel Frame Design Phase 2 (completed 5 days ago)
-   - Action: Generate and send invoice
+// 2. Uninvoiced Milestone - Downtown Office Complex
+//    - Risk: Revenue leakage of $95,000
+//    - Milestone: Steel Frame Design Phase 2 (completed 5 days ago)
+//    - Action: Generate and send invoice
 
-3. Dependency Bottleneck - Foundation Design
-   - Risk: 3 tasks blocked waiting for approval
-   - Action: Expedite client review meeting
-   - Potential delay: 1 week
+// 3. Dependency Bottleneck - Foundation Design
+//    - Risk: 3 tasks blocked waiting for approval
+//    - Action: Expedite client review meeting
+//    - Potential delay: 1 week
 
-Recommendations:
-- Address soil testing immediately
-- Generate pending invoice today
-- Schedule client meeting within 48 hours`,
+// Recommendations:
+// - Address soil testing immediately
+// - Generate pending invoice today
+// - Schedule client meeting within 48 hours`,
 
-  'overdue': `Overdue Tasks & Actions Required
+//   'overdue': `Overdue Tasks & Actions Required
 
-Critical Overdue Items:
+// Critical Overdue Items:
 
-1. Submit permit application
-   - Project: Highway Bridge Restoration
-   - Assignee: Mike Rodriguez
-   - Due: March 28, 2026 (1 day overdue)
-   - Action: Follow up with Mike today
+// 1. Submit permit application
+//    - Project: Highway Bridge Restoration
+//    - Assignee: Mike Rodriguez
+//    - Due: March 28, 2026 (1 day overdue)
+//    - Action: Follow up with Mike today
 
-2. Load calculation verification
-   - Project: Downtown Office Complex
-   - Assignee: Sarah Chen
-   - Due: March 27, 2026 (2 days overdue)
-   - Action: Escalate to team lead
+// 2. Load calculation verification
+//    - Project: Downtown Office Complex
+//    - Assignee: Sarah Chen
+//    - Due: March 27, 2026 (2 days overdue)
+//    - Action: Escalate to team lead
 
-Upcoming Deadlines (Next 7 Days):
-- Foundation design review - April 2
-- CAD drawings update - April 3
-- Structural analysis - April 5`,
+// Upcoming Deadlines (Next 7 Days):
+// - Foundation design review - April 2
+// - CAD drawings update - April 3
+// - Structural analysis - April 5`,
 
-  'revenue': `Revenue & Commercial Intelligence
+//   'revenue': `Revenue & Commercial Intelligence
 
-Financial Summary:
+// Financial Summary:
 
-Revenue (YTD 2026):
-- Total: $2.4M (+18% vs 2025)
-- Paid: $383K
-- Pending: $120K
-- Overdue: $38K
+// Revenue (YTD 2026):
+// - Total: $2.4M (+18% vs 2025)
+// - Paid: $383K
+// - Pending: $120K
+// - Overdue: $38K
 
-AI-Detected Opportunities:
+// AI-Detected Opportunities:
 
-1. Uninvoiced Work: $95,000
-   - Project: Downtown Office Complex
-   - Action: Generate invoice immediately
+// 1. Uninvoiced Work: $95,000
+//    - Project: Downtown Office Complex
+//    - Action: Generate invoice immediately
 
-2. Early Invoice Opportunity: $65,000
-   - Project: Highway Bridge Restoration
-   - Action: Consider early billing
+// 2. Early Invoice Opportunity: $65,000
+//    - Project: Highway Bridge Restoration
+//    - Action: Consider early billing
 
-3. Scope Change Revenue: $42,000
-   - Project: Residential Tower
-   - Action: Review with client
+// 3. Scope Change Revenue: $42,000
+//    - Project: Residential Tower
+//    - Action: Review with client
 
-Recommendation: Focus on uninvoiced milestone to capture $95K revenue today.`,
+// Recommendation: Focus on uninvoiced milestone to capture $95K revenue today.`,
 
-  'default': `I can help you with:
+//   'default': `I can help you with:
 
-- Project Status: Get summaries of all active projects and upcoming milestones
-- Risk Analysis: Identify potential delays and critical path items
-- Task Management: View overdue tasks and team workload
-- Revenue Intelligence: Track uninvoiced work and payment status
+// - Project Status: Get summaries of all active projects and upcoming milestones
+// - Risk Analysis: Identify potential delays and critical path items
+// - Task Management: View overdue tasks and team workload
+// - Revenue Intelligence: Track uninvoiced work and payment status
 
-Try asking me:
-- "What's the status of my projects?"
-- "Show me critical risks"
-- "Which tasks are overdue?"
-- "Any revenue opportunities?"`,
-}
+// Try asking me:
+// - "What's the status of my projects?"
+// - "Show me critical risks"
+// - "Which tasks are overdue?"
+// - "Any revenue opportunities?"`,
+// }
 
-function getAIResponse(userMessage: string): string {
-  const lowerMessage = userMessage.toLowerCase()
-  if (lowerMessage.includes('project') || lowerMessage.includes('status') || lowerMessage.includes('summary')) {
-    return aiResponses['project status']
-  } else if (lowerMessage.includes('risk') || lowerMessage.includes('alert') || lowerMessage.includes('critical')) {
-    return aiResponses['risk']
-  } else if (lowerMessage.includes('overdue') || lowerMessage.includes('task') || lowerMessage.includes('deadline')) {
-    return aiResponses['overdue']
-  } else if (lowerMessage.includes('revenue') || lowerMessage.includes('invoice') || lowerMessage.includes('financial')) {
-    return aiResponses['revenue']
-  } else {
-    return aiResponses['default']
-  }
-}
+// function getAIResponse(userMessage: string): string {
+//   const lowerMessage = userMessage.toLowerCase()
+//   if (lowerMessage.includes('project') || lowerMessage.includes('status') || lowerMessage.includes('summary')) {
+//     return aiResponses['project status']
+//   } else if (lowerMessage.includes('risk') || lowerMessage.includes('alert') || lowerMessage.includes('critical')) {
+//     return aiResponses['risk']
+//   } else if (lowerMessage.includes('overdue') || lowerMessage.includes('task') || lowerMessage.includes('deadline')) {
+//     return aiResponses['overdue']
+//   } else if (lowerMessage.includes('revenue') || lowerMessage.includes('invoice') || lowerMessage.includes('financial')) {
+//     return aiResponses['revenue']
+//   } else {
+//     return aiResponses['default']
+//   }
+// }
 
 function AIChatbot() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const chatbotMutation = useMutation({
+    mutationFn: chatbotApi.sendMessage,
+  })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -185,16 +191,31 @@ function AIChatbot() {
     setInput('')
     setIsTyping(true)
 
-    setTimeout(() => {
+    try {
+      const result = await chatbotMutation.mutateAsync({
+        message: messageText,
+      })
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: getAIResponse(messageText),
+        content: result.response,
         timestamp: new Date(),
       }
+
       setMessages((prev) => [...prev, aiResponse])
+    } catch (error) {
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I could not connect to the AI assistant right now.',
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, errorResponse])
+    } finally {
       setIsTyping(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -288,7 +309,7 @@ function AIChatbot() {
             />
             <button
               type="submit"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isTyping}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               <Send size={20} />
@@ -323,18 +344,18 @@ function AIChatbot() {
           <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mb-3">
             <CheckCircle className="text-white" size={20} />
           </div>
-          <h3 className="font-medium text-gray-900 dark:text-white mb-1">Task Management</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Automated tracking and alerts</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mb-3">
-            <Sparkles className="text-white" size={20} />
-          </div>
-          <h3 className="font-medium text-gray-900 dark:text-white mb-1">Revenue AI</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Commercial intelligence & insights</p>
+          <h3 className="font-medium text-gray-900 dark:text-white mb-1">Uninvoiced Projects</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Keep track of any uninvoiced projects.</p>
         </div>
       </div>
     </div>
   )
 }
+
+        // <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+        //   <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mb-3">
+        //     <Sparkles className="text-white" size={20} />
+        //   </div>
+        //   <h3 className="font-medium text-gray-900 dark:text-white mb-1">Revenue AI</h3>
+        //   <p className="text-sm text-gray-600 dark:text-gray-400">Commercial intelligence & insights</p>
+        // </div>

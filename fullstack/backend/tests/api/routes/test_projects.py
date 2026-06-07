@@ -4,6 +4,7 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app import crud
 from app.models import (
     Client,
     Employee,
@@ -14,7 +15,10 @@ from app.models import (
     ProjectStatusType,
     ProjectTask,
     Role,
+    User,
+    UserCreate,
 )
+from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_lower_string
 
 
@@ -256,6 +260,173 @@ def test_create_project_subtask_under_main_task(
     assert root_task["children"][0]["allocated_hours"] == "18.50"
     assert "subcontractor_name" not in root_task["children"][0]
     assert "subcontractor_status" not in root_task["children"][0]
+
+
+def test_normal_user_only_sees_directly_assigned_tasks(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    marker = random_lower_string()[:8]
+    owner_email = f"task-visibility-owner-{marker}@example.com"
+    owner_employee_email = f"task-visibility-owner-employee-{marker}@example.com"
+    other_employee_email = f"task-visibility-other-employee-{marker}@example.com"
+    job_number = f"JOB-TASK-VIS-{marker}"
+    client_name = f"Task Visibility Client {marker}"
+
+    created_project_id = None
+    created_client_id = None
+    created_user_id = None
+    created_employee_ids: list = []
+
+    try:
+        status = get_prelim_status(db)
+        client_row = Client(
+            client_name=client_name,
+            company_name="Task Visibility Company",
+        )
+        db.add(client_row)
+        db.commit()
+        db.refresh(client_row)
+        created_client_id = client_row.id
+
+        project = Project(
+            job_number=job_number,
+            client_id=client_row.id,
+            current_status_id=status.id,
+            project_name="Task Visibility Project",
+            start_date=date(2026, 5, 1),
+            due_date=date(2026, 6, 1),
+            is_active=True,
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+        created_project_id = project.id
+
+        owner_employee = Employee(
+            first_name="Task",
+            last_name="Owner",
+            full_name="Task Owner",
+            email=owner_employee_email,
+        )
+        other_employee = Employee(
+            first_name="Task",
+            last_name="Other",
+            full_name="Task Other",
+            email=other_employee_email,
+        )
+        db.add(owner_employee)
+        db.add(other_employee)
+        db.commit()
+        db.refresh(owner_employee)
+        db.refresh(other_employee)
+        created_employee_ids.extend([owner_employee.id, other_employee.id])
+
+        owner_password = random_lower_string()
+        owner_user = crud.create_user(
+            session=db,
+            user_create=UserCreate(
+                email=owner_email,
+                password=owner_password,
+                full_name="Task Owner",
+            ),
+        )
+        created_user_id = owner_user.id
+        owner_user.employee_id = owner_employee.id
+        db.add(owner_user)
+        db.add(ProjectAssignment(project_id=project.id, employee_id=owner_employee.id))
+        db.add(ProjectAssignment(project_id=project.id, employee_id=other_employee.id))
+        db.commit()
+
+        milestone = ProjectMilestone(
+            project_id=project.id,
+            milestone_name="Task Visibility Milestone",
+            display_order=1,
+        )
+        db.add(milestone)
+        db.commit()
+        db.refresh(milestone)
+
+        db.add(
+            ProjectTask(
+                milestone_id=milestone.id,
+                task_name="Owner task",
+                assigned_employee_id=owner_employee.id,
+                milestone_status="todo",
+            )
+        )
+        db.add(
+            ProjectTask(
+                milestone_id=milestone.id,
+                task_name="Other task",
+                assigned_employee_id=other_employee.id,
+                milestone_status="todo",
+            )
+        )
+        db.add(
+            ProjectTask(
+                milestone_id=milestone.id,
+                task_name="Unassigned task",
+                milestone_status="todo",
+            )
+        )
+        db.commit()
+
+        owner_headers = user_authentication_headers(
+            client=client,
+            email=owner_email,
+            password=owner_password,
+        )
+
+        owner_task_response = client.get(
+            f"/api/v1/projects/{project.id}/task-management",
+            headers=owner_headers,
+        )
+        assert owner_task_response.status_code == 200
+        owner_tasks = owner_task_response.json()["milestones"][0]["tasks"]
+        assert [task["task_name"] for task in owner_tasks] == ["Owner task"]
+        assert owner_tasks[0]["assigned_employee_id"] == str(owner_employee.id)
+
+        owner_global_response = client.get(
+            "/api/v1/projects/tasks",
+            headers=owner_headers,
+        )
+        assert owner_global_response.status_code == 200
+        assert {task["task_name"] for task in owner_global_response.json()["data"]} == {
+            "Owner task"
+        }
+
+        admin_task_response = client.get(
+            f"/api/v1/projects/{project.id}/task-management",
+            headers=superuser_token_headers,
+        )
+        assert admin_task_response.status_code == 200
+        admin_tasks = admin_task_response.json()["milestones"][0]["tasks"]
+        assert {task["task_name"] for task in admin_tasks} == {
+            "Owner task",
+            "Other task",
+            "Unassigned task",
+        }
+    finally:
+        if created_project_id:
+            project = db.get(Project, created_project_id)
+            if project:
+                db.delete(project)
+                db.commit()
+        if created_user_id:
+            user = db.get(User, created_user_id)
+            if user:
+                db.delete(user)
+                db.commit()
+        for employee_id in created_employee_ids:
+            employee = db.get(Employee, employee_id)
+            if employee:
+                db.delete(employee)
+                db.commit()
+        if created_client_id:
+            client_row = db.get(Client, created_client_id)
+            if client_row:
+                db.delete(client_row)
+                db.commit()
 
 
 def test_delete_project_milestone_removes_tasks(
