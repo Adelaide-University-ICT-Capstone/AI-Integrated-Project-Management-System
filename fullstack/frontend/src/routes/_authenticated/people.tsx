@@ -3,13 +3,11 @@ import { createFileRoute } from "@tanstack/react-router"
 import {
   AlertCircle,
   Building2,
-  Edit2,
   Loader2,
   Mail,
   Phone,
   Plus,
   Search,
-  Trash2,
   Users,
   X,
 } from "lucide-react"
@@ -222,22 +220,6 @@ function People() {
     customer.current_status?.trim(),
   ).length
 
-  const handleUnavailableAction = (action: "add" | "edit" | "delete") => {
-    const label = activeTab === "employees" ? "employee" : "customer"
-
-    if (action === "add") {
-      toast.info(`Add ${label} is not wired yet`)
-      return
-    }
-
-    if (action === "edit") {
-      toast.info(`Edit ${label} is not wired yet`)
-      return
-    }
-
-    toast.info(`Delete ${label} is not wired yet`)
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -387,9 +369,6 @@ function People() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -453,24 +432,6 @@ function People() {
                           {employee.is_active ? "active" : "inactive"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUnavailableAction("edit")}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUnavailableAction("delete")}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   )
                 })}
@@ -494,9 +455,6 @@ function People() {
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Created
-                  </th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
                   </th>
                 </tr>
               </thead>
@@ -548,24 +506,6 @@ function People() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                         {formatDate(customer.created_at)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUnavailableAction("edit")}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUnavailableAction("delete")}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )

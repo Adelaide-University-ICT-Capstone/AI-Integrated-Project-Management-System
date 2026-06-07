@@ -172,4 +172,14 @@ The backend auto-generates interactive docs at runtime — no static file needed
 - **Swagger UI**: http://localhost:8000/docs — try endpoints directly in the browser
 - **OpenAPI schema**: http://localhost:8000/openapi.json
 
-For a static endpoint reference see [fullstack/API_DOCUMENTATION.md](fullstack/API_DOCUMENTATION.md).
+For static references see the `UG_docs/` folder:
+
+| Document | Description |
+|----------|-------------|
+| [api_documentation.md](api_documentation.md) | Complete API endpoint reference |
+| [UG_docs/ug_api_documentation.md](UG_docs/ug_api_documentation.md) | Undergraduate team API ownership (who built what) |
+| [UG_docs/product_requirements.md](UG_docs/product_requirements.md) | Product requirements and feature specifications |
+| [UG_docs/technical_documentation.md](UG_docs/technical_documentation.md) | Architecture, setup, deployment guide |
+| [UG_docs/user_documentation.md](UG_docs/user_documentation.md) | End-user guide |
+| [UG_docs/code_documentation.md](UG_docs/code_documentation.md) | Code conventions and patterns |
+| [UG_docs/CONTRIBUTIONS.md](UG_docs/CONTRIBUTIONS.md) | Undergraduate team contribution record |
