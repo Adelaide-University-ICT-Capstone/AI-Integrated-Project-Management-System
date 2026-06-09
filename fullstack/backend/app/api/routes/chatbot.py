@@ -11,11 +11,8 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chatbot_chat(
-    payload: ChatRequest,
-    session: SessionDep,
-    current_user: CurrentUser,
-):
+async def chatbot_chat(payload: ChatRequest, session: SessionDep, current_user: CurrentUser):
+    # Attempts to call the handle chat function to see if the chatbot is functioning.
     try:
         return await handle_chat(
             message=payload.message,
@@ -24,6 +21,7 @@ async def chatbot_chat(
             current_user=current_user,
         )
 
+    # Handles error if the chatbot failed.
     except Exception as exc:
         logger.exception("Chatbot request failed")
 

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 MAX_COMMANDS = 1
 
-
+# Descriptions of all the commands.
 COMMAND_DESCRIPTIONS = """
 Available commands:
 
@@ -44,7 +44,7 @@ Use when the user asks about invoice totals, monthly invoice summary, revenue th
 Arguments: {}
 """
 
-
+# Function for safely loading JSON and handling error if the JSON is unsuitable.
 def safe_json_loads(raw: str | None) -> dict[str, Any]:
     if not raw:
         return {"command": None, "arguments": {}}
@@ -58,7 +58,7 @@ def safe_json_loads(raw: str | None) -> dict[str, Any]:
         logger.warning("LLM returned invalid JSON for command selection: %s", raw)
         return {"command": None, "arguments": {}}
 
-
+# Sends a prompt to the LLM asking them to choose the appropriate commands for the user's message.
 async def choose_command(message: str, project_id: str | None) -> dict[str, Any]:
     prompt = f"""
 You are deciding which backend command to call.
@@ -97,13 +97,9 @@ Rules:
 
     return safe_json_loads(raw)
 
-
-async def execute_command(
-    command_name: str | None,
-    arguments: dict[str, Any],
-    session,
-    current_user,
-) -> dict[str, Any] | None:
+# Executes the functions for the correct commmands.
+async def execute_command(command_name: str | None, arguments: dict[str, Any], session, current_user) -> dict[str, Any] | None:
+    # Checks to command name is eligible.
     if not command_name:
         return None
 
@@ -114,6 +110,7 @@ async def execute_command(
             "error": f"Unknown command: {command_name}",
         }
 
+    # Tries the command and returns the result if succesful.
     try:
         result = await COMMANDS[command_name](
             session=session,
@@ -128,6 +125,7 @@ async def execute_command(
             "data": result,
         }
 
+    # Handles error if the command was called invalidly.
     except TypeError as exc:
         logger.exception("Chatbot command argument error: %s", command_name)
         return {
@@ -138,6 +136,7 @@ async def execute_command(
             "details": str(exc),
         }
 
+    # Handles error if the command fails.
     except Exception as exc:
         logger.exception("Chatbot command failed: %s", command_name)
         return {
@@ -148,12 +147,8 @@ async def execute_command(
             "details": str(exc),
         }
 
-
-async def generate_final_response(
-    message: str,
-    command_name: str | None,
-    command_result: dict[str, Any] | None,
-) -> str:
+# Generates answer message to be sent to the user by prompting the AI with the data.
+async def generate_final_response(message: str, command_name: str | None, command_result: dict[str, Any] | None) -> str:
     if command_result is None:
         return "I do not have enough information to answer that question using the available project commands."
 
@@ -187,21 +182,19 @@ Command result:
 
     return response
 
-
-async def handle_chat(
-    message: str,
-    project_id: str | None,
-    session,
-    current_user,
-):
+# Main function that handles the chat using all the functions.
+async def handle_chat(message: str, project_id: str | None, session, current_user,):
+    # Chooses the appropriate commands.
     decision = await choose_command(message, project_id)
 
+    # Saves the command and arguments.
     command_name = decision.get("command")
     arguments = decision.get("arguments", {})
 
     if not isinstance(arguments, dict):
         arguments = {}
 
+    # Executes the command chosen by the LLM.
     command_result = await execute_command(
         command_name=command_name,
         arguments=arguments,
@@ -209,12 +202,14 @@ async def handle_chat(
         current_user=current_user,
     )
 
+    # Prompts the AI for the final result using the results of the command.
     response = await generate_final_response(
         message=message,
         command_name=command_name,
         command_result=command_result,
     )
 
+    # Returns the response as well as the command name and result.
     return {
         "response": response,
         "command_used": command_name,
