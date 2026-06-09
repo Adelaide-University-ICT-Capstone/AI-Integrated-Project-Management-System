@@ -88,13 +88,13 @@ export function EditProjectModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Company Address
+              Project Address
             </label>
             <input
               type="text"
-              value={editForm.company_address}
+              value={editForm.address || ''}
               onChange={(e) =>
-                onChange({ ...editForm, company_address: e.target.value })
+                onChange({ ...editForm, address: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
               placeholder="e.g., 123 Main St, Downtown"

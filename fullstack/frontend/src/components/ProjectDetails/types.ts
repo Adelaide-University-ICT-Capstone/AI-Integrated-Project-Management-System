@@ -3,6 +3,7 @@ import type { Role } from '@/api/taskManagement'
 export type Project = {
   job_number: string
   project_name: string
+  address?: string | null
   company_name: string
   company_address: string
   client_name: string
@@ -68,7 +69,7 @@ export type WorkforceAllocationRole = Role
 
 export type ProjectEditForm = Pick<
   Project,
-  'project_name' | 'company_name' | 'company_address' | 'start_date' | 'due_date' | 'client_name' | 'fee_estimate'
+  'project_name' | 'address' | 'company_name' | 'company_address' | 'start_date' | 'due_date' | 'client_name' | 'fee_estimate'
 >
 
 export type SubtaskPriority = 'low' | 'medium' | 'high' | 'urgent'

@@ -220,6 +220,7 @@ function ProjectDetails() {
   const [showEditProject, setShowEditProject] = useState(false)
   const [editForm, setEditForm] = useState<ProjectEditForm>({
     project_name: '',
+    address: '',
     company_name: '',
     company_address: '',
     client_name: '',
@@ -293,6 +294,7 @@ function ProjectDetails() {
         setProject(result);
         setEditForm({
           project_name: result.project_name || '',
+          address: result.address || result.company_address || '',
           company_name: result.company_name || '',
           company_address: result.company_address || '',
           client_name: result.client_name || '',
@@ -768,6 +770,7 @@ function ProjectDetails() {
     try {
       const updated = await projectsApi.updateProject(projectId, {
         project_name: editForm.project_name,
+        address: editForm.address,
         client_company: editForm.company_name,
         client_address: editForm.company_address,
         client_name: editForm.client_name,
@@ -783,6 +786,7 @@ function ProjectDetails() {
           ? {
               ...current,
               project_name: updated.project_name ?? editForm.project_name,
+              address: updated.address ?? editForm.address,
               company_name: updated.company_name ?? editForm.company_name,
               company_address: updated.company_address ?? editForm.company_address,
               client_name: updated.client_name ?? editForm.client_name,

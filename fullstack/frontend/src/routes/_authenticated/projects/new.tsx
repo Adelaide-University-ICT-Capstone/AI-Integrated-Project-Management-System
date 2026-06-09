@@ -430,6 +430,14 @@ function NewProject() {
     isSubmittingRef.current = true
     setIsSubmitting(true)
 
+    const projectAddress = [
+      [formData.lotNo, formData.street].filter(Boolean).join(' '),
+      formData.suburb,
+    ]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ')
+
     const payload = {
       job_number: formData.jobNumber,
       project_types: formData.project_type,
@@ -437,9 +445,7 @@ function NewProject() {
       client_company: formData.client,
       client_name: formData.agent,
       client_contact: formData.contact,
-      client_address: [`${formData.lotNo} ${formData.street}`, formData.suburb]
-        .filter(Boolean)
-        .join(', '),
+      address: projectAddress,
       fee_estimate: formData.feeEstimate,
       date_received: formData.dateReceived,
       start_date: formData.dateReceived,

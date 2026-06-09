@@ -103,7 +103,7 @@ const ProjectCard = ({ project }: { project: Project }) => {
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <MapPin size={14} className="flex-shrink-0" />
-          <span className="truncate">{project.company_address}</span>
+          <span className="truncate">{project.address || project.company_address}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <User size={14} className="flex-shrink-0" />

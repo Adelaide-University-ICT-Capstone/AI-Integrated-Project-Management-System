@@ -614,6 +614,7 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: 
         project_id=project.id,
         job_number=project.job_number,
         project_name=project.project_name,
+        address=project.full_address,
         company_name=project.client.company_name if project.client else None,
         company_address=project.client.billing_address if project.client else None,
         client_name=project.client.client_name if project.client else None,

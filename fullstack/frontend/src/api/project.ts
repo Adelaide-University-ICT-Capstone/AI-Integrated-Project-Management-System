@@ -44,6 +44,7 @@ export type Project = {
   project_name: string
   contract_title?: string | null
   job_title?: string | null
+  address?: string | null
   company_name: string
   company_address: string
   client_name: string
@@ -124,6 +125,7 @@ export type ProjectUpdatePayload = {
   start_date?: string | null
   due_date?: string | null
   invoice_amount?: string | null
+  fee_estimate?: string | null
 }
 
 export type ProjectCreatePayload = {
