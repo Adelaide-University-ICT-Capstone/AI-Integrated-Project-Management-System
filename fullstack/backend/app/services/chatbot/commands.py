@@ -6,6 +6,79 @@ from typing import Any
 from app import crud
 
 
+def get_visible_project_ids(session, current_user) -> set[uuid.UUID]:
+    visible_projects = crud.get_visible_projects(
+        session=session,
+        employee_id=current_user.employee_id,
+        is_superuser=current_user.is_superuser,
+    )
+    return {project.id for project in visible_projects}
+
+
+def can_view_project(session, current_user, project_id: uuid.UUID) -> bool:
+    if current_user.is_superuser:
+        return True
+
+    return project_id in get_visible_project_ids(session, current_user)
+
+
+def require_project_access(session, current_user, project_id: uuid.UUID):
+    if not can_view_project(session, current_user, project_id):
+        return {"error": "Project not found or access denied"}
+    return None
+
+def resolve_project(session, current_user, project_identifier: str):
+    project = None
+
+    # UUID
+    try:
+        project_uuid = uuid.UUID(project_identifier)
+        project = crud.get_project_by_id(
+            session=session,
+            project_id=project_uuid,
+        )
+    except ValueError:
+        pass
+
+    # Job number
+    if not project:
+        project = crud.get_project_by_job_number(
+            session=session,
+            job_number=project_identifier,
+        )
+
+    # Project name
+    visible_projects = crud.get_visible_projects(
+        session=session,
+        employee_id=current_user.employee_id,
+        is_superuser=current_user.is_superuser,
+    )
+
+    if not project:
+        project = next(
+            (
+                p
+                for p in visible_projects
+                if p.project_name
+                and p.project_name.lower() == project_identifier.lower()
+            ),
+            None,
+        )
+
+    if not project:
+        return None
+
+    access_error = require_project_access(
+        session=session,
+        current_user=current_user,
+        project_id=project.id,
+    )
+
+    if access_error:
+        return None
+
+    return project
+
 def serialize(value: Any):
     if isinstance(value, uuid.UUID):
         return str(value)
@@ -41,45 +114,14 @@ async def get_visible_projects_summary(session, current_user):
     }
 
 async def get_project_details(session, current_user, project_identifier: str):
-    project = None
-
-    # 1. Try UUID
-    try:
-        project_uuid = uuid.UUID(project_identifier)
-        project = crud.get_project_by_id(
-            session=session,
-            project_id=project_uuid,
-        )
-    except ValueError:
-        pass
-
-    # 2. Try job number
-    if not project:
-        project = crud.get_project_by_job_number(
-            session=session,
-            job_number=project_identifier,
-        )
-
-    # 3. Try exact project name from visible projects
-    visible_projects = crud.get_visible_projects(
+    project = resolve_project(
         session=session,
-        employee_id=current_user.employee_id,
-        is_superuser=current_user.is_superuser,
+        current_user=current_user,
+        project_identifier=project_identifier,
     )
 
     if not project:
-        project = next(
-            (
-                visible_project
-                for visible_project in visible_projects
-                if visible_project.project_name
-                and visible_project.project_name.lower() == project_identifier.lower()
-            ),
-            None,
-        )
-
-    if not project:
-        return {"error": "Project not found"}
+        return {"error": "Project not found or access denied"}
 
     # 4. Permission check
     visible_ids = {visible_project.id for visible_project in visible_projects}
@@ -154,68 +196,6 @@ async def get_overdue_projects(session, current_user):
         "overdue_projects": [model_to_dict(project) for project in details],
         "count": len(details),
     }
-
-async def get_overdue_projects(session, current_user):
-    projects = crud.get_overdue_projects(session=session)
-
-    visible_projects = crud.get_visible_projects(
-        session=session,
-        employee_id=current_user.employee_id,
-        is_superuser=current_user.is_superuser,
-    )
-
-    visible_ids = {project.id for project in visible_projects}
-
-    projects = [
-        project
-        for project in projects
-        if project.id in visible_ids
-    ]
-
-    details = crud.build_project_details(
-        session=session,
-        projects=projects,
-    )
-
-    return {
-    "overdue_projects": [
-        model_to_dict(project)
-        for project in details
-    ],
-    "count": len(details),
-}   
-
-
-async def get_delayed_projects(session, current_user):
-    projects = crud.get_delayed_projects(session=session)
-
-    visible_projects = crud.get_visible_projects(
-        session=session,
-        employee_id=current_user.employee_id,
-        is_superuser=current_user.is_superuser,
-    )
-
-    visible_ids = {project.id for project in visible_projects}
-
-    projects = [
-        project
-        for project in projects
-        if project.id in visible_ids
-    ]
-
-    details = crud.build_project_details(
-        session=session,
-        projects=projects,
-    )
-
-    return {
-    "delayed_projects": [
-        model_to_dict(project)
-        for project in details
-    ],
-    "count": len(details),
-}
-
 
 async def get_projects_due_soon(
     session,
