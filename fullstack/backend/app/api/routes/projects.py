@@ -427,14 +427,19 @@ def update_project(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
 ) -> ProjectPublic:
-    check_project_view_permission(session, project_id, current_user)
+    update_data = project.model_dump(exclude_unset=True)
+    if set(update_data) <= {"current_status_id"}:
+        check_project_view_permission(session, project_id, current_user)
+    else:
+        check_project_permission(session, project_id, current_user)
+
     existing = crud.get_project_by_id(session=session, project_id=project_id)
     if not existing:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
     
     old_status_id = existing.current_status_id
     
-    updated = crud.update_project(session=session, project=existing, updates=project.model_dump(exclude_unset=True))
+    updated = crud.update_project(session=session, project=existing, updates=update_data)
     
     if project.current_status_id and project.current_status_id != old_status_id:
        send_project_update_notification(

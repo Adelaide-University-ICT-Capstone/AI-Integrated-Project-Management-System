@@ -93,7 +93,7 @@ def trigger_due_reminders(
         target_dates = [today + timedelta(days=i) for i in [0, 3, 7, 14]]
 
         # 1. Evaluate Project Due Dates to build a map of user_email -> list of their due projects
-        excluded_statuses = [ProjectStatus.completed_invoiced.value, ProjectStatus.hold.value]
+        excluded_statuses = [ProjectStatus.completed.value, ProjectStatus.on_hold.value]
         project_stmt = select(Project).where(
             Project.due_date.in_(target_dates),
             Project.is_active == True
@@ -182,7 +182,7 @@ def trigger_invoice_reminders(
         from app import crud
 
         StatusModel = Project.current_status.property.mapper.class_
-        target_names = ["to_be_invoiced", "to be invoiced"]
+        target_names = ["to_be_invoiced"]
         stmt = select(Project).join(StatusModel).where(
             StatusModel.status_name.in_(target_names),
             Project.is_active == True
@@ -451,4 +451,3 @@ def send_task_removal_notification(
         html_content=html_content
     )
     print(f"[Event Trigger] Successfully queued task removal email for {user.email}.")
-

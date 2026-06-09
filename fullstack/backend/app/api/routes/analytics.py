@@ -13,8 +13,7 @@ from app.models import (
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 ACTIVE_STATUSES = {
-    "proposal", "prelim", "design & doc", "amendment",
-    "hold", "Eng/QA Review", "construction"
+    "prelim", "in_progress", "on_hold"
 }
 
 def today() -> date:
@@ -83,7 +82,7 @@ def dashboard_summary(session: SessionDep, current_user: User = Depends(get_curr
     uninvoiced = [
         p for p in all_projects
         if p.current_status and
-        p.current_status.status_name.lower() == "to be invoiced" and
+        p.current_status.status_name.lower() == "to_be_invoiced" and
         not p.invoices
     ]
 
@@ -213,7 +212,7 @@ def revenue_leakage(session: SessionDep, current_user: User = Depends(get_curren
         leakage = fee - invoiced
 
         if leakage > 0 and p.current_status and \
-           p.current_status.status_name.lower() in ("to be invoiced", "completed & invoiced", "construction"):
+           p.current_status.status_name.lower() in ("to_be_invoiced", "completed"):
             days_overdue = (now - p.updated_at.date()).days if p.updated_at else 0
             rows.append({
                 "project_id": str(p.id),

@@ -195,7 +195,7 @@ def calculate_project_completion_percent(*, session: Session, project: Project) 
 
 def is_project_invoiced(*, session: Session, project: Project) -> bool:
     status_name = project.current_status.status_name if project.current_status else None
-    if status_name == "completed & invoiced":
+    if status_name == "completed":
         return True
     if project.invoice_amount and project.invoice_amount > 0:
         return True
@@ -295,7 +295,7 @@ def _completion_percent(
 
 def _is_invoiced(*, project: Project, invoice_count: int) -> bool:
     status_name = project.current_status.status_name if project.current_status else None
-    if status_name == "completed & invoiced":
+    if status_name == "completed":
         return True
     if project.invoice_amount and project.invoice_amount > 0:
         return True
@@ -609,6 +609,7 @@ def update_project(*, session: Session, project: Project, updates: dict) -> Proj
     client_contact = updates.pop("client_contact", None)
     fee_estimate = updates.pop("fee_estimate", None)
     project_types = updates.pop("project_types", None)
+    address = updates.pop("address", None)
 
     if client_company is not None and project.client:
         project.client.company_name = client_company
@@ -627,6 +628,9 @@ def update_project(*, session: Session, project: Project, updates: dict) -> Proj
 
     if project_types is not None:
         project.project_type = project_types
+
+    if address is not None:
+        project.full_address = address
 
     project.sqlmodel_update(updates)
 
