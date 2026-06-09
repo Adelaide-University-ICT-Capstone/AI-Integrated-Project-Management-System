@@ -10,12 +10,11 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/ai-alerts", response_model=AIAlertsResponse)
-def get_ai_alerts(
-    session: SessionDep,
-    current_user: CurrentUser,
-) -> AIAlertsResponse:
+def get_ai_alerts(session: SessionDep, current_user: CurrentUser,) -> AIAlertsResponse:
+    # Initializes alert list.
     alerts: list[AIAlert] = []
 
+    # Finds all projects visible to the user.
     visible_projects = crud.get_visible_projects(
         session=session,
         employee_id=current_user.employee_id,
@@ -23,6 +22,7 @@ def get_ai_alerts(
     )
     visible_ids = {project.id for project in visible_projects}
 
+    # Categorises them into overdue, delayed and expected projects.
     overdue_projects = [
         project for project in crud.get_overdue_projects(session=session)
         if project.id in visible_ids
@@ -41,10 +41,9 @@ def get_ai_alerts(
         if project.id in visible_ids
     ]
 
+    # Writes out descriptions of each of the different type of project alerts.
     for project in overdue_projects:
-        days_overdue = (
-            date.today() - project.due_date
-        ).days if project.due_date else 0
+        days_overdue = (date.today() - project.due_date).days if project.due_date else 0
 
         alerts.append(
             AIAlert(
