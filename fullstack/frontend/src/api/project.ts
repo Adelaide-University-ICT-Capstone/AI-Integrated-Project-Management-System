@@ -181,6 +181,9 @@ export const projectsApi = {
   // @router.patch("/{project_id}")
   updateProject: (projectId: string, payload: ProjectUpdatePayload) =>
     api.patch<Project>(`/projects/${projectId}`, payload).then(res => res.data),
+
+  deleteProject: (projectId: string) =>
+    api.delete(`/projects/${projectId}`).then(res => res.data),
   
   // @router.get("/completed-project")
   getCompletedProjectCount: () => api.get<MonthlyCountResponse>('/projects/completed-project').then(res => res.data),
