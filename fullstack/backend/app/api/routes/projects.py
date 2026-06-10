@@ -84,8 +84,8 @@ def check_project_view_permission(
     raise HTTPException(status_code=403, detail="Project access denied")
 
 
-
 # Authors: Leslie 
+@router.post("", response_model=ProjectCreateResponse)
 def create_project(project: ProjectCreateRequest, session: SessionDep) -> ProjectCreateResponse:
     ''' Create a new project after validating job_number uniqueness, return the created project's id and a success message '''
     existing_project = crud.get_project_by_job_number(session=session, job_number=project.job_number)
