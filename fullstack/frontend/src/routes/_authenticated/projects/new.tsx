@@ -418,7 +418,7 @@ function NewProject() {
     }
   }
 
-  // Final submit
+  // Leslie: API integration on project creation. 
   const handleSubmit = async () => {
     if (isSubmittingRef.current) return
     if (!validateDetails()) {

@@ -1,3 +1,9 @@
+''' 
+File Author: Leslie
+Functions: provide create/update/read/delete endpoints for subcontractors module 
+'''
+
+
 import uuid
 
 from sqlalchemy.orm import aliased
@@ -18,16 +24,7 @@ from app.models import (
 def get_subcontractors(*, session: Session) -> list[Subcontractor]:
     return list(session.exec(select(Subcontractor)).all())
 
-
-def get_visible_subcontractors(
-    *,
-    session: Session,
-    employee_id: uuid.UUID | None,
-    is_superuser: bool,
-) -> list[Subcontractor]:
-    return get_subcontractors(session=session)
-
-
+# Authors: Leslie
 def get_visible_projects_for_subcontractor(
     *,
     session: Session,
@@ -35,6 +32,7 @@ def get_visible_projects_for_subcontractor(
     employee_id: uuid.UUID | None,
     is_superuser: bool,
 ) -> list[Project]:
+    ''' Get all projects associated with a subcontractor, only if the project is assigned to the user '''
     subcontractor_assignment = aliased(ProjectAssignment)
 
     query = (
@@ -46,6 +44,7 @@ def get_visible_projects_for_subcontractor(
         .where(subcontractor_assignment.subcontractor_id == subcontractor_id)
     )
 
+    # If the user is not a superuser, only return projects that are assigned to the user
     if not is_superuser:
         if not employee_id:
             return []
@@ -62,20 +61,23 @@ def get_visible_projects_for_subcontractor(
         ).all()
     )
 
-
+# Authors: Leslie
 def create_subcontractor(*, session: Session, subcontractor: SubcontractorCreate) -> Subcontractor:
+    ''' Create a new subcontractor and return its details '''
     db_subcontractor = Subcontractor.model_validate(subcontractor)
     session.add(db_subcontractor)
     session.commit()
     session.refresh(db_subcontractor)
     return db_subcontractor
 
+# Authors: Leslie
 def update_subcontractor(
     *,
     session: Session,
     db_subcontractor: Subcontractor,
     subcontractor_update: SubcontractorUpdate,
 ) -> Subcontractor:
+    ''' Update a subcontractor and return the updated details '''
     update_data = subcontractor_update.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
@@ -86,12 +88,13 @@ def update_subcontractor(
     session.refresh(db_subcontractor)
     return db_subcontractor
 
-
+# Authors: Leslie
 def subcontractor_usage_counts(
     *,
     session: Session,
     subcontractor_id: uuid.UUID,
 ) -> dict[str, int]:
+    ''' Get the count of how many times a subcontractor is used across different tables '''
     assignment_count = session.exec(
         select(func.count())
         .select_from(ProjectAssignment)
@@ -116,11 +119,12 @@ def subcontractor_usage_counts(
         "time_logs": time_log_count,
     }
 
-
+# Authors: Leslie
 def delete_subcontractor(
     *,
     session: Session,
     subcontractor: Subcontractor,
 ) -> None:
+    ''' Delete a subcontractor if it is not in use, otherwise raise an error '''
     session.delete(subcontractor)
     session.commit()

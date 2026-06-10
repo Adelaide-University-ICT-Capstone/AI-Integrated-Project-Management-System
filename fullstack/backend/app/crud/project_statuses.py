@@ -1,3 +1,8 @@
+''' 
+File Author: Leslie Nguyen
+Functions: provide create/update/read/delete operations for project statuses 
+'''
+
 from sqlmodel import Session, select
 
 from app.models import (
@@ -8,7 +13,9 @@ from app.models import (
 ALLOWED_PROJECT_STATUS_NAMES = tuple(status.value for status in ProjectStatus)
 
 
+# Authors: Leslie
 def get_status_type(*, session: Session, status_name: str) -> ProjectStatusType:
+    ''' Retrieve status by status name'''
     status_type = session.exec(
         select(ProjectStatusType).where(ProjectStatusType.status_name == status_name)
     ).first()
@@ -18,8 +25,9 @@ def get_status_type(*, session: Session, status_name: str) -> ProjectStatusType:
 
     return status_type
 
-
+# Authors: Leslie
 def create_status_type(*, session: Session, status_name: str) -> ProjectStatusType:
+    ''' Make a new status '''
     status_type = session.exec(
         select(ProjectStatusType).where(ProjectStatusType.status_name == status_name)
     ).first()
@@ -33,7 +41,9 @@ def create_status_type(*, session: Session, status_name: str) -> ProjectStatusTy
     return status_type
 
 
+# Authors: Leslie
 def get_all_status_types(*, session: Session) -> list[ProjectStatusType]:
+    ''' Retrieve all possible statuses'''
     status_types = list(
         session.exec(
             select(ProjectStatusType).where(

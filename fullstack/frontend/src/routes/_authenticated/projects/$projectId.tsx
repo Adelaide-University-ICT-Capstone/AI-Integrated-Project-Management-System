@@ -19,12 +19,12 @@ import { ProjectHeader } from '@/components/ProjectDetails/ProjectHeader'
 import { ProjectTabs } from '@/components/ProjectDetails/ProjectTabs'
 import { TimelineSection } from '@/components/ProjectDetails/TimelineSection'
 import { WorkflowSection } from '@/components/ProjectDetails/WorkflowSection'
-import type { DirectoryWorker, Material, Project, ProjectTab, WorkflowPhase, WorkforceMember } from '@/components/ProjectDetails/types'
+import type { DirectoryWorker, Material, MaterialStatus, Project, ProjectTab, WorkflowPhase, WorkforceMember } from '@/components/ProjectDetails/types'
 import { EditProjectModal } from '@/components/ProjectDetails/EditProjectModal'
 import type { ProjectEditForm } from '@/components/ProjectDetails/types'
 import { WorkforceTab } from '@/components/ProjectDetails/WorkforceTab'
 import { AVATAR_COLORS } from '@/components/ProjectDetails/constants'
-import { calculateProgressPercent, formatRoleLabel, getWorkforceStatusColor, mapFrontendFieldToBackend, mapMilestoneToWorkflowPhase, mapStatusToFrontend } from '@/components/ProjectDetails/utils'
+import { calculateProgressPercent, formatRoleLabel, getWorkforceStatusColor, mapFrontendFieldToBackend, mapMaterialStatusToBackend, mapMilestoneToWorkflowPhase, mapStatusToFrontend } from '@/components/ProjectDetails/utils'
 import useAuth from '@/hooks/useAuth'
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -657,6 +657,19 @@ function ProjectDetails() {
 
     console.log(`Updating material at index ${index}: setting ${field} to ${value}`)
     const material = materials[index];
+    if (!material?.id) {
+      toast.error('Cannot update material before it has been saved')
+      return
+    }
+
+    const backendField = mapFrontendFieldToBackend(field)
+    const backendValue =
+      field === 'status'
+        ? mapMaterialStatusToBackend(value as MaterialStatus)
+        : field === 'subcontractorId' || field === 'orderedDate'
+          ? value || null
+          : value
+
     try {
       const token = localStorage.getItem('access_token');
       const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}/materials/${material.id}`, {
@@ -665,7 +678,7 @@ function ProjectDetails() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ [mapFrontendFieldToBackend(field)]: value?.toString().toLowerCase() }),  // Send only the changed field
+        body: JSON.stringify({ [backendField]: backendValue }),  // Send only the changed field
       });
 
       if (!response.ok) {
@@ -680,6 +693,7 @@ function ProjectDetails() {
       toast.success('Material updated successfully');
     } catch (error) {
       console.error('Error updating material:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update material')
     }
   }
 

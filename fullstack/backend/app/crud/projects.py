@@ -89,7 +89,9 @@ def get_projects_by_due_date(*, session: Session, start: date, end: date) -> lis
         ).all()
     )
 
+# Authors: Leslie
 def create_project(*, session: Session, project_data: ProjectCreateRequest) -> Project:
+    ''' Create a new project along with its client'''
     client = get_or_create_client(
         session=session,
         client_name=project_data.client_name,
@@ -122,6 +124,7 @@ def create_project(*, session: Session, project_data: ProjectCreateRequest) -> P
     create_default_project_task_structure(session=session, project=project, project_data=project_data)
     return project
 
+# Authors: Leslie
 def get_visible_projects(
     *,
     session: Session,
@@ -129,6 +132,7 @@ def get_visible_projects(
     is_superuser: bool,
     status: str | None = None,
 ) -> list[Project]:
+    ''' Get projects filtered by status and employee assignment. Superusers see all projects, while regular users only see projects they're assigned to. '''
     query = select(Project)
 
     if status:
@@ -218,6 +222,7 @@ def midpoint_date(start: date, end: date) -> date:
     return start + timedelta(days=(end - start).days // 2)
 
 
+# Authors: Lee
 def create_default_project_task_structure(
     *, session: Session, project: Project, project_data: ProjectCreateRequest
 ) -> None:
@@ -246,34 +251,43 @@ def create_default_project_task_structure(
             Material(
                 project_id=project.id,
                 name=material_name,
-                # Add any other default fields if needed (e.g., unit="pieces", quantity=Decimal("1"))
             )
         )
 
     session.commit()
 
+# Authors: Leslie
 def create_material(*, session: Session, project_id: uuid.UUID, material_data: MaterialCreate) -> Material:
+    ''' Create a new material order for a project '''
     material = Material.model_validate(material_data, update={"project_id": project_id})
     session.add(material)
     session.commit()
     session.refresh(material)
     return material
 
+# Authors: Leslie
 def update_material(*, session: Session, material: Material, updates: dict) -> Material:
+    ''' Update an existing material order '''
     material.sqlmodel_update(updates)
     session.add(material)
     session.commit()
     session.refresh(material)
     return material
 
+# Authors: Leslie
 def delete_material(*, session: Session, material: Material) -> None:
+    ''' Delete a material order '''
     session.delete(material)
     session.commit()
 
+# Authors: Leslie
 def get_material(*, session: Session, material_id: uuid.UUID) -> Material | None:
+    ''' Retrieve a material order by its ID '''
     return session.get(Material, material_id)
 
+# Authors: Leslie
 def get_materials_by_project_id(*, session: Session, project_id: uuid.UUID) -> list[Material]:
+    ''' Retrieve all material orders for a specific project '''
     return list(session.exec(select(Material).where(Material.project_id == project_id)).all())
 
 def _completion_percent(
@@ -584,8 +598,9 @@ def get_projects_by_tab(*, session: Session, tab: str) -> list[Project]:
         if get_project_tab(session=session, project=project) == tab
     ]
 
-
+# Authors: Leslie
 def delete_project(*, session: Session, project_id: uuid.UUID) -> bool:
+    ''' Delete a project by its ID. Returns True if deleted, False if not found. '''
     project = session.get(Project, project_id)
     if not project:
         return False
@@ -593,7 +608,9 @@ def delete_project(*, session: Session, project_id: uuid.UUID) -> bool:
     session.commit()
     return True
 
+# Authors: Leslie
 def delete_all_projects(*, session: Session) -> int:
+    ''' Delete all projects and return the count of deleted projects '''
     deleted = session.exec(select(Project)).all()
     count = len(deleted)
     for project in deleted:
@@ -602,7 +619,9 @@ def delete_all_projects(*, session: Session) -> int:
     return count
 
 
+# Authors: Leslie
 def update_project(*, session: Session, project: Project, updates: dict) -> Project:
+    ''' Update an existing project and its client details if provided '''
     client_company = updates.pop("client_company", None)
     client_address = updates.pop("client_address", None)
     client_name = updates.pop("client_name", None)

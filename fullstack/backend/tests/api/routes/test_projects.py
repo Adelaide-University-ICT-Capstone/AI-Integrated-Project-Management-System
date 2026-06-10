@@ -35,13 +35,15 @@ def get_prelim_status(db: Session) -> ProjectStatusType:
     assert status is not None
     return status
 
-
+# ------------------------- Start Leslie's Testing ------------------ # 
+# Test project's create/read/update/delete operations 
 def create_employee_user(
     *,
     client: TestClient,
     db: Session,
     email_prefix: str,
 ) -> tuple[Employee, dict[str, str]]:
+    ''' Create employee for testing '''
     marker = random_lower_string()[:8]
     employee = Employee(
         first_name=email_prefix.title(),
@@ -383,7 +385,7 @@ def test_project_visibility_and_operations_are_restricted_to_admins_and_project_
         headers=superuser_token_headers,
     )
     assert admin_delete_response.status_code == 200
-
+# --------------------- End Leslie's testing -------------------- # 
 
 def test_get_project_with_roles(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
