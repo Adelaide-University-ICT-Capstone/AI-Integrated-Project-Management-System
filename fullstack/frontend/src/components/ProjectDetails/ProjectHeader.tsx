@@ -69,7 +69,7 @@ export function ProjectHeader({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <ProjectMeta icon={<Building2 size={18} />} text={project.company_name} />
               <ProjectMeta icon={<User size={18} />} text={`Client: ${project.client_name || 'N/A'}`} />
-              <ProjectMeta icon={<MapPin size={18} />} text={project.company_address} />
+              <ProjectMeta icon={<MapPin size={18} />} text={project.address || project.company_address} />
               <ProjectMeta icon={<DollarSign size={18} />} text={`Fee Estimate: ${project.fee_estimate || 'N/A'}`} />
               <ProjectMeta icon={<Calendar size={18} />} text={`Start: ${project.start_date}`} />
               <ProjectMeta icon={<Clock size={18} />} text={`Delivery: ${project.due_date}`} />

@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { projectsApi } from '../../../api/project'
 import { getApiErrorMessage } from '@/api/client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Subcontractor, subcontractorsApi } from '@/api/subcontractors'
 import { workforceAllocationApi } from '@/api/workforceAllocation'
 import { readUsersWithDetails } from '@/client/adminApi'
@@ -185,6 +185,7 @@ function WorkforceAllocationModal({
 function ProjectDetails() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<ProjectTab>('overview')
   const [projectStatus, setProjectStatus] = useState('')
@@ -219,6 +220,7 @@ function ProjectDetails() {
   const [showEditProject, setShowEditProject] = useState(false)
   const [editForm, setEditForm] = useState<ProjectEditForm>({
     project_name: '',
+    address: '',
     company_name: '',
     company_address: '',
     client_name: '',
@@ -292,6 +294,7 @@ function ProjectDetails() {
         setProject(result);
         setEditForm({
           project_name: result.project_name || '',
+          address: result.address || result.company_address || '',
           company_name: result.company_name || '',
           company_address: result.company_address || '',
           client_name: result.client_name || '',
@@ -426,17 +429,18 @@ function ProjectDetails() {
     )
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-      setProject(null)
       try {
-        const token = localStorage.getItem('access_token');
-        fetch(`${baseUrl}/api/v1/projects/${projectId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        await projectsApi.deleteProject(projectId)
+        setProject(null)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['projects'] }),
+          queryClient.invalidateQueries({ queryKey: ['projectsDue'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin', 'all-projects'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin', 'delayed-projects'] }),
+          queryClient.invalidateQueries({ queryKey: ['task-management-projects'] }),
+        ])
         toast.success('Project deleted successfully');
         navigate({ to: '/projects' });
       } catch (error) {
@@ -766,6 +770,7 @@ function ProjectDetails() {
     try {
       const updated = await projectsApi.updateProject(projectId, {
         project_name: editForm.project_name,
+        address: editForm.address,
         client_company: editForm.company_name,
         client_address: editForm.company_address,
         client_name: editForm.client_name,
@@ -781,6 +786,7 @@ function ProjectDetails() {
           ? {
               ...current,
               project_name: updated.project_name ?? editForm.project_name,
+              address: updated.address ?? editForm.address,
               company_name: updated.company_name ?? editForm.company_name,
               company_address: updated.company_address ?? editForm.company_address,
               client_name: updated.client_name ?? editForm.client_name,

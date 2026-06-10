@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_authenticated/projects/')({
 // Color-coded due date helper based on Harri's spec
 const getDueDateColor = (dueDate: string | undefined, status: string) => {
   if (!dueDate) return 'text-gray-500 dark:text-gray-400'
-  const isDone = status === 'completed & invoiced' || status === 'to be invoiced'
+  const isDone = status === 'completed' || status === 'to_be_invoiced'
   if (isDone) return 'text-gray-500 dark:text-gray-400'
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -37,7 +37,7 @@ const getDueDateColor = (dueDate: string | undefined, status: string) => {
 
 const getDueDateLabel = (dueDate: string | undefined, status: string) => {
   if (!dueDate) return null
-  const isDone = status === 'completed & invoiced' || status === 'to be invoiced'
+  const isDone = status === 'completed' || status === 'to_be_invoiced'
   if (isDone) return null
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -52,9 +52,9 @@ const getDueDateLabel = (dueDate: string | undefined, status: string) => {
 }
 
 
-const IN_PROGRESS_STATUSES = ['prelim', 'proposal', 'design & doc', 'amendment', 'hold', 'in_progress', 'on_hold']
-const TO_BE_INVOICED_STATUSES = ['to be invoiced', 'to_be_invoiced']
-const COMPLETED_STATUSES = ['completed & invoiced', 'Eng/QA Review', 'construction', 'completed']
+const IN_PROGRESS_STATUSES = ['prelim', 'in_progress', 'on_hold']
+const TO_BE_INVOICED_STATUSES = ['to_be_invoiced']
+const COMPLETED_STATUSES = ['completed']
 
 const getStatusColor = (status: string) => {
 
@@ -103,7 +103,7 @@ const ProjectCard = ({ project }: { project: Project }) => {
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <MapPin size={14} className="flex-shrink-0" />
-          <span className="truncate">{project.company_address}</span>
+          <span className="truncate">{project.address || project.company_address}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <User size={14} className="flex-shrink-0" />

@@ -36,6 +36,355 @@ def get_prelim_status(db: Session) -> ProjectStatusType:
     return status
 
 
+def create_employee_user(
+    *,
+    client: TestClient,
+    db: Session,
+    email_prefix: str,
+) -> tuple[Employee, dict[str, str]]:
+    marker = random_lower_string()[:8]
+    employee = Employee(
+        first_name=email_prefix.title(),
+        last_name="User",
+        full_name=f"{email_prefix.title()} User",
+        email=f"{email_prefix}-employee-{marker}@example.com",
+    )
+    db.add(employee)
+    db.commit()
+    db.refresh(employee)
+
+    password = f"Password-{marker}"
+    user = crud.create_user(
+        session=db,
+        user_create=UserCreate(
+            email=f"{email_prefix}-{marker}@example.com",
+            password=password,
+        ),
+    )
+    user.employee_id = employee.id
+    db.add(user)
+    db.commit()
+
+    headers = user_authentication_headers(
+        client=client,
+        email=user.email,
+        password=password,
+    )
+    return employee, headers
+
+
+def create_project_role(db: Session, role_name: str) -> Role:
+    role = db.exec(select(Role).where(Role.role_name == role_name)).first()
+    if role:
+        return role
+
+    role = Role(
+        role_name=role_name,
+        description=f"{role_name} test role",
+        is_active=True,
+    )
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+    return role
+
+
+def create_project_status(db: Session, status_name: str) -> ProjectStatusType:
+    status = db.exec(
+        select(ProjectStatusType).where(ProjectStatusType.status_name == status_name)
+    ).first()
+    if status:
+        return status
+
+    return crud.create_status_type(session=db, status_name=status_name)
+
+
+def create_project_record(
+    *,
+    db: Session,
+    name: str,
+    job_prefix: str,
+) -> Project:
+    client_row = Client(
+        client_name=f"{name} Client {random_lower_string()[:8]}",
+        company_name=f"{name} Company",
+        billing_address=f"{name} Billing Address",
+    )
+    db.add(client_row)
+    db.commit()
+    db.refresh(client_row)
+
+    status = get_prelim_status(db)
+    project = Project(
+        job_number=f"{job_prefix}-{random_lower_string()[:8]}",
+        client_id=client_row.id,
+        current_status_id=status.id,
+        project_name=name,
+        start_date=date(2026, 7, 1),
+        due_date=date(2026, 8, 1),
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def project_create_payload(job_number: str, project_name: str) -> dict[str, str]:
+    return {
+        "job_number": job_number,
+        "project_types": "civil",
+        "project_name": project_name,
+        "client_name": "CRUD Client",
+        "client_company": "CRUD Company",
+        "client_contact": "crud@example.com",
+        "client_address": "10 CRUD Street",
+        "address": "20 Project Road",
+        "fee_estimate": "1250.00",
+        "date_received": "2026-07-01",
+        "start_date": "2026-07-02",
+        "due_date": "2026-08-01",
+    }
+
+
+def test_project_create_read_update_delete(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    get_prelim_status(db)
+    job_number = f"JOB-CRUD-{random_lower_string()[:8]}"
+
+    create_response = client.post(
+        "/api/v1/projects",
+        headers=superuser_token_headers,
+        json=project_create_payload(job_number, "CRUD Project"),
+    )
+
+    assert create_response.status_code == 200
+    project_id = create_response.json()["project_id"]
+    assert create_response.json()["message"] == "Project created successfully"
+
+    read_response = client.get(
+        f"/api/v1/projects/{project_id}",
+        headers=superuser_token_headers,
+    )
+    assert read_response.status_code == 200
+    read_payload = read_response.json()
+    assert read_payload["job_number"] == job_number
+    assert read_payload["project_name"] == "CRUD Project"
+    assert read_payload["company_name"] == "CRUD Company"
+    assert read_payload["client_name"] == "CRUD Client"
+
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}",
+        headers=superuser_token_headers,
+        json={
+            "project_name": "CRUD Project Updated",
+            "client_name": "Updated CRUD Client",
+            "client_company": "Updated CRUD Company",
+            "address": "30 Updated Road",
+            "fee_estimate": "2500.00",
+        },
+    )
+    assert update_response.status_code == 200
+    update_payload = update_response.json()
+    assert update_payload["id"] == project_id
+    assert update_payload["project_name"] == "CRUD Project Updated"
+    assert update_payload["full_address"] == "30 Updated Road"
+    assert update_payload["fee_final"] == "2500.00"
+
+    updated_project = db.get(Project, project_id)
+    assert updated_project is not None
+    assert updated_project.client is not None
+    assert updated_project.client.client_name == "Updated CRUD Client"
+    assert updated_project.client.company_name == "Updated CRUD Company"
+
+    delete_response = client.delete(
+        f"/api/v1/projects/{project_id}",
+        headers=superuser_token_headers,
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["message"] == "Project deleted successfully"
+
+    missing_response = client.get(
+        f"/api/v1/projects/{project_id}",
+        headers=superuser_token_headers,
+    )
+    assert missing_response.status_code == 404
+
+
+def test_project_visibility_and_operations_are_restricted_to_admins_and_project_managers(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    member, member_headers = create_employee_user(
+        client=client,
+        db=db,
+        email_prefix="project-member",
+    )
+    manager, manager_headers = create_employee_user(
+        client=client,
+        db=db,
+        email_prefix="project-manager",
+    )
+    outsider, outsider_headers = create_employee_user(
+        client=client,
+        db=db,
+        email_prefix="project-outsider",
+    )
+    assert outsider.id
+
+    engineer_role = create_project_role(db, f"engineer-{random_lower_string()[:8]}")
+    manager_role = create_project_role(db, "project_manager")
+    member_status = create_project_status(
+        db,
+        f"member-status-{random_lower_string()[:8]}",
+    )
+    visible_project = create_project_record(
+        db=db,
+        name="Visible Restricted Project",
+        job_prefix="JOB-VISIBLE",
+    )
+    hidden_project = create_project_record(
+        db=db,
+        name="Hidden Restricted Project",
+        job_prefix="JOB-HIDDEN",
+    )
+
+    db.add(
+        ProjectAssignment(
+            project_id=visible_project.id,
+            employee_id=member.id,
+            role_id=engineer_role.id,
+        )
+    )
+    db.add(
+        ProjectAssignment(
+            project_id=visible_project.id,
+            employee_id=manager.id,
+            role_id=manager_role.id,
+        )
+    )
+    db.commit()
+
+    member_list_response = client.get("/api/v1/projects", headers=member_headers)
+    assert member_list_response.status_code == 200
+    member_project_ids = {
+        row["project_id"] for row in member_list_response.json()["data"]
+    }
+    assert str(visible_project.id) in member_project_ids
+    assert str(hidden_project.id) not in member_project_ids
+
+    member_read_response = client.get(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=member_headers,
+    )
+    assert member_read_response.status_code == 200
+    assert member_read_response.json()["project_id"] == str(visible_project.id)
+
+    member_hidden_response = client.get(
+        f"/api/v1/projects/{hidden_project.id}",
+        headers=member_headers,
+    )
+    assert member_hidden_response.status_code == 403
+
+    outsider_list_response = client.get("/api/v1/projects", headers=outsider_headers)
+    assert outsider_list_response.status_code == 200
+    outsider_project_ids = {
+        row["project_id"] for row in outsider_list_response.json()["data"]
+    }
+    assert str(visible_project.id) not in outsider_project_ids
+    assert str(hidden_project.id) not in outsider_project_ids
+
+    outsider_read_response = client.get(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=outsider_headers,
+    )
+    assert outsider_read_response.status_code == 403
+
+    member_update_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=member_headers,
+        json={"project_name": "Member Should Not Update"},
+    )
+    assert member_update_response.status_code == 403
+    db.refresh(visible_project)
+    assert visible_project.project_name == "Visible Restricted Project"
+
+    member_status_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=member_headers,
+        json={"current_status_id": str(member_status.id)},
+    )
+    assert member_status_response.status_code == 200
+    assert member_status_response.json()["current_status_id"] == str(member_status.id)
+
+    member_mixed_update_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=member_headers,
+        json={
+            "project_name": "Member Should Not Update Metadata With Status",
+            "current_status_id": str(member_status.id),
+        },
+    )
+    assert member_mixed_update_response.status_code == 403
+    db.refresh(visible_project)
+    assert visible_project.project_name == "Visible Restricted Project"
+    assert visible_project.current_status_id == member_status.id
+
+    outsider_update_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=outsider_headers,
+        json={"project_name": "Outsider Should Not Update"},
+    )
+    assert outsider_update_response.status_code == 403
+
+    outsider_status_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=outsider_headers,
+        json={"current_status_id": str(member_status.id)},
+    )
+    assert outsider_status_response.status_code == 403
+
+    manager_update_response = client.patch(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=manager_headers,
+        json={"project_name": "Manager Updated Project"},
+    )
+    assert manager_update_response.status_code == 200
+    assert manager_update_response.json()["project_name"] == "Manager Updated Project"
+
+    admin_hidden_response = client.get(
+        f"/api/v1/projects/{hidden_project.id}",
+        headers=superuser_token_headers,
+    )
+    assert admin_hidden_response.status_code == 200
+
+    admin_update_response = client.patch(
+        f"/api/v1/projects/{hidden_project.id}",
+        headers=superuser_token_headers,
+        json={"project_name": "Admin Updated Hidden Project"},
+    )
+    assert admin_update_response.status_code == 200
+    assert admin_update_response.json()["project_name"] == "Admin Updated Hidden Project"
+
+    member_delete_response = client.delete(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=member_headers,
+    )
+    assert member_delete_response.status_code == 403
+
+    manager_delete_response = client.delete(
+        f"/api/v1/projects/{visible_project.id}",
+        headers=manager_headers,
+    )
+    assert manager_delete_response.status_code == 200
+
+    admin_delete_response = client.delete(
+        f"/api/v1/projects/{hidden_project.id}",
+        headers=superuser_token_headers,
+    )
+    assert admin_delete_response.status_code == 200
+
+
 def test_get_project_with_roles(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
