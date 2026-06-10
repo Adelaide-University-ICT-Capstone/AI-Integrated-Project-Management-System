@@ -116,6 +116,33 @@ def list_projects(
     details = crud.build_project_details(session=session, projects=projects)
     return ProjectDetailsResponse(data=details, count=len(details))
 
+# Authors: Leslie
+@router.get("/{project_id}", response_model=ProjectDetail)
+def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: CurrentUser) -> ProjectDetail:
+    ''' Get project details by id, check view permission first, return 403 if no permission, 404 if not found '''
+    check_project_view_permission(session, project_id, current_user)
+    project = crud.get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectDetail(
+        project_id=project.id,
+        job_number=project.job_number,
+        project_name=project.project_name,
+        address=project.full_address,
+        company_name=project.client.company_name if project.client else None,
+        company_address=project.client.billing_address if project.client else None,
+        client_name=project.client.client_name if project.client else None,
+        status=project.current_status.status_name if project.current_status else None,
+        current_status_id=project.current_status_id,
+        start_date=project.start_date,
+        due_date=project.due_date,
+        days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
+        completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
+        is_invoiced=crud.is_project_invoiced(session=session, project=project),
+        project_tab=crud.get_project_tab(session=session, project=project),
+        fee_estimate=project.fee_final,
+    )
+
 # Authors:
 @router.get(
     "/due-date",
@@ -625,29 +652,4 @@ def get_projects_expected_to_finish(session: SessionDep, date_str: str) -> Any:
 
 
 
-# Authors: Leslie
-@router.get("/{project_id}", response_model=ProjectDetail)
-def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: CurrentUser) -> ProjectDetail:
-    ''' Get project details by id, check view permission first, return 403 if no permission, 404 if not found '''
-    check_project_view_permission(session, project_id, current_user)
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return ProjectDetail(
-        project_id=project.id,
-        job_number=project.job_number,
-        project_name=project.project_name,
-        address=project.full_address,
-        company_name=project.client.company_name if project.client else None,
-        company_address=project.client.billing_address if project.client else None,
-        client_name=project.client.client_name if project.client else None,
-        status=project.current_status.status_name if project.current_status else None,
-        current_status_id=project.current_status_id,
-        start_date=project.start_date,
-        due_date=project.due_date,
-        days_elapsed=(date.today() - project.created_at.date()).days if project.created_at else None,
-        completion_percent=crud.calculate_project_completion_percent(session=session, project=project),
-        is_invoiced=crud.is_project_invoiced(session=session, project=project),
-        project_tab=crud.get_project_tab(session=session, project=project),
-        fee_estimate=project.fee_final,
-    )
+

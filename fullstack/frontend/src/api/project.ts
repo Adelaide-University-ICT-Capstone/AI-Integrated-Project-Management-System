@@ -109,6 +109,7 @@ export type ProjectMilestonePayload = {
   display_order?: number | null
 }
 
+// Authors: Leslie
 export type ProjectUpdatePayload = {
   current_status_id?: string | null
   project_name?: string | null
@@ -128,6 +129,7 @@ export type ProjectUpdatePayload = {
   fee_estimate?: string | null
 }
 
+// Authors: Leslie
 export type ProjectCreatePayload = {
   job_number: string
   project_types: string
@@ -164,11 +166,12 @@ export type ProjectStatusType = {
 
 // src/api/projects.ts
 export const projectsApi = {
+
+  // ---- Authors: Leslie. Integrating APIs to frontend ---- //
+
+  // @router.post("")
   createProject: (payload: ProjectCreatePayload) =>
     api.post<ProjectCreateResponse>('/projects', payload).then(res => res.data),
-
-  //  @router.get("/current-project-num")
-  getCurrentProjectCount: () => api.get<MonthlyCountResponse>('/projects/current-project-num').then(res => res.data),
 
   //  @router.get("") 
   getAllProjects: () => api.get<ProjectsResponse>('/projects').then(res => res.data),
@@ -176,7 +179,6 @@ export const projectsApi = {
   // @router.get("?status={status}")
   getProjectsByStatus: (status: string) => api.get<ProjectsResponse>(`/projects?status=${status}`).then(res => res.data),
   
-
   // @router.get("/{project_id}")
   getProjectById: (projectId: string) => api.get<Project>(`/projects/${projectId}`).then(res => res.data),
 
@@ -186,15 +188,20 @@ export const projectsApi = {
 
   deleteProject: (projectId: string) =>
     api.delete(`/projects/${projectId}`).then(res => res.data),
+
+  // ------------------------------------------------------ //
+
+  // @router.get("/statuses")
+  getProjectStatuses: () => api.get<ProjectStatusType[]>('/statuses').then(res => res.data),
+
+  //  @router.get("/current-project-num")
+  getCurrentProjectCount: () => api.get<MonthlyCountResponse>('/projects/current-project-num').then(res => res.data),
   
   // @router.get("/completed-project")
   getCompletedProjectCount: () => api.get<MonthlyCountResponse>('/projects/completed-project').then(res => res.data),
 
   //  @router.get("/delay-project")
   getDelayedProjects: () => api.get<ProjectSummaryResponse>('/projects/delay-project').then(res => res.data),
-
-  // @router.get("/statuses")
-  getProjectStatuses: () => api.get<ProjectStatusType[]>('/statuses').then(res => res.data),
 
   // @router.get("/all-project") superuser only
   getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),
