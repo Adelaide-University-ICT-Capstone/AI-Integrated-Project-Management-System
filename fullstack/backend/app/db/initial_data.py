@@ -7,8 +7,11 @@ from app.crud.project_statuses import (
 )
 from app.models import Project, ProjectStatus, ProjectStatusType, Role
 
-
+# Authors: Leslie Nguyen
 def ensure_project_status_types(session: Session) -> None:
+    ''' Ensure default project status types are loaded on system boosting up '''
+
+    # create new status: in_progress, prelim, on_hold, completed, -, to_be_invoiced
     for status in ProjectStatus:
         try:
             status_type = get_status_type(session=session, status_name=status.value)
@@ -19,6 +22,7 @@ def ensure_project_status_types(session: Session) -> None:
             create_status_type(session=session, status_name=status.value)
     session.commit()
 
+    # ensure invalid statuses currently in the system is merged into "prelim"
     prelim_status = get_status_type(
         session=session,
         status_name=ProjectStatus.prelim.value,
@@ -42,7 +46,7 @@ def ensure_project_status_types(session: Session) -> None:
 
     session.commit()
 
-
+# Authors: Igie
 def ensure_roles(session: Session) -> None:
     roles = ["drafter", "engineer", "project_manager"]
 

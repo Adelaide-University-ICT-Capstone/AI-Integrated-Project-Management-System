@@ -1,3 +1,8 @@
+
+''' 
+File Author: Leslie
+Functions: provide create/update/read/delete endpoints for subcontractors module 
+'''
 from datetime import date
 from typing import Any
 import uuid
@@ -22,12 +27,14 @@ router = APIRouter(
 )
 
 
-
+# Authors: Leslie
 @router.post("/", response_model=SubcontractorPublic, status_code=http_status.HTTP_201_CREATED)
 def create_subcontractor( subcontractor: SubcontractorCreate, session: SessionDep) -> SubcontractorPublic:
+    ''' Create a new subcontractor and return its details '''
     created = crud.create_subcontractor(session=session, subcontractor=subcontractor)
     return SubcontractorPublic.model_validate(created)
 
+# Authors: Leslie
 @router.patch("/{subcontractor_id}", response_model=SubcontractorPublic)
 def update_subcontractor(
     subcontractor_id: uuid.UUID,
@@ -35,6 +42,7 @@ def update_subcontractor(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> SubcontractorPublic:
+    ''' Update a subcontractor and return the updated details '''
     db_subcontractor = session.get(Subcontractor, subcontractor_id)
     if not db_subcontractor:
         raise HTTPException(status_code=404, detail="Subcontractor not found")
@@ -46,24 +54,26 @@ def update_subcontractor(
     )
     return SubcontractorPublic.model_validate(updated)
 
+# Authors: Leslie
 @router.get("/", response_model=list[SubcontractorPublic])
 def list_subcontractors(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> list[SubcontractorPublic]:
-    subcontractors = crud.get_visible_subcontractors(
-        session=session,
-        employee_id=current_user.employee_id,
-        is_superuser=current_user.is_superuser,
+    ''' List all subcontractors '''
+    subcontractors = crud.get_subcontractors(
+        session=session
     )
     return [SubcontractorPublic.model_validate(sub) for sub in subcontractors]
 
 
+# Authors: Leslie
 @router.delete("/{subcontractor_id}", response_model=Message)
 def delete_subcontractor(
     subcontractor_id: uuid.UUID,
     session: SessionDep,
 ) -> Message:
+    ''' Delete a subcontractor if it is not in use, otherwise raise an error '''
     subcontractor = session.get(Subcontractor, subcontractor_id)
     if not subcontractor:
         raise HTTPException(status_code=404, detail="Subcontractor not found")
@@ -88,12 +98,14 @@ def delete_subcontractor(
     return Message(message="Subcontractor deleted successfully")
 
 
+# Authors: Leslie
 @router.get("/{subcontractor_id}/projects", response_model=ProjectDetailsResponse)
 def list_subcontractor_projects(
     subcontractor_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
 ) -> ProjectDetailsResponse:
+    ''' List all projects associated with a subcontractor, only if the project is assigned to the user '''
     if not session.get(Subcontractor, subcontractor_id):
         raise HTTPException(status_code=404, detail="Subcontractor not found")
 

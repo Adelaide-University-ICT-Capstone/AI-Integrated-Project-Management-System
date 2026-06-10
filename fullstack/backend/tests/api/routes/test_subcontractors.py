@@ -1,3 +1,8 @@
+'''
+Author: Leslie Nguyen 
+Function: provide unit testing for subcontractor modules
+'''
+
 from datetime import date
 
 from fastapi.testclient import TestClient

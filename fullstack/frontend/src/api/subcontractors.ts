@@ -1,6 +1,8 @@
-
+/* 
+File Author: Leslie
+Functions: perform API call and integration for subcontractors module
+*/
 import { api } from './client'
-import type { ProjectsResponse } from './project'
 
 
 api.interceptors.request.use(config => {
