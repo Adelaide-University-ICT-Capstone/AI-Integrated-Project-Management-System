@@ -42,6 +42,18 @@ Arguments: {"project_identifier": "string"}
 7. get_invoice_summary
 Use when the user asks about invoice totals, monthly invoice summary, revenue this month, or comparison with last month.
 Arguments: {}
+
+8. get_project_materials
+Use when the user asks about project materials, ordered materials, missing materials, supplier items, or material status for a specific project.
+The project can be identified by UUID, job number, or exact project name.
+Arguments: {"project_identifier": "string"}
+
+9. get_user_tasks
+Use when the user asks about their tasks, assigned work, tasks due soon, or task status.
+For tasks due this week, use {"days": 7}.
+For all tasks, use {}.
+For completed tasks, use {"status": "completed"}.
+Arguments: {"status": "string optional", "days": "number optional"}
 """
 
 # Function for safely loading JSON and handling error if the JSON is unsuitable.

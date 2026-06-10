@@ -295,6 +295,61 @@ async def get_invoice_summary(session, current_user):
         "previous_month": previous_start.strftime("%B %Y"),
     }
 
+# Gets the materials of a project.
+async def get_project_materials(session, current_user, project_identifier: str):
+    # Find the specific project.
+    project = resolve_project(
+        session=session,
+        current_user=current_user,
+        project_identifier=project_identifier,
+    )
+
+    if not project:
+        return {"error": "Project not found or access denied"}
+
+    # Get a list of materials for the project.
+    materials = crud.get_materials_by_project_id(
+        session=session,
+        project_id=project.id,
+    )
+
+    # Return the project's material.
+    return {
+        "project_id": str(project.id),
+        "job_number": project.job_number,
+        "project_name": project.project_name,
+        "materials": [model_to_dict(material) for material in materials],
+        "count": len(materials),
+    }
+
+# Get the tasks of the user.
+async def get_user_tasks(session, current_user, status: str | None = None, days: int | None = None,):
+    # Filter by start and end date of tasks if requested.
+    start = None
+    end = None
+
+    if days is not None:
+        start = date.today()
+        end = date.today() + timedelta(days=days)
+
+    # Get the list of tasks.
+    tasks = crud.get_tasks(
+        session=session,
+        status=status,
+        start=start,
+        end=end,
+        employee_id=current_user.employee_id,
+        filter_by_employee=not current_user.is_superuser,
+    )
+
+    # Returns the tasks.
+    return {
+        "tasks": [model_to_dict(task) for task in tasks],
+        "count": len(tasks),
+        "status_filter": status,
+        "days_filter": days,
+    }
+
 # List of commands.
 COMMANDS = {
     "get_visible_projects_summary": get_visible_projects_summary,
@@ -303,5 +358,7 @@ COMMANDS = {
     "get_delayed_projects": get_delayed_projects,
     "get_projects_due_soon": get_projects_due_soon,
     "get_project_tasks": get_project_tasks,
+    "get_project_materials": get_project_materials,
+    "get_user_tasks": get_user_tasks,
     "get_invoice_summary": get_invoice_summary,
 }
