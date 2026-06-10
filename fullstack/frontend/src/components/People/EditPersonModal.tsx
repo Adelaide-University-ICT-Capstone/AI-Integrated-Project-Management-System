@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: People — modal for editing an existing employee or customer
+// Commit reference: feat: replace People page coming-soon toasts with working add and edit modals
+
 // Modal for editing an existing staff member or client.
 // Opens from the pencil (Edit) icon in the People table rows.
 // Same layout as AddPersonModal but the form is pre-populated with

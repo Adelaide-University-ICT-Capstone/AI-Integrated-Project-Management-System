@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — main route file (refactored, includes Edit Project + milestone due date editor)
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Project Details — main route file.
 //
 // All the heavy UI lives in src/components/ProjectDetails/:
@@ -301,12 +305,10 @@ function ProjectDetails() {
   }
 
   // Persist a milestone due date for the given phase.
-  // TODO: Lee/Depresso — wire this to PATCH
+  // TODO: Lee/Leslie — wire this to PATCH
   const updatePhaseDueDate = (index: number, dueDate: string) => {
     const updated = [...workflow]
-    // WorkflowPhase type doesn't declare a dueDate field in the shared
-    // types; store it dynamically and avoid a TS error by using a cast.
-    ;(updated[index] as any).dueDate = dueDate
+    updated[index].dueDate = dueDate
     setWorkflow(updated)
   }
 

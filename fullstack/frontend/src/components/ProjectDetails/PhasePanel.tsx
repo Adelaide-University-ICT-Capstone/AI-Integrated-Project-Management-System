@@ -1,3 +1,8 @@
+
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — slide-out panel showing subtasks for a selected workflow phase
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Slide-out panel that shows the subtasks of a selected workflow phase.
 // Triggered by clicking any phase card in the workflow list.
 // Slides in from the right at 60% width with a sticky header.

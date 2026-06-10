@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — static constants, colour maps, grid templates
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Static values used across the Subcontractors module.
 // Centralised here so colour maps, service lists, and grid layouts
 // stay consistent if styling changes later.

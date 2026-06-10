@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — workflow phase list with editable progress sliders and milestone due dates
+// Commit reference: feat: add milestone due date editor on workflow phases
+
 // Workflow Progress section on the Project Details page.
 // Lists every phase of the project as a clickable row with:
 //   - A status icon (pending / in-progress / completed)

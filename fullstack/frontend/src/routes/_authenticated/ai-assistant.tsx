@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: AI Assistant — conversational chat interface with quick-action chips (Project Status / Risk Analysis / Overdue / Revenue) and four capability cards
+// Commit reference: Figma-to-TanStack-Router page conversion (feat/auth-pages-ui branch)
+
 import { useState, useRef, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Send, Bot, User, Sparkles, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'

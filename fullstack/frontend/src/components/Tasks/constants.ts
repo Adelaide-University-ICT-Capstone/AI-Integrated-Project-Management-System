@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — Kanban column definitions, priority colours, status pill classes
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Static configuration for the Tasks module.
 // Centralised so column definitions, priority colours, and avatar
 // colours stay in sync between the kanban board, the detail panel,

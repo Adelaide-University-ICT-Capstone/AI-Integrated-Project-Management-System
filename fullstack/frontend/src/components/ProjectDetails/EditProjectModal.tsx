@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — Edit Project modal with PATCH backend integration
+// Commit reference: feat: add Edit Project modal with PATCH backend integration
+
 // Modal for editing the basic details of an existing project.
 // Opens from the "Edit Project" button in the header of the Project
 // Details page. Pre-filled with the current project's values so the

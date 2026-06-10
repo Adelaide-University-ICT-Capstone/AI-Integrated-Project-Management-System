@@ -1,3 +1,11 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — modal for adding a bespoke material beyond the Harri defaults
+// Commit reference: refactor: extract Project Details page into modular components
+
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — modal for adding a bespoke material beyond the Harri defaults
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Modal for adding a new material/subcontractor order to the project.
 // Opens from the "+ Add Material" button in the MaterialsSection header.
 // Lets the user pick a subcontractor from a fixed dropdown, set an

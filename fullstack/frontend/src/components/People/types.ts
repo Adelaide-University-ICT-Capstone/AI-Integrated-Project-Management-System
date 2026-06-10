@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: People — shared types for Employee and Customer records
+// Commit reference: feat: replace People page coming-soon toasts with working add and edit modals
+
 // Shared types and interfaces for the People module.
 // Used by the route file and both modals so we have one source of
 // truth for the shape of a Person record.

@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — modal for adding a subtask under a selected workflow phase
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Modal for adding a new subtask under a selected workflow phase.
 // Opens from the "+ Add Subtask" button in the PhasePanel header.
 // We pass in the parent phase name so the modal can show context

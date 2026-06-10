@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — main route file (refactored, includes View Project button on detail panel)
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Task Board — main route file.
 //
 // All the heavy UI lives in src/components/Tasks/:

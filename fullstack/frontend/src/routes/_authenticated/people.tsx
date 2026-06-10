@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: People — main route file with Employees and Customers tabs (replaces coming-soon placeholder)
+// Commit reference: feat: replace People page coming-soon toasts with working add and edit modals
+
 // People page — staff + clients directory.
 // Lives at /people. Local-state only (no backend yet) so adds/edits/
 // removes happen optimistically against the in-memory lists. The

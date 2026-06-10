@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — main route file (slimmed)
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Subcontractors page — main route file.
 //
 // All the heavy lifting (modals, slide-out panel, table row, utility

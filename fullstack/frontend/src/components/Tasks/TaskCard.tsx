@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — Kanban card component showing project, milestone, title, priority
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Draggable task card displayed in each kanban column.
 // Two distinct interactions live on the same card:
 //   1. Click anywhere (except the drag handle) → opens the detail panel

@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — modal for creating a new material/service order
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Modal for creating a new material/service order for a specific subcontractor.
 // Opens from the "+ New Order" button on the subcontractor card in the
 // "By Subcontractor" view, and gets the subcontractor passed in as a prop

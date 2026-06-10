@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — Gantt-style Timeline tab (replaces "coming soon" placeholder)
+// Commit reference: feat: add Gantt-style Timeline tab to Project Details
+
 // Project Timeline section on the Project Details page.
 //
 // Renders a Gantt-style horizontal chart spanning the project's

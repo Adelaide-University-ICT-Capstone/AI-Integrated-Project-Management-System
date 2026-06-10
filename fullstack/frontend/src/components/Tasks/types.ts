@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — shared types for the Kanban board (Task, TaskStatus, TaskPriority)
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Shared types and interfaces for the Tasks module.
 // Re-used across the route file, kanban columns, task cards, the
 // slide-out detail panel, and the create-task modal so all parts of

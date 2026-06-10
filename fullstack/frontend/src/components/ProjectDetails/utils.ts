@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — due-date colour coding, progress helpers, initials/avatar utilities
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Pure helper functions used across the Project Details module.
 // Stateless and side-effect-free so they can be unit-tested in isolation.
 

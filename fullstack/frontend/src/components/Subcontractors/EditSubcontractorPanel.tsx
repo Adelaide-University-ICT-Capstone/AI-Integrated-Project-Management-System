@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — slide-out panel for editing an existing subcontractor
+// Commit reference: feat: add Edit Subcontractor slide-out panel with PATCH backend integration
+
 // Slide-out panel for editing an existing subcontractor.
 // Matches the slide-out pattern used elsewhere in the app (e.g. the
 // phase panel on the project details page) for visual consistency.
