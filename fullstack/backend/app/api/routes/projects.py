@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi import status as http_status
+from app.api.routes.visibility_helper import check_project_view_permission
 from sqlmodel import select
 
 from app import crud
@@ -17,9 +18,6 @@ from app.models import (
     Project,
     AssignmentWithRole,
     Employee,
-    MaterialPublic,
-    MaterialCreate,
-    MaterialUpdate,
     MonthlyCountResponse,
     MonthlyInvoiceResponse,
     ProjectAssignment,
@@ -42,8 +40,6 @@ from app.models import (
     ProjectCreateResponse,
     ProjectDetail,
     Message,
-    Subcontractor,
-    SubcontractorStatus
 )
 
 from app.api.routes.notifications import send_project_update_notification
@@ -53,35 +49,6 @@ router = APIRouter(
     tags=["projects"],
     dependencies=[Depends(get_current_user)],
 )
-
-# Authors: Leslie 
-def check_project_view_permission(
-    session: SessionDep,
-    project_id: uuid.UUID,
-    current_user: CurrentUser,
-) -> Project:
-    ''' Help check project view permission for project visibility, return project if has permission, otherwise raise 403 or 404 '''
-    project = session.get(Project, project_id)
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    if current_user.is_superuser:
-        return project
-
-    if not current_user.employee_id:
-        raise HTTPException(status_code=403, detail="Project access denied")
-
-    assignment = get_assignment(
-        session=session,
-        project_id=project_id,
-        employee_id=current_user.employee_id,
-    )
-
-    if assignment:
-        return project
-
-    raise HTTPException(status_code=403, detail="Project access denied")
 
 
 # Authors: Leslie 
@@ -142,6 +109,71 @@ def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: 
         project_tab=crud.get_project_tab(session=session, project=project),
         fee_estimate=project.fee_final,
     )
+
+# Authors: Leslie, Jerry
+# ... Leslie: update project endpoint to check view permission if only updating status, otherwise check edit permission
+# ... Jerry: check if status is changed and send notification to assigned workforce
+@router.patch("/{project_id}", response_model=ProjectPublic)
+def update_project(
+    project_id: uuid.UUID,
+    project: ProjectUpdateRequest,
+    session: SessionDep,
+    current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
+) -> ProjectPublic:
+    '''' Update project with provided fields, check permissions based on whether status is being updated, send notification if status changed '''
+    update_data = project.model_dump(exclude_unset=True)
+    
+    # if only updating status, check view permission, otherwise check edit permission
+    if set(update_data) <= {"current_status_id"}:
+        check_project_view_permission(session, project_id, current_user)
+    else:
+        check_project_permission(session, project_id, current_user)
+
+    existing = crud.get_project_by_id(session=session, project_id=project_id)
+    if not existing:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    old_status_id = existing.current_status_id
+
+    try:    
+        updated = crud.update_project(session=session, project=existing, updates=update_data)
+        
+        # Check if status changed and send notification to assigned workforce
+        if project.current_status_id and project.current_status_id != old_status_id:
+            send_project_update_notification(
+                db=session,
+                background_tasks=background_tasks,
+                project_name=existing.project_name,
+                job_number=existing.job_number,
+                project_id=project_id
+            )
+
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    return ProjectPublic.model_validate(updated)
+
+
+# Authors: Leslie
+@router.delete("/{project_id}")
+def delete_project(project_id: uuid.UUID, current_user: CurrentUser, session: SessionDep):
+    ''' Check project delete permission and delete the project if exists, otherwise raise 403 or 404 '''
+    check_project_permission(session, project_id, current_user)
+    if not crud.delete_project(session=session, project_id=project_id):
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return {"message": "Project deleted successfully"}
+
+# Authors: Leslie
+@router.delete("")
+def delete_all_projects(session: SessionDep, current_user: CurrentUser):
+    ''' Only superusers can delete all projects, return the count of deleted projects '''
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only superusers can delete all projects")
+    count = crud.delete_all_projects(session=session)
+    return {"message": f"Successfully deleted {count} projects"}
+
+
 
 # Authors:
 @router.get(
@@ -432,136 +464,6 @@ def update_project_task(
     )
     return ProjectTaskPublic.model_validate(updated)
 
-
-# Authors: Leslie
-@router.delete("/{project_id}")
-def delete_project(project_id: uuid.UUID, current_user: CurrentUser, session: SessionDep):
-    ''' Check project delete permission and delete the project if exists, otherwise raise 403 or 404 '''
-    check_project_permission(session, project_id, current_user)
-    if not crud.delete_project(session=session, project_id=project_id):
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return {"message": "Project deleted successfully"}
-
-# Authors: Leslie
-@router.delete("")
-def delete_all_projects(session: SessionDep, current_user: CurrentUser):
-    ''' Only superusers can delete all projects, return the count of deleted projects '''
-    if not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Only superusers can delete all projects")
-    count = crud.delete_all_projects(session=session)
-    return {"message": f"Successfully deleted {count} projects"}
-
-
-# Authors: Leslie, Jerry
-# ... Leslie: update project endpoint to check view permission if only updating status, otherwise check edit permission
-# ... Jerry: check if status is changed and send notification to assigned workforce
-@router.patch("/{project_id}", response_model=ProjectPublic)
-def update_project(
-    project_id: uuid.UUID,
-    project: ProjectUpdateRequest,
-    session: SessionDep,
-    current_user: CurrentUser,
-    background_tasks: BackgroundTasks,
-) -> ProjectPublic:
-    '''' Update project with provided fields, check permissions based on whether status is being updated, send notification if status changed '''
-    update_data = project.model_dump(exclude_unset=True)
-    
-    # if only updating status, check view permission, otherwise check edit permission
-    if set(update_data) <= {"current_status_id"}:
-        check_project_view_permission(session, project_id, current_user)
-    else:
-        check_project_permission(session, project_id, current_user)
-
-    existing = crud.get_project_by_id(session=session, project_id=project_id)
-    if not existing:
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Project not found")
-    
-    old_status_id = existing.current_status_id
-
-    try:    
-        updated = crud.update_project(session=session, project=existing, updates=update_data)
-        
-        # Check if status changed and send notification to assigned workforce
-        if project.current_status_id and project.current_status_id != old_status_id:
-            send_project_update_notification(
-                db=session,
-                background_tasks=background_tasks,
-                project_name=existing.project_name,
-                job_number=existing.job_number,
-                project_id=project_id
-            )
-
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    return ProjectPublic.model_validate(updated)
-
-
-@router.get("/{project_id}/materials/{material_id}", response_model=MaterialPublic)
-def get_material(
-    project_id: uuid.UUID,
-    material_id: uuid.UUID,
-    session: SessionDep,
-    current_user: CurrentUser,
-) -> MaterialPublic:
-    
-    check_project_view_permission(session, project_id, current_user)
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    material = crud.get_material(session=session, material_id=material_id)
-    if not material or material.project_id != project_id:
-        raise HTTPException(status_code=404, detail="Material not found")
-
-    return MaterialPublic.model_validate(material)
-
-@router.get("/{project_id}/materials", response_model=list[MaterialPublic], status_code=http_status.HTTP_200_OK)
-def get_materials_from_project(project_id: uuid.UUID, session: SessionDep, current_user: CurrentUser) -> list[MaterialPublic]:
-    check_project_view_permission(session, project_id, current_user)
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    materials = crud.get_materials_by_project_id(session=session, project_id=project_id)
-    return [MaterialPublic.model_validate(material) for material in materials]
-
-@router.post("/{project_id}/materials", response_model=MaterialPublic, status_code=http_status.HTTP_201_CREATED)
-def create_material_for_project(project_id: uuid.UUID, material: MaterialCreate, session: SessionDep, current_user: CurrentUser) -> MaterialPublic:
-    check_project_view_permission(session, project_id, current_user)
-    # Add validation for subcontractor_id if provided
-    if material.subcontractor_id and not session.get(Subcontractor, material.subcontractor_id):
-        raise HTTPException(status_code=404, detail="Subcontractor not found")
-    created = crud.create_material(session=session, project_id=project_id, material_data=material)
-    return MaterialPublic.model_validate(created)
-
-@router.patch("/{project_id}/materials/{material_id}", response_model=MaterialPublic)
-def update_material_for_project(project_id: uuid.UUID, material_id: uuid.UUID, material: MaterialUpdate, session: SessionDep, current_user: CurrentUser) -> MaterialPublic:
-    check_project_view_permission(session, project_id, current_user)
-    # Add validation for subcontractor_id if provided
-    available_statuses = crud.get_material_statuses(session=session)
-    if material.status and material.status not in available_statuses:
-        raise HTTPException(status_code=400, detail="Please choose a valid material status: " + ", ".join(available_statuses))
-
-    if material.subcontractor_id and not session.get(Subcontractor, material.subcontractor_id):
-        raise HTTPException(status_code=404, detail="Subcontractor not found")
-    
-    existing = crud.get_material(session=session, material_id=material_id)  # Assuming you add this
-    updated = crud.update_material(session=session, material=existing, updates=material.model_dump(exclude_unset=True))
-    return MaterialPublic.model_validate(updated)
-
-
-@router.delete("/{project_id}/materials/{material_id}", response_model=Message)
-def delete_material_from_project(project_id: uuid.UUID, material_id: uuid.UUID, session: SessionDep, current_user: CurrentUser) -> Message:
-    check_project_view_permission(session, project_id, current_user)
-    project = crud.get_project_by_id(session=session, project_id=project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found") 
-    material = crud.get_material(session=session, material_id=material_id)
-    if not material or material.project_id != project_id:
-        raise HTTPException(status_code=404, detail="Material not found")
-    crud.delete_material(session=session, material=material)
-    return Message(message="Material deleted successfully")
 
 # --------------------------------
 

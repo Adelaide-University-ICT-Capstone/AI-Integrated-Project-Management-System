@@ -8,6 +8,7 @@ export const mapStatusToFrontend = (backendStatus: string): MaterialStatus => {
       return 'Ordered'
     case 'received':
       return 'Received'
+    case 'by client':
     case 'by_client':
       return 'By Client'
     default:
@@ -22,9 +23,9 @@ export const mapMaterialStatusToBackend = (status: MaterialStatus) => {
     case 'Received':
       return 'received'
     case 'By Client':
-      return 'by_client'
+      return 'by client'
     default:
-      return 'n/a'
+      return 'N/A'
   }
 }
 
