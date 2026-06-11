@@ -6,14 +6,19 @@ A full-stack engineering project management platform built with **FastAPI**, **R
 
 ## Table of Contents
 
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Quick Start (Development)](#quick-start-development)
-- [Environment Configuration](#environment-configuration)
-- [Service URLs](#service-urls)
-- [Useful Commands](#useful-commands)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
+- [AI-Integrated Project Management System](#ai-integrated-project-management-system)
+  - [Table of Contents](#table-of-contents)
+  - [Tech Stack](#tech-stack)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start (Development)](#quick-start-development)
+    - [1. Clone the repository](#1-clone-the-repository)
+    - [2. Enter the fullstack directory](#2-enter-the-fullstack-directory)
+    - [3. Configure environment](#3-configure-environment)
+    - [4. Start with Docker Compose Watch](#4-start-with-docker-compose-watch)
+  - [Environment Configuration](#environment-configuration)
+  - [Service URLs](#service-urls)
+  - [Project Structure](#project-structure)
+  - [API Documentation](#api-documentation)
 
 ---
 
@@ -177,6 +182,7 @@ For static references see the documentation folders:
 | Document | Description |
 |----------|-------------|
 | [api_documentation.md](api_documentation.md) | Complete API endpoint reference |
+| [test_cases_documentation.md](test_cases_documentation.md) | Automated test coverage summary |
 | [UG_docs/ug_api_documentation.md](UG_docs/ug_api_documentation.md) | Undergraduate team API ownership (who built what) |
 | [PG_docs/pg_api_documentation.md](PG_docs/pg_api_documentation.md) | Postgraduate team API ownership (who built what) |
 | [PG_docs/contributions.md](PG_docs/contributions.md) | Postgraduate team contribution record |
