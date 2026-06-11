@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Projects — 3-step New Project wizard (Details → Workflow → Subtasks) with team assignments and allocated hours
+// Commit reference: feat: 3-step new project wizard with details, workflow phases, and subtasks
+
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
