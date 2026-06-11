@@ -89,6 +89,13 @@ Nevil's work focused on designing, developing, and refactoring frontend pages an
 | POST | `/notifications/trigger-reminders/` | `a3098c0`, `314ca45`, `11b94d3`, `86bcb99` | Superuser-triggered deadline reminder scan; sends personalised emails to assigned users with deadline reminders enabled |
 | POST | `/notifications/trigger-invoice-reminders/` | `a3098c0`, `314ca45`, `11b94d3`, `86bcb99` | Superuser-triggered weekly invoice alert scan for completed/to-be-invoiced projects missing invoices |
 
+### Email Preferences
+
+| Method | Endpoint | Representative Commit(s) | Notes |
+|--------|----------|--------------------------|-------|
+| GET | `/users/me/email-preferences` | `11b94d3`, `86bcb99` | Retrieve the current user's email notification preference settings |
+| PATCH | `/users/me/email-preferences` | `11b94d3`, `86bcb99` | Update selected email notification preferences for the current user |
+
 ### Notification Helpers & Integrations
 
 | Area | Representative Commit(s) | Notes |

@@ -501,7 +501,7 @@ export function Settings() {
       )}
 
       {/* Email Preferences Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 opacity-75">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
             <Mail className="text-green-600 dark:text-green-400" size={20} />
@@ -509,9 +509,6 @@ export function Settings() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Email Preferences</h2>
-              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full">
-                Coming Soon
-              </span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Choose what emails you want to receive</p>
           </div>
@@ -525,24 +522,19 @@ export function Settings() {
             //  { key: 'weeklyReports', label: 'Weekly Reports', description: 'Summary of your weekly activity' },
             { key: 'invoiceAlerts', label: 'Invoice Alerts', description: 'Updates on invoicing and payments' },
           ].map((pref) => (
-            <div
-              key={pref.key}
-              className="flex items-start justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0 cursor-not-allowed"
-              onClick={() => toast.info('Email preferences are coming soon!')}
-            >
+            <div key={pref.key} className="flex items-start justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
               <div className="flex-1">
                 <div className="font-medium text-gray-900 dark:text-white">{pref.label}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">{pref.description}</div>
               </div>
-              <label className="relative inline-flex items-center pointer-events-none">
+              <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={emailPreferences[pref.key as keyof typeof emailPreferences]}
-                  onChange={() => {}}
-                  disabled
+                  onChange={(e) => handleEmailPreferenceChange(pref.key as keyof typeof emailPreferences, e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
               </label>
             </div>
           ))}
