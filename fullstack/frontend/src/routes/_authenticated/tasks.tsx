@@ -1,3 +1,23 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — main route file (refactored, includes View Project button on detail panel)
+// Commit reference: refactor: extract Task Board page into modular components
+
+// Task Board — main route file.
+//
+// All the heavy UI lives in src/components/Tasks/:
+//   - TaskCard         — draggable kanban card
+//   - DroppableColumn  — column wrapper that registers as a drop target
+//   - DetailPanel      — slide-out task editor + ArrowTab
+//   - NewTaskModal     — modal triggered from the "+ New Task" button
+//   - types / constants / utils — shared module helpers
+//
+// This file handles:
+//   - Data fetching (projects, task management, roles) via React Query
+//   - Mutations (create / update / delete) with cache invalidation
+//   - Page-level state (search, filters, drag overlay, panel, modal)
+//   - Drag-and-drop wiring via DndContext
+//   - Project filter tabs, search bar, AI insights summary
+
 import { useState, type FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
