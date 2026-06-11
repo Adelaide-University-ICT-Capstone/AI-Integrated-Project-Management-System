@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — pure helper functions (day-based alerts, status mapping, avatar helpers)
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Pure helper functions used across the Subcontractors module.
 // Everything here is stateless and side-effect-free so the functions
 // can be unit-tested in isolation if needed.
