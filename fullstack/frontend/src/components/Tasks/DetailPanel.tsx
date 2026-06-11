@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — Kanban card component showing project, milestone, title, priority
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Slide-out detail panel for a selected task. Mirrors the hover-tab
 // pattern used in PhasePanel on the Project Details page — when the
 // user hovers off the panel it slides away but the ArrowTab stays
