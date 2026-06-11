@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: People — modal for adding a new employee or customer
+// Commit reference: feat: replace People page coming-soon toasts with working add and edit modals
+
 // Modal for adding a new staff member or client.
 // Opens from the "+ Add Staff Member" / "+ Add Client" button in the
 // People page header. The same component handles both — the parent
