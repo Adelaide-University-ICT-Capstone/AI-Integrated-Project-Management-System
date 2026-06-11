@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — main route file for creating the New Task modal
+// Commit reference: refactor: extract new task modal into modular components
+
 // Modal for creating a new task. Opens from the "+ New Task" button
 // in the Task Board header. The modal needs three pieces of context
 // from the parent route to populate its dropdowns:
