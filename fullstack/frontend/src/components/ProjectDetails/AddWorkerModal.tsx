@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — modal for adding a team member to project workforce
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Modal for adding a new team member to the project's workforce.
 // Opens from the "+ Add Member" button in the WorkforceSection header.
 // Collects the basic member info; the parent route handles assigning
