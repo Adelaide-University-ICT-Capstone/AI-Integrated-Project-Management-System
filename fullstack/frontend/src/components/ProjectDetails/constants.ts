@@ -1,3 +1,10 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — avatar colours, default materials (Harri's spec), status pill classes
+// Commit reference: refactor: extract Project Details page into modular components
+
+// Static values used across the Project Details module.
+// Centralised so colour maps, default data, and class strings stay
+// consistent if styling changes later.
 import type { MaterialStatus, SubtaskPriority, SubtaskStatus } from './types'
 
 export const AVATAR_COLORS = [
