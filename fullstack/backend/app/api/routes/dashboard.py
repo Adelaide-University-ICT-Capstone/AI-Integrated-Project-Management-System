@@ -10,7 +10,17 @@ from app.api.deps import CurrentUser, SessionDep
 from app.schemas.dashboard import AIAlert, AIAlertsResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+def is_completed_project(project) -> bool:
+    status_name = (
+        project.current_status.status_name.lower()
+        if project.current_status and project.current_status.status_name
+        else ""
+    )
 
+    return (
+        status_name in {"completed", "completed & invoiced"}
+        or project.completion_date is not None
+    )
 
 @router.get("/ai-alerts", response_model=AIAlertsResponse)
 def get_ai_alerts(session: SessionDep, current_user: CurrentUser,) -> AIAlertsResponse:
@@ -28,12 +38,12 @@ def get_ai_alerts(session: SessionDep, current_user: CurrentUser,) -> AIAlertsRe
     # Categorises them into overdue, delayed and expected projects.
     overdue_projects = [
         project for project in crud.get_overdue_projects(session=session)
-        if project.id in visible_ids
+        if project.id in visible_ids and not is_completed_project(project)
     ]
 
     delayed_projects = [
         project for project in crud.get_delayed_projects(session=session)
-        if project.id in visible_ids
+        if project.id in visible_ids and not is_completed_project(project)
     ]
 
     due_soon_projects = [
@@ -41,7 +51,7 @@ def get_ai_alerts(session: SessionDep, current_user: CurrentUser,) -> AIAlertsRe
             session=session,
             due_by=date.today() + timedelta(days=7),
         )
-        if project.id in visible_ids
+        if project.id in visible_ids and not is_completed_project(project)
     ]
 
     # Writes out descriptions of each of the different type of project alerts.
