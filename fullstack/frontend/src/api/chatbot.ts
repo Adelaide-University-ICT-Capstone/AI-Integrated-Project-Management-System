@@ -1,3 +1,8 @@
+/*
+Author: Anh Ho
+Functions: Performs the API call for the chatbot prompts.
+*/
+
 import { api } from "./client"
 
 export type ChatbotRequest = {

@@ -1,4 +1,6 @@
-# app/services/chatbot/commands.py
+# Author: Anh Ho
+# Function: All the neccesary functions for the chatbot to gain information from the backend dataset.
+
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal

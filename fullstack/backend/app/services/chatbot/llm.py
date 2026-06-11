@@ -1,3 +1,6 @@
+# Author: Anh Ho
+# Function: Function for calling for the LLM, seperate from the rest of the commands to make it easier to replace with different LLM calls.
+
 import logging
 import os
 

@@ -1,3 +1,7 @@
+# Author: Anh Ho
+# Function: Chatbot schema model.
+
+
 from pydantic import BaseModel
 from typing import Any
 

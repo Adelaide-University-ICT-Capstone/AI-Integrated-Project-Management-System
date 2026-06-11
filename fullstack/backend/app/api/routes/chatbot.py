@@ -1,3 +1,6 @@
+# Author: Anh Ho
+# Function: API endpoints for the AI Chatbot.
+
 from fastapi import APIRouter, HTTPException
 import logging
 

@@ -1,3 +1,6 @@
+# Author: Anh Ho
+# Function: API endpoints for the AI Risk Insights for the dashboard.
+
 from datetime import date, timedelta
 
 from fastapi import APIRouter

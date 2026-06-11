@@ -1,3 +1,6 @@
+# Author: Anh Ho
+# Function: Creates the prompt to send to the LLM as well as calling the neccesary commands for the prompt.
+
 import json
 import logging
 from typing import Any

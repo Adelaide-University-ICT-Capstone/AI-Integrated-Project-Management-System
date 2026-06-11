@@ -1,3 +1,6 @@
+# Author: Anh Ho
+# Function: Dashboard schema model.
+
 from pydantic import BaseModel
 
 

@@ -1,3 +1,8 @@
+/* 
+Author: Anh Ho
+Functions: Performs API call for the AI risks section of the dashboard.
+*/
+
 import { api } from "./client"
 
 export type AIAlert = {

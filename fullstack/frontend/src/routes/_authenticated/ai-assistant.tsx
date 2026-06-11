@@ -2,6 +2,9 @@
 // Module: AI Assistant — conversational chat interface with quick-action chips (Project Status / Risk Analysis / Overdue / Revenue) and four capability cards
 // Commit reference: Figma-to-TanStack-Router page conversion (feat/auth-pages-ui branch)
 
+// Author: Anh Ho
+// Module: AI Assistant - Added Integration with the backend API calls and functions.
+
 import { useState, useRef, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Send, Bot, User/*, Sparkles*/, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
