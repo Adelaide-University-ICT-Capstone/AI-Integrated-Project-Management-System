@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Dashboard — KPI tiles, AI Risk Alerts panel, Project Progress chart, Overdue Projects list, Upcoming Deadlines, Employee Working Hours
+// Commit reference: Figma-to-TanStack-Router page conversion + Company Overall Statistics dropdown addition
+
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
 import {
