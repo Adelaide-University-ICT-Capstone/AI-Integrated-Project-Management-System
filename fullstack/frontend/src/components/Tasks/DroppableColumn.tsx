@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — drag-and-drop wrapper around TaskColumn using @dnd-kit
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Kanban column wrapper. One of these is rendered per status (To Do,
 // In Progress, Review, Done). Each column registers itself as a drop
 // target with @dnd-kit via useDroppable, and the parent TaskBoard
