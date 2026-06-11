@@ -45,7 +45,7 @@ export type ProjectMilestoneNode = {
   display_order?: number | null
   tasks: ProjectTaskNode[]
 }
-
+// Authors: Yongli Jiang
 export type ProjectTaskManagementResponse = {
   project_id: string
   milestones: ProjectMilestoneNode[]
@@ -70,7 +70,7 @@ export type ProjectTaskUpdatePayload = Partial<ProjectTaskPayload> & {
   paid_date?: string | null
   assigned_employee_id?: string | null
 }
-
+// Authors: Yongli Jiang
 export const taskManagementApi = {
   getProjects: () => api.get<ProjectsResponse>('/projects').then((res) => res.data),
   getRoles: () => api.get<RolesResponse>('/roles/').then((res) => res.data),

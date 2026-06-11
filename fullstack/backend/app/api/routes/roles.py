@@ -18,7 +18,7 @@ from app.models import (
 
 router = APIRouter()
 
-
+# Authors: Yongli Jiang
 @router.get("/", response_model=RolesPublic)
 def list_roles(session: SessionDep, current_user: CurrentUser) -> Any:
     count = session.exec(select(func.count()).select_from(Role)).one()
@@ -31,6 +31,8 @@ def list_roles(session: SessionDep, current_user: CurrentUser) -> Any:
     dependencies=[Depends(get_current_active_superuser)],
     response_model=RolePublic,
 )
+
+# Authors: Yongli Jiang
 def create_role(*, session: SessionDep, body: RoleCreate) -> Any:
     existing = session.exec(select(Role).where(Role.role_name == body.role_name)).first()
     if existing:
@@ -42,6 +44,7 @@ def create_role(*, session: SessionDep, body: RoleCreate) -> Any:
     return role
 
 
+# Authors: Yongli Jiang
 @router.get("/{role_id}", response_model=RolePublic)
 def get_role(
     *, session: SessionDep, current_user: CurrentUser, role_id: uuid.UUID
@@ -57,6 +60,7 @@ def get_role(
     dependencies=[Depends(get_current_active_superuser)],
     response_model=RolePublic,
 )
+# Authors: Yongli Jiang
 def update_role(*, session: SessionDep, role_id: uuid.UUID, body: RoleUpdate) -> Any:
     role = session.get(Role, role_id)
     if not role:
@@ -78,6 +82,7 @@ def update_role(*, session: SessionDep, role_id: uuid.UUID, body: RoleUpdate) ->
     dependencies=[Depends(get_current_active_superuser)],
     response_model=Message,
 )
+# Authors: Yongli Jiang
 def delete_role(*, session: SessionDep, role_id: uuid.UUID) -> Any:
     role = session.get(Role, role_id)
     if not role:

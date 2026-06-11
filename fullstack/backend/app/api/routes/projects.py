@@ -84,6 +84,7 @@ def list_projects(
     return ProjectDetailsResponse(data=details, count=len(details))
 
 # Authors: Leslie
+# Authors: Yongli Jiang: calculate_project_completion_percent
 @router.get("/{project_id}", response_model=ProjectDetail)
 def get_project_by_id(session: SessionDep, project_id: uuid.UUID, current_user: CurrentUser) -> ProjectDetail:
     ''' Get project details by id, check view permission first, return 403 if no permission, 404 if not found '''
@@ -189,7 +190,7 @@ def get_projects_by_due_date(
     details = crud.build_project_details(session=session, projects=projects)
     return ProjectDetailsResponse(data=details, count=len(details))
 
-
+# Authors: Yongli Jiang
 @router.get(
     "/tasks",
     response_model=ProjectTasksPublic,
@@ -261,7 +262,7 @@ def get_project_with_roles(session: SessionDep, current_user: CurrentUser, proje
         assignments=assignments,
     )
 
-
+# Authors: Yongli Jiang
 @router.get(
     "/{project_id}/task-management",
     response_model=ProjectTaskManagementResponse,
@@ -280,7 +281,7 @@ def get_project_task_management(session: SessionDep, current_user: CurrentUser, 
     )
     return ProjectTaskManagementResponse(project_id=project_id, milestones=milestones)
 
-
+# Authors: Yongli Jiang
 @router.post(
     "/{project_id}/milestones",
     response_model=ProjectMilestonePublic,
@@ -301,7 +302,7 @@ def create_project_milestone(
     )
     return ProjectMilestonePublic.model_validate(created)
 
-
+# Authors: Yongli Jiang
 @router.patch(
     "/{project_id}/milestones/{milestone_id}",
     response_model=ProjectMilestonePublic,
@@ -326,7 +327,7 @@ def update_project_milestone(
     )
     return ProjectMilestonePublic.model_validate(updated)
 
-
+# Authors: Yongli Jiang
 @router.delete(
     "/{project_id}/milestones/{milestone_id}",
     response_model=Message,
@@ -346,7 +347,7 @@ def delete_project_milestone(
     crud.delete_project_milestone(session=session, milestone=existing)
     return Message(message="Milestone deleted successfully")
 
-
+# Authors: Yongli Jiang
 @router.post(
     "/{project_id}/milestones/{milestone_id}/tasks",
     response_model=ProjectTaskPublic,
@@ -391,6 +392,7 @@ def create_project_task(
     return ProjectTaskPublic.model_validate(created)
 
 
+# Authors: Yongli Jiang
 @router.delete(
     "/{project_id}/milestones/{milestone_id}/tasks/{task_id}",
     response_model=Message,
@@ -415,7 +417,7 @@ def delete_project_task(
     crud.delete_project_task(session=session, task=existing)
     return Message(message="Task deleted successfully")
 
-
+# Authors: Yongli Jiang
 @router.patch(
     "/{project_id}/tasks/{task_id}",
     response_model=ProjectTaskPublic,

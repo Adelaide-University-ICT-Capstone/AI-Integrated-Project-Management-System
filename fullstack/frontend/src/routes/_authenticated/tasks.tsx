@@ -68,7 +68,7 @@ const toNumber = (value?: number | string | null) => {
   const parsed = Number(value ?? 0)
   return Number.isFinite(parsed) ? parsed : 0
 }
-
+// Authors: Yongli Jiang
 const flattenTaskNodes = (
   nodes: ProjectTaskNode[],
   project: ProjectTaskManagementProject,
@@ -109,7 +109,7 @@ const flattenTaskNodes = (
 
     return [task, ...flattenTaskNodes(node.children || [], project, milestone)]
   })
-
+// Authors: Yongli Jiang
 const mapTaskManagementToTasks = (
   rows: Array<{ project: ProjectTaskManagementProject; taskManagement: ProjectTaskManagementResponse }>,
 ) =>
@@ -126,7 +126,7 @@ const buildMilestonesByProject = (
     acc[row.project.project_id] = row.taskManagement.milestones
     return acc
   }, {})
-
+// Authors: Yongli Jiang
 function TaskBoard() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
@@ -224,12 +224,12 @@ function TaskBoard() {
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   })
-
+// Authors: Yongli Jiang
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((item) => item.id === event.active.id)
     if (task) setActiveTask(task)
   }
-
+// Authors: Yongli Jiang
   const handleUpdateStatus = async (task: Task, newStatus: string) => {
     if (task.status === newStatus) return
     await updateTaskMutation.mutateAsync({ task, payload: { milestone_status: newStatus } })
@@ -238,7 +238,7 @@ function TaskBoard() {
     )
     toast.success('Task updated successfully')
   }
-
+// Authors: Yongli Jiang
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveTask(null)
@@ -252,7 +252,7 @@ function TaskBoard() {
       // The mutation already shows an API error toast.
     }
   }
-
+// Authors: Yongli Jiang
   const handleCreateTask = async (taskData: TaskFormData) => {
     const allocatedHours = Number(taskData.allocatedHours)
     const payload: ProjectTaskPayload = {

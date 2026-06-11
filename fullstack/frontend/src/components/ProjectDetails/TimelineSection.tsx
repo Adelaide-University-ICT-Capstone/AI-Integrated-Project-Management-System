@@ -2,6 +2,7 @@
 // Module: ProjectDetails — Gantt-style Timeline tab (replaces "coming soon" placeholder)
 // Commit reference: feat: add Gantt-style Timeline tab to Project Details
 
+// Authors: Yongli Jiang[TimelineSection,workflow dueDate,progress,task-management mapping]
 import { Calendar } from 'lucide-react'
 import type { WorkflowPhase } from './types'
 

@@ -22,6 +22,9 @@
 //   - The project header (info card + progress circle + status dropdown)
 //   - The Overview / Resources / Timeline tabs and the Resources table
 
+// Authors: Yongli Jiang
+//Project Detail / Gantt Integration[TimelineSection,workflow dueDate,progress,task-management mapping]
+
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   Users,

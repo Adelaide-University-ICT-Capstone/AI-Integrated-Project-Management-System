@@ -60,7 +60,7 @@ export type ProjectsResponse = {
   data: Project[];
   count: number;
 };
-
+// Authors: Yongli Jiang
 export type ProjectTaskManagementMilestone = {
   id: string
   project_id: string
@@ -73,7 +73,7 @@ export type ProjectTaskManagementMilestone = {
   display_order?: number | null
   tasks?: ProjectTaskNode[]
 }
-
+// Authors: Yongli Jiang
 export type ProjectTaskNode = {
   id: string
   milestone_id: string
@@ -93,12 +93,12 @@ export type ProjectTaskNode = {
   paid_date?: string | null
   children: ProjectTaskNode[]
 }
-
+// Authors: Yongli Jiang
 export type ProjectTaskManagementResponse = {
   project_id: string
   milestones: ProjectTaskManagementMilestone[]
 }
-
+// Authors: Yongli Jiang
 export type ProjectMilestonePayload = {
   milestone_name?: string
   description_type?: string | null
@@ -205,16 +205,16 @@ export const projectsApi = {
 
   // @router.get("/all-project") superuser only
   getAllActiveProjects: () => api.get<ProjectSummaryResponse>('/projects/all-project').then(res => res.data),
-
+// Authors: Yongli Jiang
   getProjectTaskManagement: (projectId: string) =>
     api.get<ProjectTaskManagementResponse>(`/projects/${projectId}/task-management`).then(res => res.data),
-
+// Authors: Yongli Jiang
   createProjectMilestone: (projectId: string, payload: ProjectMilestonePayload) =>
     api.post<ProjectTaskManagementMilestone>(`/projects/${projectId}/milestones`, payload).then(res => res.data),
-
+// Authors: Yongli Jiang
   updateProjectMilestone: (projectId: string, milestoneId: string, payload: ProjectMilestonePayload) =>
     api.patch<ProjectTaskManagementMilestone>(`/projects/${projectId}/milestones/${milestoneId}`, payload).then(res => res.data),
-
+// Authors: Yongli Jiang
   deleteProjectMilestone: (projectId: string, milestoneId: string) =>
     api.delete(`/projects/${projectId}/milestones/${milestoneId}`).then(res => res.data),
 

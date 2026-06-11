@@ -27,7 +27,7 @@ def test_create_role_requires_superuser(
     assert response.status_code == 403
     assert response.json() == {"detail": "The user doesn't have enough privileges"}
 
-
+# --------------------- Start Yongli Jiang's testing -------------------- #
 def test_create_and_get_role(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
@@ -143,7 +143,7 @@ def test_delete_role_removes_unused_role(
     assert response.status_code == 200
     assert response.json() == {"message": "Role deleted successfully"}
     assert db.exec(select(Role).where(Role.id == role.id)).first() is None
-
+# --------------------- End Yongli Jiang's testing -------------------- #
 
 def test_get_nonexistent_role_returns_404(
     client: TestClient, superuser_token_headers: dict[str, str]

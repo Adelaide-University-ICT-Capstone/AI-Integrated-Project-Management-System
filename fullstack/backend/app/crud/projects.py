@@ -155,13 +155,13 @@ def get_visible_projects(
         ).all()
     )
 
-
+# Authors: Yongli Jiang
 def percent_complete(completed: int, total: int) -> Decimal:
     if total <= 0:
         return Decimal("0")
     return (Decimal(completed) * Decimal("100") / Decimal(total)).quantize(Decimal("0.01"))
 
-
+# Authors: Yongli Jiang
 def calculate_project_completion_percent(*, session: Session, project: Project) -> Decimal:
     if project.completion_date:
         return Decimal("100")
@@ -394,11 +394,11 @@ def build_project_details(*, session: Session, projects: list[Project]) -> list[
 def get_project_milestone(*, session: Session, milestone_id: uuid.UUID) -> ProjectMilestone | None:
     return session.get(ProjectMilestone, milestone_id)
 
-
+# Authors: Yongli Jiang
 def get_project_task(*, session: Session, task_id: uuid.UUID) -> ProjectTask | None:
     return session.get(ProjectTask, task_id)
 
-
+# Authors: Yongli Jiang
 def create_project_milestone(
     *, session: Session, project_id: uuid.UUID, milestone_data: ProjectMilestoneTreeCreate
 ) -> ProjectMilestone:
@@ -411,7 +411,7 @@ def create_project_milestone(
     session.refresh(milestone)
     return milestone
 
-
+# Authors: Yongli Jiang
 def update_project_milestone(
     *, session: Session, milestone: ProjectMilestone, updates: dict
 ) -> ProjectMilestone:
@@ -421,12 +421,12 @@ def update_project_milestone(
     session.refresh(milestone)
     return milestone
 
-
+# Authors: Yongli Jiang
 def delete_project_milestone(*, session: Session, milestone: ProjectMilestone) -> None:
     session.delete(milestone)
     session.commit()
 
-
+# Authors: Yongli Jiang
 def create_project_task(
     *,
     session: Session,
@@ -442,7 +442,7 @@ def create_project_task(
     session.refresh(task)
     return task
 
-
+# Authors: Yongli Jiang
 def update_project_task(*, session: Session, task: ProjectTask, updates: dict) -> ProjectTask:
     task.sqlmodel_update(updates)
     session.add(task)
@@ -450,6 +450,7 @@ def update_project_task(*, session: Session, task: ProjectTask, updates: dict) -
     session.refresh(task)
     return task
 
+# Authors: Yongli Jiang
 def get_tasks(
     *,
     session: Session,
@@ -478,6 +479,7 @@ def get_tasks(
         ).all()
     )
 
+# Authors: Yongli Jiang
 def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
     nodes = {
         task.id: ProjectTaskNode(
@@ -525,7 +527,7 @@ def build_task_tree(*, tasks: list[ProjectTask]) -> list[ProjectTaskNode]:
 
     return roots
 
-
+# Authors: Yongli Jiang
 def get_project_task_management(
     *,
     session: Session,
@@ -577,7 +579,7 @@ def get_project_task_management(
         )
         for milestone in milestones
     ]
-
+# Authors: Yongli Jiang
 def delete_project_task(*, session: Session, task: ProjectTask) -> None:
     session.delete(task)
     session.commit()
