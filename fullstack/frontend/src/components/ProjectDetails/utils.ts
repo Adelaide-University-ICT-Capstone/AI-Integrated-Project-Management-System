@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — due-date colour coding, progress helpers, initials/avatar utilities
+// Commit reference: refactor: extract Project Details page into modular components
+
 import type { ProjectTaskManagementMilestone, ProjectTaskNode } from '@/api/project'
 import { materialStatusPillClass, workforceStatusColor, workforceStatusDefault } from './constants'
 import type { Material, MaterialStatus, WorkflowPhase } from './types'
