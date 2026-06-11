@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — Workforce Allocation panel with member cards and add/remove
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Workforce Allocation section on the Project Details page.
 // Shows a grid of team member cards with:
 //   - A coloured avatar circle with the member's initials
