@@ -1,3 +1,13 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — shared types (WorkflowPhase, Subtask, Material, WorkforceMember)
+// Commit reference: refactor: extract Project Details page into modular components
+
+// Shared types and interfaces for the Project Details page.
+// Used by the route file, slide-out panels, modals, and helper utilities
+// so all parts of the module agree on the shape of project data.
+
+// ----- Workflow / subtask domain -----
+
 import type { Role } from '@/api/taskManagement'
 
 export type Project = {
