@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — Materials & Subcontractor Orders grid with the three Harri defaults
+// Commit reference: refactor: extract Project Details page into modular components
+
 // Materials & Subcontractor Orders section on the Project Details page.
 // Shows a grid of material cards — Survey / Soil Testing / Timber Framing
 // are pre-loaded as defaults (per Harri's spec) and can't be deleted.
