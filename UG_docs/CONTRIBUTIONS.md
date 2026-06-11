@@ -1,6 +1,6 @@
 # Undergraduate Team Contributions
 
-This file records the contributions of the undergraduate team members to the AI-Integrated Project Management System. Contributions are derived from `git log` filtered to each member's verified commit emails.
+This file records the contributions of the undergraduate team members to the AI-Integrated Project Management System.
 
 ---
 
@@ -28,8 +28,7 @@ This file records the contributions of the undergraduate team members to the AI-
 - Added `GET /users/time_log/{date}` (`e69978f`) — aggregates total working hours per employee since a given date, used to populate the dashboard time-tracking panel
 - Enhanced user creation process to support role assignment at creation time (`acfaf54`)
 
-**Backend — Projects API (full ownership)**
-- Built the complete Projects core API (`a2b16e5`): create, list with status filter, get single project, update, delete single, delete all
+**Backend — Projects API**
 - Added date-range query endpoints: `GET /projects/overdue`, `GET /projects/expected-to-finish/{date}`
 - Added admin summary endpoints: `GET /projects/all-project`, `GET /projects/current-project-num`, `GET /projects/completed-project`, `GET /projects/delay-project`
 - Added `GET /projects/invoice-bill` (`b39ab00`) — computes current vs previous month invoice totals for the admin dashboard financial panel
@@ -42,7 +41,7 @@ This file records the contributions of the undergraduate team members to the AI-
 **Backend — Debugging & Cross-Team Integration**
 - Debugged 16 logic bugs across both backend and frontend during the `codex/people-page-api-wireup` integration merge (`ab338cb`) — the largest single debugging session in the project
 - Removed an unused import from the analytics route after Pav's commit (`7054030`)
-- Performed merges of five separate feature branches into the integration branch across sprints
+- Performed merges of 5 separate feature branches into the integration branch across sprints
 
 **Infrastructure & Deployment**
 - Set up the full Docker Compose stack (`b969d4f`): backend, frontend, PostgreSQL, MailHog, and Traefik reverse proxy
@@ -60,7 +59,7 @@ This file records the contributions of the undergraduate team members to the AI-
 - Built the admin route and updated the route tree (`e360f03`)
 - Implemented authentication checks and redirects in the settings and admin routes (`1fc07ed`)
 - Added the `UserProfile` TypeScript type and improved loading state handling in the settings page (`78e2f91`)
-- Refactored the dashboard layout, integrated the analytics tab, and rebuilt the invoice management panels in admin settings (`a0086f9`, `b39ab00`)
+- Refactored the dashboard layout, integrated the analytics tab, and rebuilt the invoice management panels in admin settings (`a0086f9`, `b39ab00`) according to the client feedback. 
 - Fixed broken navigation sidebar links after route restructuring (`655a726`)
 - Refactored settings page and added environment configuration UI (`4e85316`)
 

@@ -18,9 +18,6 @@ This document explains the code conventions, patterns, and embedded documentatio
 Each route file in `app/api/routes/` follows this structure:
 
 ```python
-# Optional: one-line comment naming the author or SCRUM ticket if the file 
-# was a discrete delivery (e.g., "# Work Hours Routes — SCRUM-42")
-
 import uuid                  # stdlib
 from fastapi import APIRouter # third-party
 from app.models import ...    # internal — always last group

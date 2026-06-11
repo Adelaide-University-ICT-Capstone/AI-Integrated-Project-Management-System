@@ -1,6 +1,6 @@
 # Undergraduate Team — API Ownership Documentation
 
-This document tracks which API endpoints were designed, implemented, and integrated by each undergraduate team member. Ownership is traced directly from `git log` filtered to each member's confirmed email addresses.
+This document tracks which API endpoints were designed, implemented, and integrated by each undergraduate team member.
 
 ---
 
@@ -43,16 +43,10 @@ This document tracks which API endpoints were designed, implemented, and integra
 | GET | `/users/all-users` | `32fdacf` | Removed superuser gate — any authenticated user |
 | GET | `/users/time_log/{date}` | `e69978f` | Employee hours aggregation since a given date |
 
-### Projects (Core)
+### Projects
 
 | Method | Endpoint | Commit | Notes |
 |--------|----------|--------|-------|
-| POST | `/projects` | `a2b16e5` | Initial project creation |
-| GET | `/projects` | `a2b16e5` | Project listing with optional status filter |
-| GET | `/projects/{project_id}` | `a2b16e5` | Single project detail |
-| PATCH | `/projects/{project_id}` | `a2b16e5` | Project update (name, status, dates, fee) |
-| DELETE | `/projects/{project_id}` | `a2b16e5` | Delete project |
-| DELETE | `/projects` | `a2b16e5` | Delete all projects (superuser) |
 | GET | `/projects/overdue` | `a2b16e5` | Projects past due date |
 | GET | `/projects/expected-to-finish/{date}` | `a2b16e5` | Projects due by date |
 | GET | `/projects/invoice-bill` | `b39ab00` | Monthly invoice totals |

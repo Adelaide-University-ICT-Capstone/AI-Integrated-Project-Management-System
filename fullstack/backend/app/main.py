@@ -19,6 +19,7 @@ from app.db.session import get_session
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
+# Authors: Jerry
 # --- Added: Infinite asynchronous loop that triggers once every 24 hours ---
 async def daily_deadline_checker():
     """
@@ -35,7 +36,7 @@ async def daily_deadline_checker():
         adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
         now = datetime.now(adelaide_tz)
         
-        # 🔔 Check condition: Trigger precisely at 07:30 Adelaide Time before workday starts 
+        # Check condition: Trigger precisely at 07:30 Adelaide Time before workday starts 
         # have we not processed today's batch yet?
         if now.hour == 7 and now.minute == 30 and last_processed_date != now.date():
             print(f"[Scheduler] window detected at {now}. Initialising scanning process...")
@@ -54,11 +55,11 @@ async def daily_deadline_checker():
             except Exception as exc:
                 print(f"[Scheduler] Critical error encountered inside the background task runner: {exc}")
 
-        # 🚀 Heartbeat Sleep: Instead of sleeping for 24 hours straight, 
+        # Heartbeat Sleep: Instead of sleeping for 24 hours straight, 
         # sleep for 60 seconds to ensure we never miss the target time window.
         await asyncio.sleep(60)
 
-
+# Authors: Jerry
 async def weekly_invoice_checker():
     """
     Background worker running an hourly heartbeat check. It autonomously parses 
@@ -71,7 +72,7 @@ async def weekly_invoice_checker():
         adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
         now = datetime.now(adelaide_tz)
         
-        # 🔔 Check condition: Trigger precisely on Mondays at 08:00 AM Adelaide Time
+        # Check condition: Trigger precisely on Mondays at 07:30 AM Adelaide Time
         if now.weekday() == 0 and now.hour == 7 and now.minute == 30 and last_processed_date != now.date():
             print(f"[Scheduler] Weekly invoice check window detected at {now}. Initialising scanning process...")
             try:
@@ -110,6 +111,7 @@ async def startup_event():
         ensure_project_status_types(session)
         ensure_roles(session)
 
+    #// Authors: Jerry
     # ==== Added: Bootstrap the daily midnight deadline checker background task ====
     asyncio.create_task(daily_deadline_checker())
     asyncio.create_task(weekly_invoice_checker())
