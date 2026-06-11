@@ -1,3 +1,17 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — main route file (slimmed)
+// Commit reference: refactor: extract Subcontractors page into modular components
+
+// Subcontractors page — main route file.
+//
+// All the heavy lifting (modals, slide-out panel, table row, utility
+// functions, types, constants) lives in src/components/Subcontractors/.
+// This file only handles:
+//   - data fetching (subcontractors, orders, projects)
+//   - top-level page state (search term, view toggle, which modal is open)
+//   - layout: sidebar, AI coordination panel, view switching
+
+
 import { AddSubcontractorModal } from '@/components/Subcontractors/AddSubcontractorModal'
 import { NewOrderModal } from '@/components/Subcontractors/NewOrderModal'
 import { OrderRow } from '@/components/Subcontractors/OrderRow'
