@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — helper functions for filtering, grouping, and due-date computation
+// Commit reference: refactor: extract Task Board page into modular components
+
 // Pure helper functions used across the Tasks module.
 // Stateless and side-effect-free so they can be unit-tested in isolation.
 // The trickiest one is flattenTaskNodes — it walks the nested
