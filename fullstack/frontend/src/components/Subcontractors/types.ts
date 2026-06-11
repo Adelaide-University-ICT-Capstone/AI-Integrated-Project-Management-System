@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — shared TypeScript types and interfaces
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Shared types and interfaces for the Subcontractors module.
 // Re-used across the route file, modals, panels, and helper utilities.
 
