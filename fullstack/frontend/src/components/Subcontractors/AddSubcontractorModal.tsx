@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — modal for adding a new subcontractor to the directory
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Modal for adding a brand new subcontractor to the system.
 // Opens from the "Add Subcontractor" button in the left sidebar.
 // Pure presentation — the actual API call lives in the parent route,
