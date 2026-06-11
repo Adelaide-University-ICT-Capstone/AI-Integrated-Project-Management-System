@@ -1,3 +1,16 @@
+// Author: Nevil Bhalodia
+// Module: Tasks — Kanban card component showing project, milestone, title, priority
+// Commit reference: refactor: extract Task Board page into modular components
+
+// Draggable task card displayed in each kanban column.
+// Two distinct interactions live on the same card:
+//   1. Click anywhere (except the drag handle) → opens the detail panel
+//   2. Click + hold on the drag handle → drags the card between columns
+// We use @dnd-kit's useDraggable hook to get the drag handlers and
+// translate the card visually while it's being dragged. The drag
+// handle is wired up explicitly via {...listeners} {...attributes}
+// so the rest of the card stays clickable.
+
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical } from 'lucide-react'
 import type { Task } from '@/components/Tasks/types'
