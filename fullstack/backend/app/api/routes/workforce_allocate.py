@@ -180,7 +180,8 @@ def assign_workforce(
 
     for assignment in created_assignments:
         session.refresh(assignment)
-    
+
+    #Arthor Jerry
     #Email
     for item in data:
         send_task_assignment_notification(
@@ -314,6 +315,7 @@ def remove_workforce(
 
     session.commit()
 
+    #Arthor Jerry
     #EMail
     for user_id in data.user_ids:
         send_task_removal_notification(

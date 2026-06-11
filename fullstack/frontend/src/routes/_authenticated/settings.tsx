@@ -20,6 +20,7 @@ import useAuth from '@/hooks/useAuth'
 import { usersApi } from '@/api/users'
 import { useTheme } from '@/components/theme-provider'
 
+// Authors: Jerry
 // Map frontend state keys to backend API fields
 const PREF_KEY_MAP = {
   projectUpdates: 'pref_project_updates',
@@ -80,6 +81,7 @@ export function Settings() {
 
   const { resolvedTheme, setTheme } = useTheme()
 
+  // Authors: Jerry
   // Fetch email preferences from backend
   const { data: serverPreferences } = useQuery({
     queryKey: ['emailPreferences'],
@@ -93,7 +95,7 @@ export function Settings() {
     weeklyReports: serverPreferences?.pref_weekly_reports ?? false,
     invoiceAlerts: serverPreferences?.pref_invoice_alerts ?? true,
   })
-
+  // Authors: Jerry
   // Synchronise state when server data loads
   useEffect(() => {
     if (serverPreferences) {
@@ -155,6 +157,7 @@ export function Settings() {
     toast.success(`Switched to ${newTheme} mode`)
   }
 
+  // Authors: Jerry
   // Mutation to update email preferences in the backend
   const updatePreferencesMutation = useMutation({
     mutationFn: usersApi.updateEmailPreferences,
@@ -166,7 +169,7 @@ export function Settings() {
       toast.error(err?.response?.data?.detail || 'Failed to synchronise preferences')
     },
   })
- 
+ // Authors: Jerry
   const handleEmailPreferenceChange = (key: keyof typeof PREF_KEY_MAP, value: boolean) => {
     // 1. Update the local UI state instantly for a responsive feel
     setEmailPreferences((prev) => ({ ...prev, [key]: value }))

@@ -35,6 +35,7 @@ export type UpdatePasswordRequest = {
   new_password: string
 }
 
+// Authors: Jerry
 export type EmailPreferences = {
   pref_project_updates?: boolean
   pref_task_assignments?: boolean

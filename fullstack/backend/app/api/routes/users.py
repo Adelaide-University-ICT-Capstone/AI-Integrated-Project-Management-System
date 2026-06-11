@@ -201,7 +201,7 @@ def get_employee_time_log(
     data = crud.get_employee_hours_since(session=session, since=since, user_ids=user_ids)
     return EmployeeHoursResponse(data=data, count=len(data))
 
-
+# Authors: Jerry
 # --- Added: Schema for sync user email preference states ---
 class EmailPreferencesUpdate(BaseModel):
     pref_project_updates: bool | None = None
@@ -210,7 +210,7 @@ class EmailPreferencesUpdate(BaseModel):
     pref_weekly_reports: bool | None = None
     pref_invoice_alerts: bool | None = None
 
-
+# Authors: Jerry
 @router.get("/me/email-preferences", response_model=EmailPreferencesUpdate)
 def get_my_email_preferences(current_user: CurrentUser) -> Any:
     """
@@ -224,7 +224,7 @@ def get_my_email_preferences(current_user: CurrentUser) -> Any:
         "pref_invoice_alerts": current_user.pref_invoice_alerts,
     }
 
-
+# Authors: Jerry
 @router.patch("/me/email-preferences", response_model=Message)
 def update_my_email_preferences(
     *, session: SessionDep, preferences: EmailPreferencesUpdate, current_user: CurrentUser
