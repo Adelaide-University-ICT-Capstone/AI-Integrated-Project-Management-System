@@ -17,6 +17,7 @@ from app.api.routes import (
     customers,
     employees,
     chatbot,
+    dashboard,
 )
 from app.core.config import settings
 
@@ -37,6 +38,7 @@ api_router.include_router(notifications.router)
 api_router.include_router(analytics.router)
 api_router.include_router(work_hours.router)
 api_router.include_router(chatbot.router)
+api_router.include_router(dashboard.router)
 
 
 # if settings.ENVIRONMENT == "local":

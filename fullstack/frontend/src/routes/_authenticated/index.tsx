@@ -24,6 +24,7 @@ import { useQuery } from "@tanstack/react-query"
 import { projectsApi } from "../../api/project"
 import { invoicesApi } from "../../api/invoices"
 import { usersApi } from "../../api/users"
+import { dashboardApi } from "../../api/dashboard"
 
 export const Route = createFileRoute('/_authenticated/')({
   component: Dashboard,
@@ -190,6 +191,13 @@ function Dashboard() {
     queryKey: ['employeeHours', hoursSinceStr],
     queryFn: () => usersApi.getEmployeeHours(hoursSinceStr),
   })
+
+  const { data: aiAlertsData, isLoading: aiAlertsLoading } = useQuery({
+    queryKey: ['aiAlerts'],
+    queryFn: dashboardApi.getAIAlerts,
+  })
+
+  const aiAlerts = aiAlertsData?.alerts ?? []
 
   const dueCount = useMemo(() => {
     if (!dueProjectsData?.data) return 0
@@ -481,6 +489,74 @@ function Dashboard() {
               ))}
           </div>
         )}
+      </div>
+
+      {/* ── AI Risk Alerts ────────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl shadow-sm p-6 border border-purple-200 dark:border-purple-800">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+            <AlertTriangle className="text-white" size={20} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">AI Risk Alerts</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Proactive monitoring detected {aiAlerts.length} items requiring attention
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {aiAlertsLoading ? (
+            <p className="text-sm text-gray-500">Loading alerts...</p>
+          ) : aiAlerts.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-green-600">
+              <CheckSquare size={16} /> No AI risk alerts detected.
+            </div>
+          ) : (
+            aiAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          alert.severity === 'high'
+                            ? 'bg-red-100 text-red-700'
+                            : alert.severity === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {alert.severity.toUpperCase()}
+                      </span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {alert.project}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-900 dark:text-white font-medium">
+                      {alert.message}
+                    </p>
+
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Suggested: {alert.action}
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/projects"
+                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                  >
+                    Review
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* ── Recent Projects & Upcoming Deadlines ──────────────────────────────── */}

@@ -2,7 +2,7 @@
 // Module: Settings — Profile, Security, Appearance (Light/Dark/System), Administration (superuser), Email Preferences toggles
 // Commit reference: Figma-to-TanStack-Router page conversion (feat/auth-pages-ui branch)
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect  } from 'react'
 import { createFileRoute, Link, useRouterState } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
