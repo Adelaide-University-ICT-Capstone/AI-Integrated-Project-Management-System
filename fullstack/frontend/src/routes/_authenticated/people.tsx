@@ -1,3 +1,17 @@
+// Author: Nevil Bhalodia
+// Module: People — main route file with Employees and Customers tabs (replaces coming-soon placeholder)
+// Commit reference: feat: replace People page coming-soon toasts with working add and edit modals
+
+// People page — staff + clients directory.
+// Lives at /people. Local-state only (no backend yet) so adds/edits/
+// removes happen optimistically against the in-memory lists. The
+// initial data below is demo content; once backend endpoints exist
+// these arrays come from API queries instead.
+//
+// The Add and Edit modals live in src/components/People/. They share
+// one shape (Person) but conditionally show Department or Company
+// depending on which tab is active.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import {
