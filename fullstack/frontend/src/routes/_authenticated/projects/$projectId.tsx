@@ -1,3 +1,27 @@
+// Author: Nevil Bhalodia
+// Module: ProjectDetails — main route file (refactored, includes Edit Project + milestone due date editor)
+// Commit reference: refactor: extract Project Details page into modular components
+
+// Project Details — main route file.
+//
+// All the heavy UI lives in src/components/ProjectDetails/:
+//   - WorkflowSection      — the phase list with progress sliders
+//   - PhasePanel           — slide-out subtask panel + arrow tab
+//   - MaterialsSection     — the materials grid (default + custom)
+//   - WorkforceSection     — team member cards
+//   - AddSubtaskModal      — modal triggered from the phase panel
+//   - AddMaterialModal     — modal triggered from the materials section
+//   - AddWorkerModal       — modal triggered from the workforce section
+//   - EditProjectModal     — modal triggered from the header
+//   - types / constants / utils — shared module helpers
+//
+// This file handles:
+//   - Data fetching (project + status list)
+//   - All page-level state (workflow, materials, workforce, modals, etc.)
+//   - The handler functions that the extracted components call back into
+//   - The project header (info card + progress circle + status dropdown)
+//   - The Overview / Resources / Timeline tabs and the Resources table
+
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   Users,
