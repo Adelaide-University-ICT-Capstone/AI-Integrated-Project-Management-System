@@ -1,3 +1,7 @@
+// Author: Nevil Bhalodia
+// Module: Subcontractors — order row component used in both By-Subcontractor and By-Service views
+// Commit reference: refactor: extract Subcontractors page into modular components
+
 // Single row in the orders table.
 // Used in two slightly different layouts:
 //   - "By Subcontractor" view  → no Subcontractor column (we already
