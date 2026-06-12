@@ -81,6 +81,18 @@ SECRET_KEY=changethis              # generate: python -c "import secrets; print(
 FIRST_SUPERUSER_PASSWORD=changethis
 POSTGRES_PASSWORD=changethis
 ```
+### 3.1 OpenAI Key
+The current deployed version of this project uses the OpenAI API to generate prompts and messages. Here is how you can generate your own OpenAI Key and add it to the project so that the AI features function.
+1. Go to https://platform.openai.com/ and create an account.
+2. If the account creation method didn't generate an API key, navigate to the 'API Keys' section on the left menu and click 'Create new secret key' on the top right, it will give you the option to name the key and assign it to a project.
+3. Save the API key somewhere safe after it is generated, you will likely need to also add some credits to your account for you to be able to make requests and generate tokens for the prompts.
+4. In the project folders, in the `.env` file founded in fullstack, at the bottom of the file, you'll find the secret key for the AI, it will look like this.
+
+```env
+OPENAI_API_KEY=Insert_AI_Key
+```
+
+5. Replace 'Insert_AI_Key' with the generated API key and save the file, now when you deploy the product, this API key and the connected account will be used for the AI.
 
 ### 4. Start with Docker Compose Watch
 
