@@ -131,6 +131,7 @@ All configuration lives in `fullstack/.env`:
 | `SECRET_KEY` | `changethis` | JWT signing key |
 | `FIRST_SUPERUSER` | `admin@example.com` | Initial admin account email |
 | `FIRST_SUPERUSER_PASSWORD` | `changethis` | Initial 
+| `OPENAI_API_KEY` | `Insert_AI_Key` | AI API key for AI functionality.
 
 ---
 
